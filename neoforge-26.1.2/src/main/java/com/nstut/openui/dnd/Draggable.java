@@ -4,6 +4,7 @@ import com.nstut.openui.api.UIComponent;
 import com.nstut.openui.api.TextWidget;
 import com.nstut.openui.api.UiRender;
 import com.nstut.openui.input.EventType;
+import com.nstut.openui.input.PointerEvent;
 import com.nstut.openui.overlay.OverlayHandle;
 import com.nstut.openui.overlay.OverlayLayer;
 import com.nstut.openui.theme.Theme;
@@ -28,7 +29,9 @@ public class Draggable<T> extends UIComponent {
         this.data = Objects.requireNonNull(data);
         this.child = Objects.requireNonNull(child);
         addChild(child);
-        on(EventType.MOUSE_DOWN, event -> event.capturePointer());
+        on(EventType.MOUSE_DOWN, event -> {
+            if (event instanceof PointerEvent pointer && pointer.button() == 0) event.capturePointer();
+        });
     }
 
     public Draggable<T> feedback(Supplier<UIComponent> feedbackSupplier) {
@@ -241,7 +244,7 @@ public class Draggable<T> extends UIComponent {
         private void updatePosition(double mx, double my) {
             this.fx = (int) mx;
             this.fy = (int) my;
-            invalidatePaint();
+            invalidateLayout();
         }
 
         @Override public int preferredWidth(Font font) { return feedback.preferredWidth(font); }

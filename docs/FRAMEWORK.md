@@ -1,6 +1,6 @@
 # OpenUI MC framework guide
 
-OpenUI MC owns screen plumbing so application code only holds state, business callbacks, and UI composition. The same common API is built for Fabric and Forge on 1.20.1 and Fabric and NeoForge on 1.21.1.
+OpenUI MC owns screen plumbing so application code only holds state, business callbacks, and UI composition. The composition API is available for Fabric and Forge on 1.20.1, Fabric and NeoForge on 1.21.1, and NeoForge on 26.1.2. Read [Getting Started](GETTING_STARTED.md) first when integrating the library and use the [API Reference](API_REFERENCE.md) as a component catalog.
 
 ## Screens and lifecycle
 
@@ -63,7 +63,7 @@ Use `VirtualList` for large, fixed-height collections. Its keyed cells are limit
 
 ## Input, focus, and native fields
 
-Events travel capture → target → bubble and may stop propagation, prevent their default action, or capture the pointer. Standard controls are focusable and keyboard operable. Tab and Shift+Tab traverse focus; modal Escape handling is centralized. A `TextField` owns its vanilla `EditBox` through the runtime, so screens must not call `addRenderableWidget` or synchronize widget bounds themselves.
+Events travel capture → target → bubble and may stop propagation, prevent their default action, or capture the pointer. `preventDefault()` suppresses legacy/default handling. For compatibility with OpenUI's legacy handlers, `stopPropagation()` stops traversal and suppresses that default-handler bridge as well. Pointer capture should only be requested for a button/action the control actually begins. Standard controls are focusable and keyboard operable. Tab and Shift+Tab traverse focus; modal Escape handling is centralized. A `TextField` owns its vanilla `EditBox` through the runtime, so screens must not call `addRenderableWidget` or synchronize widget bounds themselves.
 
 ## Forms, navigation, overlays, and animation
 
@@ -73,13 +73,15 @@ Events travel capture → target → bubble and may stop propagation, prevent th
 
 The runtime supplies a `Theme` to every mounted component. Standard controls consume semantic colors such as primary, surface, danger, success, border, and their foreground colors. Replace the runtime theme instead of hard-coding control colors.
 
-Custom components should implement measurement/layout only when their geometry is special and render through Minecraft's `GuiGraphics`. Prefer composing existing components. Register subscriptions in `onMount`, close them in `onUnmount`, use semantic theme colors, and call the narrowest invalidation method after mutation.
+Custom components should implement measurement/layout only when their geometry is special. Minecraft 1.20.1 and 1.21.1 render through `GuiGraphics`; 26.1.2 uses `GuiGraphicsExtractor` and extracted render state. Prefer composing existing components. Register subscriptions in `onMount`, close them in `onUnmount`, use semantic theme colors, and call the narrowest invalidation method after mutation. Coordinate changes require layout invalidation; visual-only changes require paint invalidation.
+
+`FadeTransition` is deliberately unavailable on 26.1.2 because the extracted renderer cannot apply scoped opacity to an arbitrary component subtree. Use `SlideTransition` or `ScaleTransition` for cross-version code.
 
 ## Testing and performance
 
 Layout, state, event, focus, lifecycle, and navigation logic can be tested without launching Minecraft. Keep stable keys in virtual collections, avoid rebuilding trees from render methods, batch related state changes, and use computed state rather than duplicating derived values.
 
-Run the complete matrix before publishing:
+Run the complete matrix with the Gradle 9.1.0 wrapper before publishing:
 
 ```shell
 ./gradlew clean buildAll testAllVersions

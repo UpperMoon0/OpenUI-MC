@@ -18,6 +18,7 @@ dependencies {
 }
 
 processResources {
+    from(rootProject.file('logo.png')) { rename { 'openui_mc.png' } }
     def metadata = [
         version: project.version,
         mod_id: rootProject.mod_id,

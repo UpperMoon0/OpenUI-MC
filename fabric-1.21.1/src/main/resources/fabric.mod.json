@@ -4,8 +4,10 @@
   "version": "${version}",
   "name": "${mod_name}",
   "description": "${mod_description}",
+  "icon": "openui_mc.png",
   "authors": ["${mod_authors}"],
   "contact": {
+    "homepage": "https://www.curseforge.com/minecraft/mc-mods/openui-mc",
     "sources": "https://github.com/UpperMoon0/OpenUI-MC",
     "issues": "https://github.com/UpperMoon0/OpenUI-MC/issues"
   },

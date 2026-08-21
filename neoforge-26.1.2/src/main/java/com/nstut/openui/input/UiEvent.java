@@ -28,6 +28,11 @@ public class UiEvent {
     /** The component that called capturePointer(), or null if nobody requested it. */
     public UIComponent pointerCaptureTarget() { return pointerCaptureTarget; }
 
+    /**
+     * Stops propagation and suppresses OpenUI's legacy/default handler bridge.
+     * Use this when neither this event nor ancestor default handlers should run;
+     * {@link #preventDefault()} suppresses default handling without stopping listeners.
+     */
     public void stopPropagation() { propagationStopped = true; }
     public void preventDefault() { defaultPrevented = true; }
 
