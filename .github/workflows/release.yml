@@ -148,17 +148,25 @@ jobs:
             fi
           done < <(jq -r '.[]' <<< "$game_version_names")
 
+          if [[ "$PLATFORM" == "fabric" ]]; then
+            relations='{"projects":[{"slug":"fabric-api","type":"requiredDependency"}]}'
+          else
+            relations='{"projects":[]}'
+          fi
+
           changelog="OpenUI MC ${MOD_VERSION} adds reusable UI components for ${LOADER_NAME} ${MINECRAFT_VERSION}."
           metadata="$(jq -cn \
             --arg changelog "$changelog" \
             --arg displayName "OpenUI MC ${MOD_VERSION} - ${LOADER_NAME} ${MINECRAFT_VERSION}" \
             --argjson gameVersionNames "$game_version_names" \
+            --argjson relations "$relations" \
             '{
               changelog: $changelog,
               changelogType: "markdown",
               displayName: $displayName,
               gameVersionNames: $gameVersionNames,
-              releaseType: "release"
+              releaseType: "release",
+              relations: $relations
             }')"
 
           response="$(curl --fail-with-body --silent --show-error \
