@@ -219,6 +219,20 @@ public class CommandPalette extends UIComponent {
     }
 
     @Override
+    public boolean mouseScrolled(double mx, double my, double delta) {
+        if (delta != 0) {
+            int listH = height - 42;
+            int itemH = 20;
+            int maxVisible = Math.max(1, listH / itemH);
+            int maxScroll = Math.max(0, filteredItems.size() - maxVisible);
+            scrollOffset = Math.max(0, Math.min(maxScroll, scrollOffset - (int) Math.signum(delta)));
+            invalidatePaint();
+            return true;
+        }
+        return false;
+    }
+
+    @Override
     public boolean charTyped(char character, int modifiers) {
         if (character >= 32 && character != 127) {
             query += character;
@@ -233,8 +247,11 @@ public class CommandPalette extends UIComponent {
         if (btn == 0 && mx >= x + 6 && mx < x + width - 6) {
             int listY = y + 36;
             int itemH = 20;
-            // Guard: click must be at or below the list start (avoids negative truncation selecting row 0)
-            if (my < listY) return false;
+            int listH = height - 42;
+            int maxVisible = Math.max(1, listH / itemH);
+            int visiblePixelHeight = maxVisible * itemH;
+            int relativeY = (int) my - listY;
+            if (relativeY < 0 || relativeY >= visiblePixelHeight) return false;
             int clickedIdx = scrollOffset + (int) ((my - listY) / itemH);
             if (clickedIdx >= 0 && clickedIdx < filteredItems.size()) {
                 selectedIndex = clickedIdx;

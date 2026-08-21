@@ -6,13 +6,17 @@ import com.nstut.openui.api.Ui;
 import com.nstut.openui.controls.Checkbox;
 import com.nstut.openui.controls.Select;
 import com.nstut.openui.controls.SwitchControl;
+import com.nstut.openui.input.EventType;
+import com.nstut.openui.input.UiEvent;
 import com.nstut.openui.state.Signal;
 import com.nstut.openui.state.Signals;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -32,7 +36,6 @@ class InteractionTest {
         runtime.setRoot(btn);
         runtime.setViewport(0, 0, 200, 100);
 
-        // Click on button
         runtime.mouseClicked(10, 10, 0);
         runtime.mouseReleased(10, 10, 0);
 
@@ -72,16 +75,83 @@ class InteractionTest {
 
         assertEquals("A", selection.get());
 
-        // Press Down arrow (key 264)
         runtime.keyPressed(264, 0, 0);
         assertEquals("B", selection.get());
 
-        // Press Down arrow again
         runtime.keyPressed(264, 0, 0);
         assertEquals("C", selection.get());
 
-        // Press Up arrow (key 265)
         runtime.keyPressed(265, 0, 0);
         assertEquals("B", selection.get());
+    }
+
+    @Test
+    void clickOnLeafGivesFocusToNearestFocusableAncestor() {
+        UiRuntime runtime = new UiRuntime(new Font(null, false), dummyHost);
+
+        AtomicReference<UIComponent> focused = new AtomicReference<>();
+        UIComponent card = new UIComponent() {
+            @Override public int preferredWidth(Font font) { return 100; }
+            @Override public int preferredHeight(Font font) { return 40; }
+            @Override public void render(GuiGraphics g, Font font, int mx, int my, float pt) {}
+            @Override public boolean mouseClicked(double mx, double my, int btn) {
+                focused.set(this);
+                return true;
+            }
+        };
+        card.focusable(true);
+        UIComponent text = Ui.text("Leaf");
+        card.addChild(text);
+
+        runtime.setRoot(card);
+        runtime.setViewport(0, 0, 200, 100);
+        card.layout(0, 0, 100, 40);
+        text.layout(10, 10, 80, 20);
+
+        runtime.mouseClicked(50, 20, 0);
+        assertEquals(card, runtime.focus().focused(), "Card should receive focus when its leaf child is clicked");
+        assertEquals(card, focused.get(), "Card mouseClicked should have been invoked via bubbling");
+    }
+
+    @Test
+    void stopPropagationPreventsLegacyBubbleHandlers() {
+        UiRuntime runtime = new UiRuntime(new Font(null, false), dummyHost);
+
+        AtomicReference<UIComponent> ancestorClicked = new AtomicReference<>();
+        AtomicBoolean leafListenerRan = new AtomicBoolean();
+
+        UIComponent ancestor = new UIComponent() {
+            @Override public int preferredWidth(Font font) { return 100; }
+            @Override public int preferredHeight(Font font) { return 40; }
+            @Override public void render(GuiGraphics g, Font font, int mx, int my, float pt) {}
+            @Override public boolean mouseClicked(double mx, double my, int btn) {
+                ancestorClicked.set(this);
+                return true;
+            }
+        };
+
+        UIComponent leaf = new UIComponent() {
+            @Override public int preferredWidth(Font font) { return 50; }
+            @Override public int preferredHeight(Font font) { return 20; }
+            @Override public void render(GuiGraphics g, Font font, int mx, int my, float pt) {}
+            @Override public boolean mouseClicked(double mx, double my, int btn) {
+                fail("Leaf default handler must not run after stopPropagation");
+                return false;
+            }
+        };
+        leaf.on(EventType.MOUSE_DOWN, event -> {
+            leafListenerRan.set(true);
+            event.stopPropagation();
+        });
+
+        ancestor.addChild(leaf);
+        runtime.setRoot(ancestor);
+        runtime.setViewport(0, 0, 200, 100);
+        ancestor.layout(0, 0, 100, 40);
+        leaf.layout(10, 10, 50, 20);
+
+        runtime.mouseClicked(30, 20, 0);
+        assertTrue(leafListenerRan.get(), "Target listener should execute before stopping propagation");
+        assertNull(ancestorClicked.get(), "Ancestor legacy mouseClicked should be suppressed by stopPropagation");
     }
 }

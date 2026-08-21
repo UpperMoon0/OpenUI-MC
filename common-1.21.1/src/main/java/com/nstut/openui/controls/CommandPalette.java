@@ -225,7 +225,7 @@ public class CommandPalette extends UIComponent {
             int itemH = 20;
             int maxVisible = Math.max(1, listH / itemH);
             int maxScroll = Math.max(0, filteredItems.size() - maxVisible);
-            scrollOffset = Math.max(0, Math.min(maxScroll, scrollOffset + (int) Math.signum(delta)));
+            scrollOffset = Math.max(0, Math.min(maxScroll, scrollOffset - (int) Math.signum(delta)));
             invalidatePaint();
             return true;
         }

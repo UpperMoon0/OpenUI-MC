@@ -100,18 +100,19 @@ public final class UiRuntime implements AutoCloseable {
         if (root == null) return false;
         boolean hasBlocking = overlays.hasBlockingOverlay();
         UIComponent target = inputTarget(mouseX, mouseY);
-        if (target != null && target.isFocusable()) focus.requestFocus(target);
+        UIComponent focusTarget = target;
+        while (focusTarget != null && !focusTarget.isFocusable()) {
+            focusTarget = focusTarget.parent();
+        }
+        if (focusTarget != null && focusTarget.isFocusable()) focus.requestFocus(focusTarget);
         else if (button == 0) focus.clearFocus();
         if (target == null) return hasBlocking;
         pressedTarget = target;
         PointerEvent event = new PointerEvent(EventType.MOUSE_DOWN, target, mouseX, mouseY, button, 0, 0);
         dispatch(event);
-        // Fix: use the component that explicitly called capturePointer(), not currentTarget after bubbling
         if (event.isPointerCaptureRequested()) pointerCapture = event.pointerCaptureTarget();
         boolean handled = false;
-        if (!event.isDefaultPrevented()) {
-            // Bubble default-handler up ancestor chain so parent composites (Card, VirtualList, etc.)
-            // receive mouseClicked() when their leaf child does not handle it.
+        if (!event.isDefaultPrevented() && !event.isPropagationStopped()) {
             handled = bubbleMouseClicked(target, mouseX, mouseY, button);
         }
         if (hasBlocking) handled = true;
@@ -123,7 +124,7 @@ public final class UiRuntime implements AutoCloseable {
         if (target == null) return false;
         PointerEvent event = new PointerEvent(EventType.SCROLL, target, mouseX, mouseY, -1, 0, delta);
         dispatch(event);
-        boolean handled = !event.isDefaultPrevented() && bubbleMouseScrolled(target, mouseX, mouseY, delta);
+        boolean handled = !event.isDefaultPrevented() && !event.isPropagationStopped() && bubbleMouseScrolled(target, mouseX, mouseY, delta);
         return handled || event.isDefaultPrevented() || event.isPropagationStopped();
     }
 
@@ -133,7 +134,7 @@ public final class UiRuntime implements AutoCloseable {
         PointerEvent event = new PointerEvent(EventType.MOUSE_DRAG, target, mouseX, mouseY, button, dragX, dragY);
         dispatch(event);
         if (event.isPointerCaptureRequested()) pointerCapture = event.pointerCaptureTarget();
-        boolean handled = !event.isDefaultPrevented() && target.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+        boolean handled = !event.isDefaultPrevented() && !event.isPropagationStopped() && target.mouseDragged(mouseX, mouseY, button, dragX, dragY);
         return handled || event.isDefaultPrevented() || event.isPropagationStopped();
     }
 
@@ -142,7 +143,7 @@ public final class UiRuntime implements AutoCloseable {
         if (target == null) return false;
         PointerEvent event = new PointerEvent(EventType.MOUSE_UP, target, mouseX, mouseY, button, 0, 0);
         dispatch(event);
-        boolean handled = !event.isDefaultPrevented() && target.mouseReleased(mouseX, mouseY, button);
+        boolean handled = !event.isDefaultPrevented() && !event.isPropagationStopped() && target.mouseReleased(mouseX, mouseY, button);
         UIComponent hit = inputTarget(mouseX, mouseY);
         if (pressedTarget != null && pressedTarget == hit) {
             PointerEvent click = new PointerEvent(EventType.CLICK, hit, mouseX, mouseY, button, 0, 0);

@@ -1,8 +1,12 @@
 package com.nstut.openui.dnd;
 
 import com.nstut.openui.api.UIComponent;
+import com.nstut.openui.api.TextWidget;
+import com.nstut.openui.api.UiRender;
+import com.nstut.openui.input.EventType;
 import com.nstut.openui.overlay.OverlayHandle;
 import com.nstut.openui.overlay.OverlayLayer;
+import com.nstut.openui.theme.Theme;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 
@@ -12,22 +16,19 @@ import java.util.function.Supplier;
 public class Draggable<T> extends UIComponent {
     private final T data;
     private final UIComponent child;
-    /**
-     * Optional factory that creates a *new* feedback widget for the overlay.
-     * If absent, a lightweight GhostFeedback is rendered at the cursor instead,
-     * which avoids reparenting the source child.
-     */
     private Supplier<UIComponent> feedbackSupplier;
     private boolean dragging;
     private double startMouseX, startMouseY;
     private double currentMouseX, currentMouseY;
     private OverlayHandle dragOverlay;
     private DragFeedbackOverlay feedbackComponent;
+    private DragTarget<?> currentTarget;
 
     public Draggable(T data, UIComponent child) {
         this.data = Objects.requireNonNull(data);
         this.child = Objects.requireNonNull(child);
         addChild(child);
+        on(EventType.MOUSE_DOWN, event -> event.capturePointer());
     }
 
     public Draggable<T> feedback(Supplier<UIComponent> feedbackSupplier) {
@@ -83,12 +84,15 @@ public class Draggable<T> extends UIComponent {
             currentMouseY = my;
             if (!dragging) {
                 double distSq = (mx - startMouseX) * (mx - startMouseX) + (my - startMouseY) * (my - startMouseY);
-                if (distSq >= 16) { // 4 pixel drag threshold
+                if (distSq >= 16) {
                     startDragging();
                 }
             }
-            if (dragging && feedbackComponent != null) {
-                feedbackComponent.updatePosition(mx, my);
+            if (dragging) {
+                if (feedbackComponent != null) {
+                    feedbackComponent.updatePosition(mx, my);
+                }
+                updateDragOverTarget(mx, my);
             }
             return dragging;
         }
@@ -102,11 +106,32 @@ public class Draggable<T> extends UIComponent {
             return true;
         }
         dragging = false;
+        clearDragOver();
         return false;
+    }
+
+    private void clearDragOver() {
+        if (currentTarget != null) {
+            currentTarget.setDragOver(false);
+            currentTarget = null;
+        }
+    }
+
+    private void updateDragOverTarget(double mx, double my) {
+        if (runtime() == null || runtime().root() == null) return;
+        UIComponent hit = runtime().root().hitTest((int) mx, (int) my);
+        DragTarget<?> newTarget = findDragTarget(hit);
+        if (newTarget != null && !newTarget.accepts(data)) newTarget = null;
+        if (currentTarget != newTarget) {
+            if (currentTarget != null) currentTarget.setDragOver(false);
+            currentTarget = newTarget;
+            if (currentTarget != null) currentTarget.setDragOver(true);
+        }
     }
 
     private void startDragging() {
         dragging = true;
+        currentTarget = null;
         invalidatePaint();
         if (runtime() != null) {
             // IMPORTANT: Never pass 'child' itself as feedback — that would reparent the live child
@@ -117,7 +142,7 @@ public class Draggable<T> extends UIComponent {
             if (feedbackSupplier != null) {
                 fb = feedbackSupplier.get();
             } else {
-                fb = new GhostFeedback(this, child.getWidth(), child.getHeight());
+                fb = new GhostFeedback(child, child.getWidth(), child.getHeight());
             }
             feedbackComponent = new DragFeedbackOverlay(fb, (int) currentMouseX, (int) currentMouseY);
             dragOverlay = runtime().overlays().show(OverlayLayer.TOOLTIP, feedbackComponent, false, true, false, null);
@@ -126,6 +151,7 @@ public class Draggable<T> extends UIComponent {
 
     private void stopDragging(double mx, double my) {
         dragging = false;
+        clearDragOver();
         if (dragOverlay != null) {
             dragOverlay.close();
             dragOverlay = null;
@@ -156,16 +182,16 @@ public class Draggable<T> extends UIComponent {
     }
 
     // -------------------------------------------------------------------------
-    // GhostFeedback: a lightweight stand-in that renders a semi-transparent
-    // solid rectangle matching the source size — safe because it holds no reference
-    // to the source's live child widget.
+    // GhostFeedback: a lightweight stand-in that renders a styled preview
+    // at the cursor position, avoiding reparenting or re-rendering the live
+    // source child at its original coordinates.
     // -------------------------------------------------------------------------
     private static final class GhostFeedback extends UIComponent {
-        private final UIComponent source;
+        private final UIComponent child;
         private final int srcW, srcH;
 
-        private GhostFeedback(UIComponent source, int srcW, int srcH) {
-            this.source = source;
+        private GhostFeedback(UIComponent child, int srcW, int srcH) {
+            this.child = child;
             this.srcW = srcW;
             this.srcH = srcH;
         }
@@ -180,9 +206,21 @@ public class Draggable<T> extends UIComponent {
 
         @Override
         public void render(GuiGraphics g, Font font, int mx, int my, float pt) {
-            // Draw the real child at the feedback position with transparency overlay
-            source.render(g, font, mx, my, pt);
-            g.fill(x, y, x + width, y + height, 0x60000000);
+            if (!visible) return;
+            Theme theme = theme();
+            int cx = x;
+            int cy = y;
+            if (child instanceof TextWidget textWidget) {
+                int textColor = theme.colors().onSurface();
+                int fill = theme.colors().surface() | 0xDD000000;
+                int border = theme.colors().border();
+                UiRender.roundedOutline(g, cx, cy, srcW, srcH, 3, fill, border);
+                int textH = font != null ? font.lineHeight : 9;
+                g.drawString(font, textWidget.getText(), cx + 4, cy + (srcH - textH) / 2, textColor);
+            } else {
+                g.fill(cx, cy, cx + srcW, cy + srcH, theme.colors().surface() | 0xDD000000);
+                UiRender.roundedOutline(g, cx, cy, srcW, srcH, 3, theme.colors().surface(), theme.colors().border());
+            }
         }
     }
 

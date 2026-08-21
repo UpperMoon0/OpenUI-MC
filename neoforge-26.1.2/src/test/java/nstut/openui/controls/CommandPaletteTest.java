@@ -91,7 +91,7 @@ class CommandPaletteTest {
         scrollOffsetField.setAccessible(true);
         int initialScroll = (int) scrollOffsetField.get(palette);
 
-        palette.mouseScrolled(palette.getX() + 10, palette.getY() + 50, 1);
+        palette.mouseScrolled(palette.getX() + 10, palette.getY() + 50, -1);
 
         int afterScroll = (int) scrollOffsetField.get(palette);
         assertEquals(initialScroll + 1, afterScroll, "Scroll wheel down should increase scrollOffset");

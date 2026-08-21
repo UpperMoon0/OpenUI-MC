@@ -103,13 +103,7 @@ class TableTest {
         TextWidget cellBefore = (TextWidget) table.children().get(0);
         assertEquals("$100", cellBefore.getText().getString());
 
-        Signal<List<Item>> updatedItems = Signals.of(List.of(
-                new Item("Product-42", 200)
-        ));
-        table = Ui.table(updatedItems)
-                .keyExtractor(Item::name)
-                .column("Price", 80, item -> Ui.text("$" + item.score()));
-
+        items.set(List.of(new Item("Product-42", 200)));
         table.layout(0, 0, 200, 100);
 
         TextWidget cellAfter = (TextWidget) table.children().get(0);

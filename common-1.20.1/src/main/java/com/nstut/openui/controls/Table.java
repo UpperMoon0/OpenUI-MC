@@ -46,6 +46,7 @@ public class Table<T> extends UIComponent {
     private final List<Column<T>> columns = new ArrayList<>();
     private final ReadableSignal<List<T>> itemsSignal;
     private final Map<CellKey, UIComponent> activeCells = new LinkedHashMap<>();
+    private final Map<CellKey, Object> cellItems = new LinkedHashMap<>();
     private SelectionModel<T> selectionModel;
     private Subscription subscription = Subscription.EMPTY;
     private int scrollOffset = 0;
@@ -103,6 +104,7 @@ public class Table<T> extends UIComponent {
             cell.dispose();
         }
         activeCells.clear();
+        cellItems.clear();
     }
 
     public List<T> getSortedItems() {
@@ -169,8 +171,19 @@ public class Table<T> extends UIComponent {
                 CellKey cellKey = new CellKey(itemKey, c);
 
                 UIComponent cell = activeCells.get(cellKey);
+                Object previousItem = cellItems.get(cellKey);
+
+                if (cell != null && previousItem != item) {
+                    removeChild(cell);
+                    cell.dispose();
+                    activeCells.remove(cellKey);
+                    cellItems.remove(cellKey);
+                    cell = null;
+                }
+
                 if (cell == null && col.cellRenderer() != null) {
                     cell = col.cellRenderer().apply(item);
+                    cellItems.put(cellKey, item);
                 }
 
                 if (cell != null) {
@@ -189,6 +202,7 @@ public class Table<T> extends UIComponent {
             if (!nextCells.containsKey(entry.getKey())) {
                 removeChild(entry.getValue());
                 entry.getValue().dispose();
+                cellItems.remove(entry.getKey());
             }
         }
         children.clear();

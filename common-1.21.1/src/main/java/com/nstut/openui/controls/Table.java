@@ -173,7 +173,7 @@ public class Table<T> extends UIComponent {
                 UIComponent cell = activeCells.get(cellKey);
                 Object previousItem = cellItems.get(cellKey);
 
-                if (cell != null && !Objects.equals(previousItem, item)) {
+                if (cell != null && previousItem != item) {
                     removeChild(cell);
                     cell.dispose();
                     activeCells.remove(cellKey);

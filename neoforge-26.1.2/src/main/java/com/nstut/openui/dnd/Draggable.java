@@ -121,6 +121,7 @@ public class Draggable<T> extends UIComponent {
         if (runtime() == null || runtime().root() == null) return;
         UIComponent hit = runtime().root().hitTest((int) mx, (int) my);
         DragTarget<?> newTarget = findDragTarget(hit);
+        if (newTarget != null && !newTarget.accepts(data)) newTarget = null;
         if (currentTarget != newTarget) {
             if (currentTarget != null) currentTarget.setDragOver(false);
             currentTarget = newTarget;

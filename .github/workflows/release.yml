@@ -14,7 +14,7 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '25'
           cache: gradle
       - run: chmod +x gradlew
       - run: ./gradlew testAllVersions
@@ -44,6 +44,10 @@ jobs:
             version: '1.21.1'
             platform: neoforge
             project: neoforge-1.21.1
+          - java: 25
+            version: '26.1.2'
+            platform: neoforge
+            project: neoforge-26.1.2
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-java@v5
@@ -88,6 +92,10 @@ jobs:
             platform: neoforge
             loader_name: NeoForge
             java_version_name: Java 21
+          - version: '26.1.2'
+            platform: neoforge
+            loader_name: NeoForge
+            java_version_name: Java 25
     steps:
       - uses: actions/checkout@v5
       - uses: actions/download-artifact@v4

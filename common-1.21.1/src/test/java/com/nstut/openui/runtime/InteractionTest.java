@@ -118,7 +118,7 @@ class InteractionTest {
         UiRuntime runtime = new UiRuntime(new Font(null, false), dummyHost);
 
         AtomicReference<UIComponent> ancestorClicked = new AtomicReference<>();
-        AtomicReference<UIComponent> leafClicked = new AtomicReference<>();
+        AtomicBoolean leafListenerRan = new AtomicBoolean();
 
         UIComponent ancestor = new UIComponent() {
             @Override public int preferredWidth(Font font) { return 100; }
@@ -135,11 +135,14 @@ class InteractionTest {
             @Override public int preferredHeight(Font font) { return 20; }
             @Override public void render(GuiGraphics g, Font font, int mx, int my, float pt) {}
             @Override public boolean mouseClicked(double mx, double my, int btn) {
-                leafClicked.set(this);
-                return true;
+                fail("Leaf default handler must not run after stopPropagation");
+                return false;
             }
         };
-        leaf.onCapture(EventType.MOUSE_DOWN, event -> event.stopPropagation());
+        leaf.on(EventType.MOUSE_DOWN, event -> {
+            leafListenerRan.set(true);
+            event.stopPropagation();
+        });
 
         ancestor.addChild(leaf);
         runtime.setRoot(ancestor);
@@ -148,7 +151,7 @@ class InteractionTest {
         leaf.layout(10, 10, 50, 20);
 
         runtime.mouseClicked(30, 20, 0);
-        assertEquals(leaf, leafClicked.get(), "Leaf should still receive its legacy mouseClicked");
+        assertTrue(leafListenerRan.get(), "Target listener should execute before stopping propagation");
         assertNull(ancestorClicked.get(), "Ancestor legacy mouseClicked should be suppressed by stopPropagation");
     }
 }

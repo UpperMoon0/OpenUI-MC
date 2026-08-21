@@ -4,21 +4,21 @@ import com.nstut.openui.api.UIComponent;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
+/**
+ * Unsupported on Minecraft 26.1: extracted GUI rendering has no scoped opacity
+ * operation that can faithfully fade an arbitrary component subtree.
+ */
+@Deprecated
 public class FadeTransition extends Transition {
 
     public FadeTransition(UIComponent child) {
         super(child);
+        throw new UnsupportedOperationException(
+                "FadeTransition is unavailable on Minecraft 26.1; use SlideTransition or ScaleTransition");
     }
 
     @Override
     public void render(GuiGraphicsExtractor g, Font font, int mx, int my, float pt) {
-        if (!visible) return;
-        if (progress <= 0.001F) return;
-        if (progress >= 0.999F) {
-            child.render(g, font, mx, my, pt);
-            return;
-        }
-        // 26.1's extracted GUI renderer no longer exposes mutable global shader color.
-        child.render(g, font, mx, my, pt);
+        throw new UnsupportedOperationException("FadeTransition is unavailable on Minecraft 26.1");
     }
 }

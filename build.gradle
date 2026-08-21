@@ -62,5 +62,5 @@ tasks.register('buildAll') {
 
 tasks.register('testAllVersions') {
     group = 'verification'
-    dependsOn ':common-1.20.1:test', ':common-1.21.1:test'
+    dependsOn ':common-1.20.1:test', ':common-1.21.1:test', ':neoforge-26.1.2:test'
 }

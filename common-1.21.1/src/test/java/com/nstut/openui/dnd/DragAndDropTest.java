@@ -88,4 +88,30 @@ class DragAndDropTest {
         runtime.mouseReleased(160, 20, 0);
         assertFalse(target.isDragOver(), "Target should lose dragOver after release");
     }
+
+    @Test
+    void rejectingTargetDoesNotReceiveDragOverHighlight() {
+        Font font = new Font(null, false);
+        UiRuntime runtime = new UiRuntime(font, dummyHost);
+        Draggable<String> source = new Draggable<>("Item-123", Ui.text("Drag Me"));
+        DragTarget<String> target = new DragTarget<>(String.class, Ui.text("Reject Here"))
+                .accept(data -> false);
+        UIComponent root = new UIComponent() {
+            @Override public int preferredWidth(Font ignored) { return 300; }
+            @Override public int preferredHeight(Font ignored) { return 200; }
+            @Override public void render(GuiGraphics g, Font ignored, int mx, int my, float pt) { }
+        };
+        root.addChild(source);
+        root.addChild(target);
+        runtime.setRoot(root);
+        runtime.setViewport(0, 0, 300, 200);
+        root.layout(0, 0, 300, 200);
+        source.layout(10, 10, 60, 20);
+        target.layout(150, 10, 80, 40);
+
+        runtime.mouseClicked(15, 15, 0);
+        runtime.mouseDragged(160, 20, 0, 145, 5);
+
+        assertFalse(target.isDragOver(), "Rejecting targets must not advertise a valid drop");
+    }
 }

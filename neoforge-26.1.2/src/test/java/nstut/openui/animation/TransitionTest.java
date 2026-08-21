@@ -20,4 +20,11 @@ class TransitionTest {
         slide.setProgress(0.5F);
         assertEquals(0.5F, slide.getProgress());
     }
+
+    @Test
+    void fadeTransitionFailsExplicitlyInsteadOfRenderingOpaque() {
+        UnsupportedOperationException error = assertThrows(UnsupportedOperationException.class,
+                () -> new FadeTransition(Ui.text("Hello")));
+        assertTrue(error.getMessage().contains("unavailable"));
+    }
 }
