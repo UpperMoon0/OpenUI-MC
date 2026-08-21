@@ -78,16 +78,41 @@ class TableTest {
 
         table.layout(0, 0, 200, 100);
 
-        // Before sort, top row cell is Charlie
         TextWidget topCellBefore = (TextWidget) table.children().get(0);
         assertEquals("Charlie", topCellBefore.getText().getString());
 
-        // Click sort header to sort ascending
         table.mouseClicked(50, 5, 0);
         table.layout(0, 0, 200, 100);
 
-        // After sort, top row cell must be Alice!
         TextWidget topCellAfter = (TextWidget) table.children().get(0);
         assertEquals("Alice", topCellAfter.getText().getString());
+    }
+
+    @Test
+    void sameKeyDifferentDataRecreatesRetainedCell() {
+        Signal<List<Item>> items = Signals.of(List.of(
+                new Item("Product-42", 100)
+        ));
+
+        Table<Item> table = Ui.table(items)
+                .keyExtractor(Item::name)
+                .column("Price", 80, item -> Ui.text("$" + item.score()));
+
+        table.layout(0, 0, 200, 100);
+
+        TextWidget cellBefore = (TextWidget) table.children().get(0);
+        assertEquals("$100", cellBefore.getText().getString());
+
+        Signal<List<Item>> updatedItems = Signals.of(List.of(
+                new Item("Product-42", 200)
+        ));
+        table = Ui.table(updatedItems)
+                .keyExtractor(Item::name)
+                .column("Price", 80, item -> Ui.text("$" + item.score()));
+
+        table.layout(0, 0, 200, 100);
+
+        TextWidget cellAfter = (TextWidget) table.children().get(0);
+        assertEquals("$200", cellAfter.getText().getString(), "Cell with same key but different data should be recreated");
     }
 }
