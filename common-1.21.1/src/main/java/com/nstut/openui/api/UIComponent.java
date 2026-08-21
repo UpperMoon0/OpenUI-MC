@@ -6,6 +6,7 @@ import com.nstut.openui.layout.Constraints;
 import com.nstut.openui.layout.Size;
 import com.nstut.openui.input.EventPhase;
 import com.nstut.openui.input.EventType;
+import com.nstut.openui.input.PointerEvent;
 import com.nstut.openui.input.UiEvent;
 import com.nstut.openui.runtime.UiRuntime;
 import com.nstut.openui.theme.Theme;
@@ -247,10 +248,43 @@ public abstract class UIComponent {
         return null;
     }
 
+    public void onFocusGained() {
+        invalidatePaint();
+        if (runtime != null) {
+            runtime.dispatch(new UiEvent(EventType.FOCUS, this));
+        }
+    }
+
+    public void onFocusLost() {
+        invalidatePaint();
+        if (runtime != null) {
+            runtime.dispatch(new UiEvent(EventType.BLUR, this));
+        }
+    }
+
     public void preRender(int mx, int my) {
         if (!visible) return;
-        hovered = mx >= x && mx < x + width && my >= y && my < y + height;
+        boolean nextHovered = mx >= x && mx < x + width && my >= y && my < y + height;
+        if (hovered != nextHovered) {
+            hovered = nextHovered;
+            if (hovered) onHoverEnter();
+            else onHoverLeave();
+        }
         for (UIComponent c : children) c.preRender(mx, my);
+    }
+
+    protected void onHoverEnter() {
+        invalidatePaint();
+        if (runtime != null) {
+            runtime.dispatch(new PointerEvent(EventType.HOVER_ENTER, this, x, y, -1, 0, 0));
+        }
+    }
+
+    protected void onHoverLeave() {
+        invalidatePaint();
+        if (runtime != null) {
+            runtime.dispatch(new PointerEvent(EventType.HOVER_LEAVE, this, x, y, -1, 0, 0));
+        }
     }
 
     public boolean isHovered() { return hovered; }

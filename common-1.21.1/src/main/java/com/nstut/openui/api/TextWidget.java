@@ -181,11 +181,16 @@ public class TextWidget extends UIComponent {
             for (int i = 0; i < count; i++) {
                 FormattedCharSequence line = lines.get(i);
                 if (ellipsis && i == maxLines - 1 && lines.size() > maxLines) {
-                    // Ellipsize the final line if more lines exist
-                    FormattedText trimmed = font.substrByWidth(comp, Math.max(10, effectiveWidth - font.width("...")));
-                    line = FormattedCharSequence.composite(
-                            font.split(Component.literal(trimmed.getString() + "..."), effectiveWidth).get(0)
-                    );
+                    // Ellipsize the final visible line
+                    StringBuilder sb = new StringBuilder();
+                    line.accept((index, styleVal, codePoint) -> {
+                        sb.appendCodePoint(codePoint);
+                        return true;
+                    });
+                    String lineStr = sb.toString();
+                    int dotW = font.width("...");
+                    String ell = font.plainSubstrByWidth(lineStr, Math.max(8, effectiveWidth - dotW)) + "...";
+                    line = FormattedCharSequence.forward(ell, net.minecraft.network.chat.Style.EMPTY);
                 }
                 int lw = font.width(line);
                 int lx = centered ? drawX + (effectiveWidth - lw) / 2 : drawX;

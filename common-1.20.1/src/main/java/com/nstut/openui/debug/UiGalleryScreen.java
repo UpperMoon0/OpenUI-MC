@@ -4,20 +4,20 @@ import com.nstut.openui.api.ButtonWidget;
 import com.nstut.openui.api.UIComponent;
 import com.nstut.openui.api.Ui;
 import com.nstut.openui.controls.Badge;
+import com.nstut.openui.controls.CommandPalette;
 import com.nstut.openui.controls.Dialog;
 import com.nstut.openui.controls.Select;
 import com.nstut.openui.controls.Toast;
 import com.nstut.openui.minecraft.UiScreen;
 import com.nstut.openui.state.Signal;
 import com.nstut.openui.state.Signals;
-import com.nstut.openui.theme.TextStyle;
 import com.nstut.openui.theme.Theme;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
 
 public class UiGalleryScreen extends UiScreen {
-    public enum Category { BUTTONS, INPUTS, DATA, CHARTS, FEEDBACK, THEME }
+    public enum Category { BUTTONS, INPUTS, DATA, CHARTS, FEEDBACK, DND, THEME }
 
     private final Signal<Category> category = Signals.of(Category.BUTTONS);
     private final Signal<String> textInput = Signals.of("Hello OpenUI");
@@ -26,6 +26,7 @@ public class UiGalleryScreen extends UiScreen {
     private final Signal<Double> sliderVal = Signals.of(0.65);
     private final Signal<String> selectVal = Signals.of("Gold");
     private final Signal<String> radioVal = Signals.of("Option A");
+    private final Signal<String> dropStatus = Signals.of("Drop item here");
 
     public UiGalleryScreen() {
         super(Component.literal("OpenUI Component Gallery"));
@@ -49,8 +50,16 @@ public class UiGalleryScreen extends UiScreen {
                         navButton("Data & Navigation", Category.DATA),
                         navButton("Charts", Category.CHARTS),
                         navButton("Feedback & States", Category.FEEDBACK),
+                        navButton("Drag & Drop", Category.DND),
                         navButton("Themes", Category.THEME),
                         Ui.spacer(),
+                        Ui.button("Command Palette (Ctrl+K)", () -> {
+                            CommandPalette.show(uiRuntime().overlays(), List.of(
+                                    new CommandPalette.CommandItem("nav.buttons", "Go to Buttons", () -> category.set(Category.BUTTONS)),
+                                    new CommandPalette.CommandItem("nav.charts", "Go to Charts", () -> category.set(Category.CHARTS)),
+                                    new CommandPalette.CommandItem("theme.toggle", "Toggle Dark/Light", () -> uiRuntime().theme(uiRuntime().theme() == Theme.dark() ? Theme.light() : Theme.dark()))
+                            ));
+                        }).ghost(),
                         Ui.button("Toggle Inspector (F8)", () -> UiInspector.toggle(uiRuntime())).small()
                 ).gap(4)
         ).elevated(true).padding(8).width(130);
@@ -70,6 +79,7 @@ public class UiGalleryScreen extends UiScreen {
                         .when(Category.DATA, this::dataGallery)
                         .when(Category.CHARTS, this::chartsGallery)
                         .when(Category.FEEDBACK, this::feedbackGallery)
+                        .when(Category.DND, this::dndGallery)
                         .when(Category.THEME, this::themeGallery)
         ).padding(12).elevated(true);
     }
@@ -125,6 +135,8 @@ public class UiGalleryScreen extends UiScreen {
 
     private UIComponent dataGallery() {
         Signal<String> activeTab = Signals.of("Browse");
+        Signal<List<String>> tableData = Signals.of(List.of("Diamond", "Emerald", "Netherite", "Gold", "Iron"));
+
         return Ui.column(
                 Ui.title("Data & Navigation Controls"),
                 Ui.heading("Tabs"),
@@ -138,6 +150,10 @@ public class UiGalleryScreen extends UiScreen {
                         .option("Gold Ingot", "Gold")
                         .option("Diamond", "Diamond")
                         .width(130),
+                Ui.heading("Table"),
+                Ui.table(tableData)
+                        .column("Item Name", 100, Ui::text)
+                        .height(60),
                 Ui.heading("Dialog & Modal"),
                 Ui.row(
                         Ui.button("Open Confirm Dialog", () -> {
@@ -155,13 +171,17 @@ public class UiGalleryScreen extends UiScreen {
                 Ui.row(
                         Ui.column(
                                 Ui.heading("Line Chart"),
-                                Ui.lineChart(List.of(12.0, 18.5, 14.2, 28.0, 22.1, 35.0, 31.2)).width(150).height(80)
+                                Ui.lineChart(List.of(12.0, 18.5, 14.2, 28.0, 22.1, 35.0, 31.2)).width(140).height(75)
+                        ).gap(4),
+                        Ui.column(
+                                Ui.heading("Area Chart"),
+                                Ui.areaChart(List.of(10.0, 15.0, 25.0, 20.0, 30.0, 45.0)).width(140).height(75)
                         ).gap(4),
                         Ui.column(
                                 Ui.heading("Bar Chart"),
-                                Ui.barChart().bar("Mon", 20).bar("Tue", 45).bar("Wed", 30).bar("Thu", 60).width(150).height(80)
+                                Ui.barChart().bar("Mon", 20).bar("Tue", 45).bar("Wed", 30).bar("Thu", 60).width(140).height(75)
                         ).gap(4)
-                ).gap(10)
+                ).gap(8)
         ).gap(8);
     }
 
@@ -180,6 +200,18 @@ public class UiGalleryScreen extends UiScreen {
                             Toast.show(uiRuntime().overlays(), Toast.info("Notification", "This is a toast notification."));
                         }).small()
                 ).gap(6)
+        ).gap(8);
+    }
+
+    private UIComponent dndGallery() {
+        return Ui.column(
+                Ui.title("Drag & Drop Primitives"),
+                Ui.text("Drag source item and release onto the target zone:"),
+                Ui.row(
+                        Ui.draggable("Diamond Sword", Ui.card(Ui.text("⚔ Diamond Sword")).padding(6)),
+                        Ui.dragTarget(String.class, Ui.card(Ui.text(dropStatus)).padding(10))
+                                .onDrop(event -> dropStatus.set("Accepted: " + event.data()))
+                ).gap(16)
         ).gap(8);
     }
 

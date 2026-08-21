@@ -1,5 +1,6 @@
 package com.nstut.openui.controls;
 
+import com.nstut.openui.api.TextWidget;
 import com.nstut.openui.api.Ui;
 import com.nstut.openui.state.SelectionModel;
 import com.nstut.openui.state.Signal;
@@ -62,5 +63,31 @@ class TableTest {
         // Verify cells are attached as children
         assertFalse(table.children().isEmpty(), "Table children should contain retained cell components");
         assertEquals(2, table.children().size());
+    }
+
+    @Test
+    void retainedCellsUpdateWhenSorted() {
+        Signal<List<Item>> items = Signals.of(List.of(
+                new Item("Charlie", 10),
+                new Item("Alice", 90)
+        ));
+
+        Table<Item> table = Ui.table(items)
+                .keyExtractor(Item::name)
+                .column(Component.literal("Name"), 0, 1.0F, item -> Ui.text(item.name()), Comparator.comparing(Item::name));
+
+        table.layout(0, 0, 200, 100);
+
+        // Before sort, top row cell is Charlie
+        TextWidget topCellBefore = (TextWidget) table.children().get(0);
+        assertEquals("Charlie", topCellBefore.getText().getString());
+
+        // Click sort header to sort ascending
+        table.mouseClicked(50, 5, 0);
+        table.layout(0, 0, 200, 100);
+
+        // After sort, top row cell must be Alice!
+        TextWidget topCellAfter = (TextWidget) table.children().get(0);
+        assertEquals("Alice", topCellAfter.getText().getString());
     }
 }

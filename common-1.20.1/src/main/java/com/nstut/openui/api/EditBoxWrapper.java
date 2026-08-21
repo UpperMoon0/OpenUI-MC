@@ -14,6 +14,13 @@ public class EditBoxWrapper extends UIComponent implements NativeWidgetOwner {
     private String placeholder = "";
     private int radius = UiTheme.RADIUS_SM;
 
+    public EditBoxWrapper(EditBox editBox) {
+        this.editBox = java.util.Objects.requireNonNull(editBox);
+        this.textColor = 0;
+        this.bgColor = 0;
+        focusable(true);
+    }
+
     public EditBoxWrapper(int maxLength, int textColor, int bgColor, Font font) {
         this.editBox = new EditBox(font, 0, 0, 100, 16, Component.empty());
         this.editBox.setMaxLength(maxLength);
@@ -52,7 +59,26 @@ public class EditBoxWrapper extends UIComponent implements NativeWidgetOwner {
             this.editBox.setHighlightPos(newVal.length());
         }
     }
-    public boolean isFocused() { return editBox.isFocused(); }
+    @Override
+    public boolean isFocused() {
+        return super.isFocused() || (editBox != null && editBox.isFocused());
+    }
+
+    @Override
+    public void onFocusGained() {
+        super.onFocusGained();
+        if (editBox != null) {
+            editBox.setFocused(true);
+        }
+    }
+
+    @Override
+    public void onFocusLost() {
+        super.onFocusLost();
+        if (editBox != null) {
+            editBox.setFocused(false);
+        }
+    }
 
     @Override
     public boolean keyPressed(int key, int scan, int mod) {

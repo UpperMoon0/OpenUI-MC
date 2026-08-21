@@ -46,6 +46,14 @@ public class Table<T> extends UIComponent {
     private int sortColumn = -1;
     private boolean sortAscending = true;
 
+    private Function<T, Object> keyExtractor = item -> item;
+
+    public Table<T> keyExtractor(Function<T, Object> keyExtractor) {
+        this.keyExtractor = Objects.requireNonNull(keyExtractor);
+        invalidateLayout();
+        return this;
+    }
+
     public Table(ReadableSignal<List<T>> items) {
         this.itemsSignal = Objects.requireNonNull(items);
         focusable(true);
@@ -144,11 +152,14 @@ public class Table<T> extends UIComponent {
             int rowY = ly + headerH + 1 + (i - startRow) * rowH;
             if (rowY + rowH > ly + availableHeight - 1) break;
 
+            Object itemKey = keyExtractor != null ? keyExtractor.apply(item) : item;
+            int itemHash = (itemKey != null ? itemKey.hashCode() : System.identityHashCode(item));
+
             int colX = lx + 4;
             for (int c = 0; c < columns.size(); c++) {
                 Column<T> col = columns.get(c);
                 int cw = colWidths[c];
-                String cellKey = i + ":" + c;
+                String cellKey = itemHash + ":" + c;
 
                 UIComponent cell = activeCells.get(cellKey);
                 if (cell == null && col.cellRenderer() != null) {
@@ -171,6 +182,12 @@ public class Table<T> extends UIComponent {
             if (!nextCells.containsKey(entry.getKey())) {
                 removeChild(entry.getValue());
                 entry.getValue().dispose();
+            }
+        }
+        children.clear();
+        for (UIComponent cell : nextCells.values()) {
+            if (!children.contains(cell)) {
+                children.add(cell);
             }
         }
         activeCells.clear();

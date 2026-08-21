@@ -44,6 +44,10 @@ public final class AnimationManager implements AutoCloseable {
         }
     }
 
+    public void update(long nowNanos) {
+        tick(nowNanos);
+    }
+
     public int activeCount() { return animations.size(); }
 
     @Override public void close() {

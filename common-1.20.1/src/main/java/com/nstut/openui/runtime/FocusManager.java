@@ -6,6 +6,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 public final class FocusManager {
@@ -18,7 +19,7 @@ public final class FocusManager {
     void setRoot(UIComponent root) {
         this.root = root;
         if (focused != null && !belongsToActiveTree(focused)) {
-            focused = null;
+            setFocusedInternal(null);
         }
     }
 
@@ -31,11 +32,11 @@ public final class FocusManager {
     public boolean requestFocus(UIComponent component) {
         if (component == null || !component.isFocusable() || !belongsToActiveTree(component)) return false;
         if (!trapRoots.isEmpty() && !belongsToTree(component, trapRoots.peek())) return false;
-        focused = component;
+        setFocusedInternal(component);
         return true;
     }
 
-    public void clearFocus() { focused = null; }
+    public void clearFocus() { setFocusedInternal(null); }
 
     public void pushFocus() {
         if (focused != null) {
@@ -47,7 +48,7 @@ public final class FocusManager {
         while (!focusHistory.isEmpty()) {
             UIComponent prev = focusHistory.pop();
             if (prev != null && prev.isVisible() && prev.isFocusable() && belongsToActiveTree(prev)) {
-                focused = prev;
+                setFocusedInternal(prev);
                 return;
             }
         }
@@ -61,9 +62,9 @@ public final class FocusManager {
             List<UIComponent> focusable = new ArrayList<>();
             collect(trapRoot, focusable);
             if (!focusable.isEmpty()) {
-                focused = focusable.get(0);
+                setFocusedInternal(focusable.get(0));
             } else {
-                focused = null;
+                setFocusedInternal(null);
             }
         }
     }
@@ -95,8 +96,20 @@ public final class FocusManager {
         int next = current < 0
                 ? (direction > 0 ? 0 : focusable.size() - 1)
                 : Math.floorMod(current + direction, focusable.size());
-        focused = focusable.get(next);
+        setFocusedInternal(focusable.get(next));
         return true;
+    }
+
+    private void setFocusedInternal(UIComponent next) {
+        if (this.focused == next) return;
+        UIComponent prev = this.focused;
+        this.focused = next;
+        if (prev != null) {
+            prev.onFocusLost();
+        }
+        if (next != null) {
+            next.onFocusGained();
+        }
     }
 
     private void collect(UIComponent component, List<UIComponent> output) {
@@ -124,4 +137,3 @@ public final class FocusManager {
         return false;
     }
 }
-

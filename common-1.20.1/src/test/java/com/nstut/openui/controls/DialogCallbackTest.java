@@ -92,6 +92,37 @@ class DialogCallbackTest {
     }
 
     @Test
+    void backdropClickDismissesDialogAndExecutesCancel() {
+        Font font = new Font(null, false);
+        UiRuntime runtime = new UiRuntime(font, dummyHost);
+        runtime.setViewport(0, 0, 300, 200);
+        runtime.setRoot(com.nstut.openui.api.Ui.text("Screen"));
+
+        AtomicInteger confirmCount = new AtomicInteger(0);
+        AtomicInteger cancelCount = new AtomicInteger(0);
+
+        Dialog.confirm(
+                runtime.overlays(),
+                "Title",
+                "Message",
+                confirmCount::incrementAndGet,
+                cancelCount::incrementAndGet
+        );
+
+        // Layout dialog
+        runtime.overlays().layout(font, 0, 0, 300, 200);
+        assertEquals(1, runtime.overlays().size());
+
+        // Click at top-left corner (10, 10), which is outside the centered dialog card
+        boolean handled = runtime.mouseClicked(10, 10, 0);
+
+        assertTrue(handled, "Modal overlay should absorb backdrop click");
+        assertEquals(0, confirmCount.get(), "Confirm should not fire");
+        assertEquals(1, cancelCount.get(), "Cancel should fire on backdrop dismissal");
+        assertEquals(0, runtime.overlays().size(), "Dialog should be dismissed");
+    }
+
+    @Test
     void escapeDismissalFiresCancelCallbackOnce() {
         UiRuntime runtime = new UiRuntime(new Font(null, false), dummyHost);
         runtime.setViewport(0, 0, 300, 200);

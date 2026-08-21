@@ -60,6 +60,7 @@ public class ButtonWidget extends UIComponent {
     public void setLabel(Supplier<Component> supplier) { this.labelSupplier = Objects.requireNonNull(supplier); invalidateLayout(); }
     public ButtonWidget alignLeft() { this.alignLeft = true; return this; }
     public ButtonWidget activeIndicator() { this.activeIndicator = true; return this; }
+    public float getHoverProgress() { return currentHoverProgress; }
     public ButtonWidget radius(int radius) { this.customRadius = Math.max(0, radius); return this; }
     public ButtonWidget height(int height) { this.customHeight = Math.max(0, height); return this; }
     public ButtonWidget textColor(int color) { this.customTextColor = color; return this; }
@@ -127,29 +128,31 @@ public class ButtonWidget extends UIComponent {
     }
 
     @Override
-    protected void onMount() {
-        on(EventType.HOVER_ENTER, e -> {
-            if (runtime() != null && enabled && !theme().reducedMotion()) {
-                runtime().animations().animateFloat(currentHoverProgress, 1.0F, theme().durations().hoverMs(), Easing.EASE_OUT, v -> {
-                    currentHoverProgress = v;
-                    invalidatePaint();
-                });
-            } else {
-                currentHoverProgress = enabled ? 1.0F : 0.0F;
+    protected void onHoverEnter() {
+        super.onHoverEnter();
+        if (runtime() != null && enabled && !theme().reducedMotion()) {
+            runtime().animations().animateFloat(currentHoverProgress, 1.0F, theme().durations().hoverMs(), Easing.EASE_OUT, v -> {
+                currentHoverProgress = v;
                 invalidatePaint();
-            }
-        });
-        on(EventType.HOVER_LEAVE, e -> {
-            if (runtime() != null && !theme().reducedMotion()) {
-                runtime().animations().animateFloat(currentHoverProgress, 0.0F, theme().durations().hoverMs(), Easing.EASE_OUT, v -> {
-                    currentHoverProgress = v;
-                    invalidatePaint();
-                });
-            } else {
-                currentHoverProgress = 0.0F;
+            });
+        } else {
+            currentHoverProgress = enabled ? 1.0F : 0.0F;
+            invalidatePaint();
+        }
+    }
+
+    @Override
+    protected void onHoverLeave() {
+        super.onHoverLeave();
+        if (runtime() != null && !theme().reducedMotion()) {
+            runtime().animations().animateFloat(currentHoverProgress, 0.0F, theme().durations().hoverMs(), Easing.EASE_OUT, v -> {
+                currentHoverProgress = v;
                 invalidatePaint();
-            }
-        });
+            });
+        } else {
+            currentHoverProgress = 0.0F;
+            invalidatePaint();
+        }
     }
 
     @Override

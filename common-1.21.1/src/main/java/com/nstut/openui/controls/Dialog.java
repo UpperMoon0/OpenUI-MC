@@ -10,6 +10,8 @@ import com.nstut.openui.overlay.OverlayLayer;
 import com.nstut.openui.overlay.OverlayManager;
 import com.nstut.openui.theme.ColorScheme;
 import com.nstut.openui.theme.Theme;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
 import java.util.Objects;
@@ -24,15 +26,58 @@ public final class Dialog {
     public static OverlayHandle show(OverlayManager overlays, UIComponent content,
                                     boolean closeOnEscape, boolean closeOnBackdropClick, Runnable onClose) {
         if (overlays == null || content == null) return null;
-        Stack modalStack = new Stack().align(Alignment.CENTER, Alignment.CENTER).child(content);
+        DialogContainer container = new DialogContainer(content);
         return overlays.show(
                 OverlayLayer.MODAL,
-                modalStack,
+                container,
                 true,
                 closeOnEscape,
                 closeOnBackdropClick,
                 onClose
         );
+    }
+
+    public static final class DialogContainer extends UIComponent {
+        private final UIComponent content;
+
+        public DialogContainer(UIComponent content) {
+            this.content = Objects.requireNonNull(content);
+            addChild(content);
+        }
+
+        public UIComponent getContent() { return content; }
+
+        @Override
+        public int preferredWidth(Font font) {
+            return content.preferredWidth(font);
+        }
+
+        @Override
+        public int preferredHeight(Font font) {
+            return content.preferredHeight(font);
+        }
+
+        @Override
+        public void layout(int lx, int ly, int availableWidth, int availableHeight) {
+            setBounds(lx, ly, availableWidth, availableHeight);
+            Font f = measureFont();
+            int cw = content.preferredWidth(f);
+            int ch = content.preferredHeight(f);
+            int cx = lx + (availableWidth - cw) / 2;
+            int cy = ly + (availableHeight - ch) / 2;
+            content.layoutTree(f, cx, cy, cw, ch);
+        }
+
+        @Override
+        public void render(GuiGraphics g, Font font, int mx, int my, float pt) {
+            content.render(g, font, mx, my, pt);
+        }
+
+        @Override
+        public UIComponent hitTest(int mx, int my) {
+            if (!visible) return null;
+            return content.hitTest(mx, my);
+        }
     }
 
     public static OverlayHandle confirm(OverlayManager overlays, String title, String message, Runnable confirm, Runnable cancel) {

@@ -4,6 +4,7 @@ import com.nstut.openui.animation.Easing;
 import com.nstut.openui.api.UIComponent;
 import com.nstut.openui.api.UiRender;
 import com.nstut.openui.state.Signal;
+import com.nstut.openui.state.Subscription;
 import com.nstut.openui.theme.ColorScheme;
 import com.nstut.openui.theme.Theme;
 import net.minecraft.client.gui.Font;
@@ -29,16 +30,34 @@ public class Tabs<T> extends UIComponent {
     private final Signal<T> selectedSignal;
     private T selectedValue;
     private Consumer<T> onTabChanged;
+    private Subscription subscription = Subscription.EMPTY;
 
-    // Indicator animation
+    // Indicator animation state
     private float indicatorX;
     private float indicatorW;
-    private long lastAnimTime = -1;
 
     public Tabs(Signal<T> selection) {
         this.selectedSignal = Objects.requireNonNull(selection);
         this.selectedValue = selection.get();
         focusable(true);
+    }
+
+    @Override
+    protected void onMount() {
+        if (selectedSignal != null) {
+            subscription = selectedSignal.subscribe(val -> {
+                if (!Objects.equals(this.selectedValue, val)) {
+                    this.selectedValue = val;
+                    animateToSelected();
+                }
+            });
+        }
+    }
+
+    @Override
+    protected void onUnmount() {
+        subscription.close();
+        subscription = Subscription.EMPTY;
     }
 
     public Tabs<T> tab(T value, String label) {
@@ -68,20 +87,27 @@ public class Tabs<T> extends UIComponent {
     }
 
     public void select(T val) {
-        if (Objects.equals(this.selectedValue, val)) return;
+        if (Objects.equals(selected(), val)) return;
         this.selectedValue = val;
-        selectedSignal.set(val);
+        if (selectedSignal != null) selectedSignal.set(val);
         if (onTabChanged != null) onTabChanged.accept(val);
+        animateToSelected();
+    }
 
-        if (runtime() != null && !theme().reducedMotion() && width > 0) {
-            int tabCount = Math.max(1, tabs.size());
-            int tabW = width / tabCount;
-            float targetIndicatorX = x + findSelectedIndex() * tabW + 2;
+    private void animateToSelected() {
+        if (tabs.isEmpty() || width <= 0) return;
+        int tabCount = Math.max(1, tabs.size());
+        int tabW = width / tabCount;
+        indicatorW = tabW - 4;
+        float targetIndicatorX = x + findSelectedIndex() * tabW + 2;
+
+        if (runtime() != null && !theme().reducedMotion()) {
             runtime().animations().animateFloat(indicatorX, targetIndicatorX, theme().durations().hoverMs(), Easing.EASE_OUT, v -> {
                 indicatorX = v;
                 invalidatePaint();
             });
         } else {
+            indicatorX = targetIndicatorX;
             invalidatePaint();
         }
     }
@@ -114,6 +140,17 @@ public class Tabs<T> extends UIComponent {
     }
 
     @Override
+    public void layout(int lx, int ly, int availableWidth, int availableHeight) {
+        setBounds(lx, ly, availableWidth, availableHeight);
+        int tabCount = Math.max(1, tabs.size());
+        int tabW = availableWidth / tabCount;
+        indicatorW = tabW - 4;
+        if (indicatorX <= 0 || theme().reducedMotion()) {
+            indicatorX = lx + findSelectedIndex() * tabW + 2;
+        }
+    }
+
+    @Override
     public void render(GuiGraphics g, Font font, int mx, int my, float pt) {
         if (!visible || tabs.isEmpty()) return;
         Theme t = theme();
@@ -125,26 +162,9 @@ public class Tabs<T> extends UIComponent {
         int tabW = width / tabCount;
         int selectedIdx = findSelectedIndex();
 
-        // Animate indicator
-        float targetIndicatorX = x + selectedIdx * tabW + 2;
-        float targetIndicatorW = tabW - 4;
-
-        long now = System.nanoTime();
-        if (lastAnimTime < 0) {
-            lastAnimTime = now;
-            indicatorX = targetIndicatorX;
-            indicatorW = targetIndicatorW;
-        }
-        float dtSeconds = (now - lastAnimTime) / 1_000_000_000.0F;
-        lastAnimTime = now;
-
-        if (t.reducedMotion()) {
-            indicatorX = targetIndicatorX;
-            indicatorW = targetIndicatorW;
-        } else {
-            float speed = 12.0F * dtSeconds;
-            indicatorX += (targetIndicatorX - indicatorX) * Math.min(1.0F, speed);
-            indicatorW += (targetIndicatorW - indicatorW) * Math.min(1.0F, speed);
+        if (t.reducedMotion() || indicatorX <= 0) {
+            indicatorX = x + selectedIdx * tabW + 2;
+            indicatorW = tabW - 4;
         }
 
         // Draw indicator pill
@@ -156,16 +176,18 @@ public class Tabs<T> extends UIComponent {
             boolean isSelected = (i == selectedIdx);
             int textCol = isSelected ? colors.primary() : colors.onSurfaceMuted();
 
-            int textW = font.width(tab.label());
+            int textW = font != null ? font.width(tab.label()) : tab.label().getString().length() * 6;
             int textX = curX + (tabW - textW) / 2;
-            int textY = y + (height - font.lineHeight) / 2;
+            int textY = y + (height - (font != null ? font.lineHeight : 9)) / 2;
 
             if (tab.icon() != null) {
                 tab.icon().layout(textX - 16, y + (height - 12) / 2, 12, 12);
                 tab.icon().render(g, font, mx, my, pt);
             }
 
-            g.drawString(font, tab.label(), textX, textY, textCol);
+            if (font != null) {
+                g.drawString(font, tab.label(), textX, textY, textCol);
+            }
         }
 
         if (isFocused()) {
@@ -175,7 +197,7 @@ public class Tabs<T> extends UIComponent {
 
     @Override
     public boolean mouseClicked(double mx, double my, int btn) {
-        if (btn == 0 && isHovered() && !tabs.isEmpty()) {
+        if (btn == 0 && mx >= x && mx < x + width && my >= y && my < y + height && !tabs.isEmpty()) {
             int tabCount = tabs.size();
             int tabW = width / tabCount;
             int clickedIdx = (int) ((mx - x) / tabW);

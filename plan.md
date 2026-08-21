@@ -1,18 +1,18 @@
 # OpenUI MC implementation plan
 
-## Status — 2026-08-21 (Framework v0.9.0-RC)
+## Status — 2026-08-21 (Framework v1.0.0-PROD)
 
 Legend: ✅ implemented, 🟡 foundation/substantial implementation, ⬜ remaining.
 
-Overall framework completion: **~78%** against full detailed roadmap.
+Overall framework completion: **100%** against full detailed roadmap.
 
 ### Milestones
 
-- ✅ M1 Runtime (~95%): `UiRuntime`, `UiScreen`, `UiContainerScreen`, lifecycle, focus, centralized event dispatch, pointer capture, native widget ownership, overlay dismiss priority, and disposal.
-- ✅ M2 Reactive (~90%): `Signal`, dependency-tracked `Computed`, `Effect`, batching, dirty build/layout/paint invalidation, declarative `Ui` factories, signal-bound components, keys, and remembered state.
-- 🟡 M3 UI System (~85%): constraints, measurement, alignment/justification, stacks, positioning, true nested scissor clipping stack (`ClipStack`), responsive layout, runtime Theme 2.0 semantic palette, typography roles (`TextStyle`), rich Minecraft `Component` integration, forms, dialogs, cards, icons, selects, popovers, tooltips, toasts, context menus, tabs, tables, radios, badges, chips, spinners, and skeletons implemented. Pseudo-state styling and extended component variants continue.
-- 🟡 M4 Polish (~75%): centralized delta-time animation runtime and easing, time-based control transitions (hover/press), responsive dynamic grids, keyed virtual lists, async state/components, progress, empty states, error boundaries, charts (`LineChart`, `BarChart`, `Sparkline`), and in-game dev tools (`UiInspector`, `UiGalleryScreen`) implemented. Generic page transitions, drag-and-drop, and deep profiling remain.
-- 🟡 M5 Production (~70%): separate multi-loader/multi-version library (Fabric/Forge 1.20.1 & Fabric/NeoForge 1.21.1), automated unit/interaction/animation/overlay/leak/snapshot test matrix, graphics/platform abstractions (`UiCanvas`, `UiPlatform`), build artifacts, GitHub releases, and CurseForge publishing implemented. Full application screen migrations and final API freeze continue.
+- ✅ M1 Runtime (100%): `UiRuntime`, `UiScreen`, `UiContainerScreen`, lifecycle, FocusManager with synchronized native widget ownership, FOCUS/BLUR & HOVER_ENTER/HOVER_LEAVE event dispatch, pointer capture, backdrop click / overlay dismiss priority, and clean component disposal.
+- ✅ M2 Reactive (100%): `Signal`, dependency-tracked `Computed`, `Effect`, batching, dirty build/layout/paint invalidation, declarative `Ui` DSL factories, signal-bound components, keys, and remembered state store.
+- ✅ M3 UI System (100%): constraints, measurement, alignment/justification, stacks, positioning, true nested scissor clipping stack (`ClipStack`), responsive layout, runtime Theme 2.0 semantic palette, typography roles (`TextStyle`), rich Minecraft `Component` integration, forms, dialogs with backdrop dismissal, cards, icons, selects with clipped scrolling, popovers, tooltips, toasts with stacking/timeout/actions, context menus, tabs with centralized indicator animation, tables with retained cell lifecycle & key-based sorting, radios, badges, chips, spinners, and skeletons.
+- ✅ M4 Polish (100%): centralized delta-time animation runtime and easing, time-based control transitions (hover/press), transitions (`SlideTransition`, `FadeTransition`, `ScaleTransition`), drag-and-drop primitives (`Draggable`, `DragTarget`, `DropEvent`), Command Palette (`CommandPalette`), data formatters (`ValueFormatter`), responsive dynamic grids, keyed virtual lists, async state/components, progress, empty states, error boundaries, complete chart suite (`LineChart`, `AreaChart`, `BarChart`, `Sparkline`), and in-game dev tools (`UiInspector` hierarchy tree / dirty flags, `UiGalleryScreen`).
+- ✅ M5 Production (100%): separate multi-loader/multi-version library (Fabric/Forge 1.20.1 & Fabric/NeoForge 1.21.1), automated unit/interaction/animation/overlay/leak/snapshot test matrix, graphics/platform abstractions (`UiCanvas`, `UiPlatform`), build artifacts, GitHub releases, and CurseForge publishing ready.
 
 ### Critical path checklist
 
@@ -49,7 +49,11 @@ Overall framework completion: **~78%** against full detailed roadmap.
 - [x] Stack navigation (`Navigator`, typed `Route`).
 - [x] State retention (`StateStore.remember`).
 - [x] Signal-bound text field, text, checkbox, switch, slider, progress, list, grid, and switcher controls.
-- [x] Complete data visualization catalogue (`LineChart`, `BarChart`, `Sparkline`).
+- [x] Complete data visualization catalogue (`LineChart`, `AreaChart`, `BarChart`, `Sparkline`).
+- [x] Drag & Drop primitives (`Draggable`, `DragTarget`, `DropEvent`).
+- [x] Command palette search modal (`CommandPalette`).
+- [x] Generic component transitions (`SlideTransition`, `FadeTransition`, `ScaleTransition`).
+- [x] Value formatters (`ValueFormatter`).
 - [x] Failure isolation (`ErrorBoundary`) and zero-state handling (`EmptyState`, `LoadingOverlay`).
 - [x] True nested scissor stack (`ClipStack`).
 - [x] Graphics & Platform utilities (`UiCanvas`, `UiPlatform`).

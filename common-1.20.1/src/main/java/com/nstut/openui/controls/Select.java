@@ -1,10 +1,12 @@
 package com.nstut.openui.controls;
 
+import com.nstut.openui.api.ClipStack;
 import com.nstut.openui.api.UIComponent;
 import com.nstut.openui.api.UiRender;
 import com.nstut.openui.overlay.OverlayHandle;
 import com.nstut.openui.overlay.OverlayLayer;
 import com.nstut.openui.state.Signal;
+import com.nstut.openui.state.Subscription;
 import com.nstut.openui.theme.ColorScheme;
 import com.nstut.openui.theme.Theme;
 import net.minecraft.client.gui.Font;
@@ -31,6 +33,7 @@ public class Select<T> extends UIComponent {
     private T selectedValue;
     private Consumer<T> onChange;
     private OverlayHandle activeDropdown;
+    private Subscription subscription = Subscription.EMPTY;
     private boolean open;
     private int customWidth = -1;
 
@@ -44,6 +47,23 @@ public class Select<T> extends UIComponent {
         if (signal != null) {
             this.selectedValue = signal.get();
         }
+    }
+
+    @Override
+    protected void onMount() {
+        if (signal != null) {
+            subscription = signal.subscribe(val -> {
+                this.selectedValue = val;
+                invalidatePaint();
+            });
+        }
+    }
+
+    @Override
+    protected void onUnmount() {
+        subscription.close();
+        subscription = Subscription.EMPTY;
+        closeDropdown();
     }
 
     public Select<T> option(String label, T value) {
@@ -83,7 +103,7 @@ public class Select<T> extends UIComponent {
     }
 
     public void setValue(T val) {
-        if (Objects.equals(this.selectedValue, val)) return;
+        if (Objects.equals(getValue(), val)) return;
         this.selectedValue = val;
         if (signal != null) signal.set(val);
         if (onChange != null) onChange.accept(val);
@@ -138,7 +158,13 @@ public class Select<T> extends UIComponent {
         if (font == null) return 80;
         int maxW = 0;
         for (Option<T> opt : options) {
-            maxW = Math.max(maxW, font.width(opt.label()));
+            int w = 0;
+            try {
+                w = font.width(opt.label());
+            } catch (Throwable ignored) {
+                w = opt.label().getString().length() * 6;
+            }
+            maxW = Math.max(maxW, w);
         }
         return maxW + 28;
     }
@@ -161,6 +187,7 @@ public class Select<T> extends UIComponent {
         UiRender.roundedOutline(g, x, y, width, height, radius, bg, border);
 
         Option<T> selected = findSelectedOption();
+        int textH = font != null ? font.lineHeight : 9;
         if (selected != null) {
             int textX = x + 8;
             if (selected.icon() != null) {
@@ -168,18 +195,22 @@ public class Select<T> extends UIComponent {
                 selected.icon().render(g, font, mx, my, pt);
                 textX += 20;
             }
-            g.drawString(font, selected.label(), textX, y + (height - font.lineHeight) / 2, colors.onSurface());
+            if (font != null) {
+                g.drawString(font, selected.label(), textX, y + (height - textH) / 2, colors.onSurface());
+            }
         }
 
         // Arrow indicator
         String arrow = open ? "▲" : "▼";
-        int arrowW = font.width(arrow);
-        g.drawString(font, arrow, x + width - arrowW - 8, y + (height - font.lineHeight) / 2, colors.onSurfaceMuted());
+        int arrowW = font != null ? font.width(arrow) : 6;
+        if (font != null) {
+            g.drawString(font, arrow, x + width - arrowW - 8, y + (height - textH) / 2, colors.onSurfaceMuted());
+        }
     }
 
     @Override
     public boolean mouseClicked(double mx, double my, int btn) {
-        if (btn == 0 && isHovered()) {
+        if (btn == 0 && mx >= x && mx < x + width && my >= y && my < y + height) {
             toggleDropdown();
             return true;
         }
@@ -214,7 +245,8 @@ public class Select<T> extends UIComponent {
     }
 
     private final class DropdownMenu extends UIComponent {
-        private int hoveredIndex = -1;
+        private int scrollOffset = 0;
+        private final int itemH = 16;
 
         private DropdownMenu() {
             focusable(true);
@@ -227,7 +259,6 @@ public class Select<T> extends UIComponent {
 
         @Override
         public int preferredHeight(Font font) {
-            int itemH = 16;
             return Math.min(160, options.size() * itemH + 6);
         }
 
@@ -252,38 +283,64 @@ public class Select<T> extends UIComponent {
             UiRender.shadow(g, x, y, width, height, t.cardTheme().radius());
             UiRender.roundedOutline(g, x, y, width, height, t.cardTheme().radius(), colors.surfaceRaised(), colors.borderStrong());
 
-            int itemH = 16;
-            int curY = y + 3;
-            T curVal = getValue();
+            int maxVisible = Math.max(1, (height - 6) / itemH);
+            int maxScroll = Math.max(0, options.size() - maxVisible);
+            scrollOffset = Math.min(scrollOffset, maxScroll);
 
-            for (int i = 0; i < options.size(); i++) {
-                Option<T> opt = options.get(i);
-                boolean isSelected = Objects.equals(opt.value(), curVal);
-                boolean isItemHovered = mx >= x + 2 && mx < x + width - 2 && my >= curY && my < curY + itemH;
+            int startIdx = scrollOffset;
+            int endIdx = Math.min(options.size(), startIdx + maxVisible + 1);
 
-                if (isItemHovered || isSelected) {
-                    int itemBg = isSelected ? colors.primaryDim() : colors.surfaceVariant();
-                    UiRender.roundedRect(g, x + 3, curY, width - 6, itemH, 2, itemBg);
+            ClipStack.push(g, x + 2, y + 2, width - 4, height - 4);
+            try {
+                T curVal = getValue();
+                int textH = font != null ? font.lineHeight : 9;
+
+                for (int i = startIdx; i < endIdx; i++) {
+                    Option<T> opt = options.get(i);
+                    int curY = y + 3 + (i - startIdx) * itemH;
+                    if (curY + itemH > y + height - 1) break;
+
+                    boolean isSelected = Objects.equals(opt.value(), curVal);
+                    boolean isItemHovered = mx >= x + 2 && mx < x + width - 2 && my >= curY && my < curY + itemH;
+
+                    if (isItemHovered || isSelected) {
+                        int itemBg = isSelected ? colors.primaryDim() : colors.surfaceVariant();
+                        UiRender.roundedRect(g, x + 3, curY, width - 6, itemH, 2, itemBg);
+                    }
+
+                    int textX = x + 8;
+                    if (opt.icon() != null) {
+                        opt.icon().layout(textX, curY + (itemH - 12) / 2, 12, 12);
+                        opt.icon().render(g, font, mx, my, pt);
+                        textX += 16;
+                    }
+
+                    int textCol = isSelected ? colors.primaryHover() : colors.onSurface();
+                    if (font != null) {
+                        g.drawString(font, opt.label(), textX, curY + (itemH - textH) / 2, textCol);
+                    }
                 }
-
-                int textX = x + 8;
-                if (opt.icon() != null) {
-                    opt.icon().layout(textX, curY + (itemH - 12) / 2, 12, 12);
-                    opt.icon().render(g, font, mx, my, pt);
-                    textX += 16;
-                }
-
-                int textCol = isSelected ? colors.primaryHover() : colors.onSurface();
-                g.drawString(font, opt.label(), textX, curY + (itemH - font.lineHeight) / 2, textCol);
-                curY += itemH;
+            } finally {
+                ClipStack.pop(g);
             }
         }
 
         @Override
+        public boolean mouseScrolled(double mx, double my, double delta) {
+            if (delta != 0) {
+                int maxVisible = Math.max(1, (height - 6) / itemH);
+                int maxScroll = Math.max(0, options.size() - maxVisible);
+                scrollOffset = Math.max(0, Math.min(maxScroll, scrollOffset - (int) Math.signum(delta)));
+                invalidatePaint();
+                return true;
+            }
+            return false;
+        }
+
+        @Override
         public boolean mouseClicked(double mx, double my, int btn) {
-            if (btn == 0 && mx >= x && mx < x + width) {
-                int itemH = 16;
-                int clickedIdx = (int) ((my - (y + 3)) / itemH);
+            if (btn == 0 && mx >= x && mx < x + width && my >= y && my < y + height) {
+                int clickedIdx = scrollOffset + (int) ((my - (y + 3)) / itemH);
                 if (clickedIdx >= 0 && clickedIdx < options.size()) {
                     setValue(options.get(clickedIdx).value());
                     closeDropdown();

@@ -143,8 +143,12 @@ public final class Ui {
     public static ErrorBoundary errorBoundary(Supplier<UIComponent> supplier) { return new ErrorBoundary(supplier); }
     public static LineChart lineChart() { return new LineChart(); }
     public static LineChart lineChart(List<Double> data) { return new LineChart(data); }
+    public static com.nstut.openui.controls.AreaChart areaChart() { return new com.nstut.openui.controls.AreaChart(); }
+    public static com.nstut.openui.controls.AreaChart areaChart(List<Double> data) { return new com.nstut.openui.controls.AreaChart(data); }
     public static BarChart barChart() { return new BarChart(); }
     public static Sparkline sparkline(List<Double> data) { return new Sparkline(data); }
+    public static <T> com.nstut.openui.dnd.Draggable<T> draggable(T data, UIComponent child) { return new com.nstut.openui.dnd.Draggable<>(data, child); }
+    public static <T> com.nstut.openui.dnd.DragTarget<T> dragTarget(Class<T> type, UIComponent child) { return new com.nstut.openui.dnd.DragTarget<>(type, child); }
     public static IconWidget icon(ItemStack item) { return IconWidget.of(item); }
     public static IconWidget icon(ResourceLocation texture, int u, int v, int w, int h) { return IconWidget.of(texture, u, v, w, h); }
     public static IconWidget icon(String glyph, int color) { return IconWidget.of(glyph, color); }

@@ -92,6 +92,10 @@ public final class UiRuntime implements AutoCloseable {
         paintDirty = false;
     }
 
+    public void preRender(int mouseX, int mouseY) {
+        if (root != null) root.preRender(mouseX, mouseY);
+    }
+
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (root == null) return false;
         boolean hasBlocking = overlays.hasBlockingOverlay();
@@ -173,7 +177,7 @@ public final class UiRuntime implements AutoCloseable {
                 || event.isDefaultPrevented() || event.isPropagationStopped();
     }
 
-    private void dispatch(UiEvent event) {
+    public void dispatch(UiEvent event) {
         List<UIComponent> path = new ArrayList<>();
         UIComponent cursor = event.target();
         while (cursor != null) { path.add(0, cursor); cursor = cursor.parent(); }
