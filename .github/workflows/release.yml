@@ -161,35 +161,44 @@ jobs:
             fi
           done < <(jq -r '.[]' <<< "$game_version_names")
 
-          if [[ "$PLATFORM" == "fabric" ]]; then
-            relations='{"projects":[{"slug":"fabric-api","type":"requiredDependency"}]}'
-          else
-            relations='{"projects":[]}'
-          fi
-
           changelog="OpenUI MC ${MOD_VERSION} adds reusable UI components for ${LOADER_NAME} ${MINECRAFT_VERSION}."
           metadata="$(jq -cn \
             --arg changelog "$changelog" \
             --arg displayName "OpenUI MC ${MOD_VERSION} - ${LOADER_NAME} ${MINECRAFT_VERSION}" \
             --argjson gameVersionNames "$game_version_names" \
-            --argjson relations "$relations" \
             '{
               changelog: $changelog,
               changelogType: "markdown",
               displayName: $displayName,
               gameVersionNames: $gameVersionNames,
-              releaseType: "release",
-              relations: $relations
+              releaseType: "release"
             }')"
+          if [[ "$PLATFORM" == "fabric" ]]; then
+            metadata="$(jq -c \
+              '.relations = {projects: [{slug: "fabric-api", type: "requiredDependency"}]}' \
+              <<< "$metadata")"
+          fi
 
-          response="$(curl --fail-with-body --silent --show-error \
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          http_status="$(curl --silent --show-error \
+            --output "$response_file" \
+            --write-out '%{http_code}' \
             --request POST \
             --header "X-Api-Token: ${CURSEFORGE_API_TOKEN}" \
             --form-string "metadata=${metadata}" \
             --form "file=@${JAR_PATH}" \
             "https://minecraft.curseforge.com/api/projects/${CURSEFORGE_PROJECT_ID}/upload-file")"
-          file_id="$(jq -er '.id' <<< "$response")"
-          echo "Published ${JAR_PATH} to CurseForge as file ID ${file_id}."
+          response="$(<"$response_file")"
+          if [[ "$http_status" =~ ^2 ]]; then
+            file_id="$(jq -er '.id' <<< "$response")"
+            echo "Published ${JAR_PATH} to CurseForge as file ID ${file_id}."
+          elif grep -Eqi 'already|duplicate' <<< "$response"; then
+            echo "CurseForge already has ${JAR_PATH}; treating this retry as successful."
+          else
+            echo "CurseForge upload failed with HTTP ${http_status}: ${response}" >&2
+            exit 1
+          fi
 
   release:
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
