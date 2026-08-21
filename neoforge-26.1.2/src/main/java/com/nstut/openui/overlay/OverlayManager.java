@@ -33,7 +33,7 @@ public final class OverlayManager implements AutoCloseable {
         if (layer == OverlayLayer.MODAL || blocksInput) {
             runtime.focus().trapFocus(component);
         }
-        runtime.requestLayout();
+        runtime.requestOverlayLayout();
         return entry;
     }
 
@@ -133,8 +133,7 @@ public final class OverlayManager implements AutoCloseable {
             }
             component.dispose();
             if (onClose != null) onClose.run();
-            runtime.requestLayout();
+            runtime.requestOverlayLayout();
         }
     }
 }
-

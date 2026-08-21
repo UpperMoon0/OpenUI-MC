@@ -46,7 +46,7 @@ Stable keys are important for retained tables, grids, and lists. When a table si
 - `Effect` reruns side effects and must be closed by its owner.
 - `Signals.batch` groups writes.
 - `SelectionModel<T>` manages single/multiple selection.
-- `StateStore.remember` retains keyed state during rebuilding.
+- `StateStore.remember` retains keyed state for the lifetime of that `StateStore`. To retain values across component rebuilding, the owner must keep and reuse the same store instance.
 - `AsyncValue<T>` models loading, success, and failure.
 - `Subscription` is closeable; use `Subscription.EMPTY` for a safe placeholder.
 
@@ -66,13 +66,15 @@ Events traverse ancestors in capture order, execute target listeners, then bubbl
 
 ## Focus and native widgets
 
-`FocusManager` tracks the focused component, traverses focusable components, traps focus for modal overlays, and synchronizes `NativeWidgetOwner` controls. A click focuses the nearest focusable ancestor, which allows non-focusable labels/icons inside a button or card.
+`FocusManager` tracks the focused component, traverses focusable components, and traps focus for modal overlays. `NativeWidgetManager` mounts, removes, and synchronizes `NativeWidgetOwner` controls through the active `NativeWidgetHost`. A click focuses the nearest focusable ancestor, which allows non-focusable labels/icons inside a button or card.
 
 `NativeWidgetHost` is implemented by the screen adapter. Consumer screens should not separately add OpenUI-owned widgets to Minecraft.
 
 ## Overlays
 
 `OverlayManager.show` mounts a component into an `OverlayLayer` and returns an `OverlayHandle`. The handle closes and unmounts it. Layers include base UI, dropdown/popover, modal, toast, tooltip, and debug content. Blocking overlays participate in input targeting and may trap focus.
+
+Overlay geometry has its own dirty path. Overlay implementations that change only overlay bounds should call `UiRuntime.requestOverlayLayout()`; `requestLayout()` also invalidates the application root and should be reserved for root-tree or viewport geometry changes.
 
 ## Animation and navigation
 

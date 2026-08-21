@@ -9,8 +9,8 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Field;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -118,31 +118,37 @@ class DragAndDropTest {
     }
 
     @Test
-    void dragFeedbackRequestsLayoutAndMovesToLatestPointer() throws Exception {
+    void dragFeedbackMovesWithoutRelayingOutRoot() {
         Font font = new Font(null);
         UiRuntime runtime = new UiRuntime(font, dummyHost);
         Draggable<String> source = new Draggable<>("Item-123", Ui.text("Drag Me"));
-        UIComponent root = Ui.stack(source);
+        AtomicInteger rootLayouts = new AtomicInteger();
+        UIComponent root = new UIComponent() {
+            { addChild(source); }
+            @Override public int preferredWidth(Font ignored) { return 300; }
+            @Override public int preferredHeight(Font ignored) { return 200; }
+            @Override public void layout(int x, int y, int width, int height) {
+                rootLayouts.incrementAndGet();
+                setBounds(x, y, width, height);
+                source.layoutTree(font, 10, 10, 60, 20);
+            }
+            @Override public void render(GuiGraphicsExtractor g, Font ignored, int mx, int my, float pt) { }
+        };
         runtime.setRoot(root);
         runtime.setViewport(0, 0, 300, 200);
-        root.layout(0, 0, 300, 200);
-        source.layout(10, 10, 60, 20);
-
         runtime.mouseClicked(15, 15, 0);
         runtime.mouseDragged(100, 60, 0, 85, 45);
-        runtime.overlays().layout(font, 0, 0, 300, 200);
+        runtime.mouseScrolled(100, 60, 0);
         UIComponent feedback = runtime.overlays().components().get(0).children().get(0);
         int firstX = feedback.getX();
 
-        Field layoutDirty = UiRuntime.class.getDeclaredField("layoutDirty");
-        layoutDirty.setAccessible(true);
-        layoutDirty.setBoolean(runtime, false);
+        int layoutsAfterFirstMove = rootLayouts.get();
 
         runtime.mouseDragged(220, 60, 0, 120, 0);
-        assertTrue(layoutDirty.getBoolean(runtime), "Moving feedback must invalidate layout");
-        runtime.overlays().layout(font, 0, 0, 300, 200);
+        runtime.mouseScrolled(220, 60, 0);
 
         assertTrue(feedback.getX() > firstX, "Feedback child should move with the second pointer position");
+        assertEquals(layoutsAfterFirstMove, rootLayouts.get(), "Moving feedback must not lay out the root tree");
     }
 
     @Test

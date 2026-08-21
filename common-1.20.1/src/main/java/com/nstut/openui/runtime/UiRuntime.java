@@ -25,6 +25,7 @@ public final class UiRuntime implements AutoCloseable {
     private Theme theme;
     private UIComponent root;
     private boolean layoutDirty = true;
+    private boolean overlayLayoutDirty = true;
     private boolean paintDirty = true;
     private int x;
     private int y;
@@ -71,7 +72,9 @@ public final class UiRuntime implements AutoCloseable {
         requestLayout();
     }
 
-    public void requestLayout() { layoutDirty = true; paintDirty = true; }
+    public void requestLayout() { layoutDirty = true; overlayLayoutDirty = true; paintDirty = true; }
+    /** Invalidates overlay geometry without re-laying out the application root. */
+    public void requestOverlayLayout() { overlayLayoutDirty = true; paintDirty = true; }
     public void requestPaint() { paintDirty = true; }
     public boolean isLayoutDirty() { return layoutDirty; }
     public boolean isPaintDirty() { return paintDirty; }
@@ -82,8 +85,11 @@ public final class UiRuntime implements AutoCloseable {
         nativeWidgets.synchronize(root, overlays.components());
         if (layoutDirty) {
             root.layoutTree(font, x, y, width, height);
-            overlays.layout(font, x, y, width, height);
             layoutDirty = false;
+        }
+        if (overlayLayoutDirty) {
+            overlays.layout(font, x, y, width, height);
+            overlayLayoutDirty = false;
         }
         root.preRender(mouseX, mouseY);
         root.render(graphics, font, mouseX, mouseY, partialTick);
@@ -205,10 +211,15 @@ public final class UiRuntime implements AutoCloseable {
     }
 
     private UIComponent inputTarget(double mouseX, double mouseY) {
-        if (layoutDirty && root != null) {
-            root.layoutTree(font, x, y, width, height);
-            overlays.layout(font, x, y, width, height);
-            layoutDirty = false;
+        if (root != null && (layoutDirty || overlayLayoutDirty)) {
+            if (layoutDirty) {
+                root.layoutTree(font, x, y, width, height);
+                layoutDirty = false;
+            }
+            if (overlayLayoutDirty) {
+                overlays.layout(font, x, y, width, height);
+                overlayLayoutDirty = false;
+            }
         }
         UIComponent overlayTarget = overlays.hitTest((int) mouseX, (int) mouseY);
         return overlayTarget != null ? overlayTarget : root == null ? null : root.hitTest((int) mouseX, (int) mouseY);

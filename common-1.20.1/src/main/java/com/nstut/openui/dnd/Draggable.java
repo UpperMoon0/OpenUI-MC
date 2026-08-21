@@ -244,7 +244,7 @@ public class Draggable<T> extends UIComponent {
         private void updatePosition(double mx, double my) {
             this.fx = (int) mx;
             this.fy = (int) my;
-            invalidateLayout();
+            if (runtime() != null) runtime().requestOverlayLayout();
         }
 
         @Override public int preferredWidth(Font font) { return feedback.preferredWidth(font); }

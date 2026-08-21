@@ -96,7 +96,7 @@ Close manually created `Effect` and subscription objects during `onUnmount()`. S
 
 Compose `Ui.row`, `Ui.column`, `Ui.stack`, `Ui.padding`, and `Ui.responsive`. Apply `gap`, alignment, justification, width/height constraints, and flex behavior to the returned component. Use `VirtualList` for large fixed-height lists and `DynamicGrid` for UI-scale-aware columns.
 
-Every screen has a viewport. Override `uiLeft`, `uiTop`, `uiWidth`, or `uiHeight` only when the UI should occupy a smaller region, such as a container panel.
+Every screen has a viewport. On `UiScreen`, override `uiLeft`, `uiTop`, `uiWidth`, or `uiHeight` when the UI should occupy a smaller region. `UiContainerScreen` instead derives its viewport directly from the menu bounds: `leftPos`, `topPos`, `imageWidth`, and `imageHeight`.
 
 ## 5. Input and focus
 

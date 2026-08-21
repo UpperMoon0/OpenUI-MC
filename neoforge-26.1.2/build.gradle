@@ -17,6 +17,7 @@ java {
 
 sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
 sourceSets.test.runtimeClasspath += sourceSets.main.runtimeClasspath
+sourceSets.main.java.srcDir rootProject.file('shared/core/src/main/java')
 
 neoForge {
     version = rootProject.neoforge_version_26_1_2

@@ -1,5 +1,7 @@
 architectury { common rootProject.enabled_platforms_1_21_1.split(',') }
 
+sourceSets.main.java.srcDir rootProject.file('shared/core/src/main/java')
+
 dependencies {
     testImplementation platform('org.junit:junit-bom:5.10.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'

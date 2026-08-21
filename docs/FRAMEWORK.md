@@ -27,6 +27,8 @@ public final class SettingsScreen extends UiScreen {
 
 `UiRuntime` mounts and unmounts the tree, measures and lays it out, renders it, dispatches input, advances animations, manages focus and overlays, and registers native widgets. Components can override `onMount()` and `onUnmount()` for resources and subscriptions. Mutating structure calls build invalidation; size-affecting changes call layout invalidation; visual-only changes call paint invalidation.
 
+Root and overlay layout use separate dirty flags. A root or viewport layout request also invalidates overlays, while `requestOverlayLayout()` updates overlay geometry without measuring the application tree. Cursor-following feedback, tooltips, and other overlay-only movement should use the overlay-specific path.
+
 ## Reactive state
 
 ```java
@@ -42,7 +44,7 @@ Signals.batch(() -> {
 });
 ```
 
-Computed values automatically track every signal read during evaluation. `Effect` is intended for side effects and must be closed when its owner is disposed. Signal-bound controls remove their subscriptions on unmount. `StateStore.remember` retains keyed state across component rebuilding, while `AsyncValue` represents loading, success, and failure without sentinel values.
+Computed values automatically track every signal read during evaluation. `Effect` is intended for side effects and must be closed when its owner is disposed. Signal-bound controls remove their subscriptions on unmount. `StateStore.remember` retains keyed state only for the lifetime of its owning store, so code rebuilding components must preserve and reuse that store instance. `AsyncValue` represents loading, success, and failure without sentinel values.
 
 ## Layout
 
@@ -74,6 +76,10 @@ Events travel capture → target → bubble and may stop propagation, prevent th
 The runtime supplies a `Theme` to every mounted component. Standard controls consume semantic colors such as primary, surface, danger, success, border, and their foreground colors. Replace the runtime theme instead of hard-coding control colors.
 
 Custom components should implement measurement/layout only when their geometry is special. Minecraft 1.20.1 and 1.21.1 render through `GuiGraphics`; 26.1.2 uses `GuiGraphicsExtractor` and extracted render state. Prefer composing existing components. Register subscriptions in `onMount`, close them in `onUnmount`, use semantic theme colors, and call the narrowest invalidation method after mutation. Coordinate changes require layout invalidation; visual-only changes require paint invalidation.
+
+## Cross-version source layout
+
+`shared/core/src/main/java` contains framework classes that compile unchanged for every supported Minecraft target. The 1.20.1 common, 1.21.1 common, and 26.1.2 NeoForge projects all include that source set. APIs or rendering code that differ by Minecraft version remain in their version directories. A class should move into shared core only after it is identical across targets and the complete `testAllVersions` plus `buildAll` matrix passes.
 
 `FadeTransition` is deliberately unavailable on 26.1.2 because the extracted renderer cannot apply scoped opacity to an arbitrary component subtree. Use `SlideTransition` or `ScaleTransition` for cross-version code.
 
