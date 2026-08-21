@@ -1,0 +1,26 @@
+modLoader = "javafml"
+loaderVersion = "[47,48)"
+license = "MIT"
+issueTrackerURL = "https://github.com/UpperMoon0/OpenUI-MC/issues"
+
+[[mods]]
+modId = "openui_mc"
+version = "${version}"
+displayName = "OpenUI MC"
+authors = "NsTut"
+description = '''A reusable, composable UI framework for Minecraft mods.'''
+
+[[dependencies.openui_mc]]
+modId = "forge"
+mandatory = true
+versionRange = "[47,48)"
+ordering = "NONE"
+side = "CLIENT"
+
+[[dependencies.openui_mc]]
+modId = "minecraft"
+mandatory = true
+versionRange = "[1.20.1,1.21)"
+ordering = "NONE"
+side = "CLIENT"
+
