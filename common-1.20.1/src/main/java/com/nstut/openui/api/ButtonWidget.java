@@ -23,17 +23,35 @@ public class ButtonWidget extends UIComponent {
         this.normalColor = normalColor;
         this.hoverColor = hoverColor;
         this.textColor = textColor;
+        focusable(true);
     }
 
     public ButtonWidget onPress(Runnable r) { this.onClick = r; return this; }
-    public void setActive(boolean a) { this.active = a; }
-    public void setLabel(String label) { this.label = label; }
+    public void setActive(boolean a) { this.active = a; invalidatePaint(); }
+    public void setLabel(String label) { this.label = label; invalidateLayout(); }
     public ButtonWidget alignLeft() { this.alignLeft = true; return this; }
     public ButtonWidget activeIndicator() { this.activeIndicator = true; return this; }
     public ButtonWidget radius(int radius) { this.radius = Math.max(0, radius); return this; }
     public ButtonWidget height(int height) { this.requestedHeight = Math.max(0, height); return this; }
     public ButtonWidget textColor(int color) { this.textColor = color; return this; }
     public ButtonWidget enabled(boolean enabled) { this.enabled = enabled; return this; }
+    public ButtonWidget primary() { return variant(Variant.PRIMARY); }
+    public ButtonWidget secondary() { return variant(Variant.SECONDARY); }
+    public ButtonWidget ghost() { return variant(Variant.GHOST); }
+    public ButtonWidget danger() { return variant(Variant.DANGER); }
+    public ButtonWidget success() { return variant(Variant.SUCCESS); }
+    public ButtonWidget variant(Variant variant) {
+        switch (variant) {
+            case PRIMARY -> { normalColor = UiTheme.ACCENT_DIM; hoverColor = UiTheme.ACCENT; textColor = UiTheme.SHELL; }
+            case GHOST -> { normalColor = 0x00000000; hoverColor = UiTheme.SURFACE_HOVER; textColor = UiTheme.TEXT_PRIMARY; }
+            case DANGER -> { normalColor = UiTheme.DANGER_DEEP; hoverColor = UiTheme.DANGER; textColor = UiTheme.TEXT_PRIMARY; }
+            case SUCCESS -> { normalColor = UiTheme.SUCCESS_DEEP; hoverColor = UiTheme.SUCCESS; textColor = UiTheme.TEXT_PRIMARY; }
+            case SECONDARY -> { normalColor = UiTheme.SURFACE_RAISED; hoverColor = UiTheme.SURFACE_HOVER; textColor = UiTheme.TEXT_PRIMARY; }
+        }
+        invalidatePaint();
+        return this;
+    }
+    public enum Variant { PRIMARY, SECONDARY, GHOST, DANGER, SUCCESS }
     public boolean isEnabled() { return enabled; }
     public void setColors(int normalColor, int hoverColor) {
         this.normalColor = normalColor;
@@ -90,6 +108,15 @@ public class ButtonWidget extends UIComponent {
     public boolean mouseClicked(double mx, double my, int btn) {
         boolean inBounds = visible && mx >= x && mx < x + width && my >= y && my < y + height;
         if (enabled && btn == 0 && inBounds && onClick != null) {
+            onClick.run();
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean keyPressed(int key, int scanCode, int modifiers) {
+        if (enabled && (key == 257 || key == 32) && onClick != null) {
             onClick.run();
             return true;
         }

@@ -1,5 +1,6 @@
 package com.nstut.openui.api;
 
+import com.nstut.openui.layout.Insets;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 
@@ -24,6 +25,10 @@ public class Padding extends UIComponent {
         this.bottom = bottom;
         this.left = left;
         if (child != null) addChild(child);
+    }
+
+    public Padding(Insets insets, UIComponent child) {
+        this(insets.top(), insets.right(), insets.bottom(), insets.left(), child);
     }
 
     @Override

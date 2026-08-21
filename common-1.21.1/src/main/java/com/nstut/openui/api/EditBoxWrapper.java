@@ -1,11 +1,12 @@
 package com.nstut.openui.api;
 
+import com.nstut.openui.runtime.NativeWidgetOwner;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 
-public class EditBoxWrapper extends UIComponent {
+public class EditBoxWrapper extends UIComponent implements NativeWidgetOwner {
 
     private final EditBox editBox;
     private final int bgColor;
@@ -19,6 +20,7 @@ public class EditBoxWrapper extends UIComponent {
         this.editBox.setTextColor(textColor);
         this.editBox.setTextColorUneditable(UiTheme.TEXT_DISABLED);
         this.bgColor = bgColor;
+        focusable(true);
     }
 
     public EditBoxWrapper setPlaceholder(String placeholder) {
@@ -38,6 +40,7 @@ public class EditBoxWrapper extends UIComponent {
     }
 
     public EditBox getEditBox() { return editBox; }
+    @Override public EditBox nativeWidget() { return editBox; }
     public EditBoxWrapper radius(int radius) { this.radius = Math.max(0, radius); return this; }
     public String getValue() { return editBox.getValue(); }
     public void setValue(String v) {
@@ -50,8 +53,21 @@ public class EditBoxWrapper extends UIComponent {
     }
     public boolean isFocused() { return editBox.isFocused(); }
 
+    @Override
     public boolean keyPressed(int key, int scan, int mod) {
         return editBox.keyPressed(key, scan, mod);
+    }
+
+    @Override
+    public boolean charTyped(char character, int modifiers) {
+        return editBox.charTyped(character, modifiers);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        boolean handled = editBox.mouseClicked(mouseX, mouseY, button);
+        if (handled) requestFocus();
+        return handled;
     }
 
     @Override

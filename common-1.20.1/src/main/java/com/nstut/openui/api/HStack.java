@@ -1,5 +1,9 @@
 package com.nstut.openui.api;
 
+import com.nstut.openui.layout.Alignment;
+import com.nstut.openui.layout.Constraints;
+import com.nstut.openui.layout.Justification;
+import com.nstut.openui.layout.Size;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 
@@ -9,8 +13,12 @@ import java.util.List;
 public class HStack extends UIComponent {
 
     private int gap = 0;
+    private Alignment alignment = Alignment.STRETCH;
+    private Justification justification = Justification.START;
 
-    public HStack gap(int gap) { this.gap = gap; return this; }
+    public HStack gap(int gap) { this.gap = Math.max(0, gap); invalidateLayout(); return this; }
+    public HStack align(Alignment alignment) { this.alignment = alignment; invalidateLayout(); return this; }
+    public HStack justify(Justification justification) { this.justification = justification; invalidateLayout(); return this; }
     public HStack child(UIComponent c) { addChild(c); return this; }
 
     private List<UIComponent> visibleChildren() {
@@ -39,30 +47,56 @@ public class HStack extends UIComponent {
     public void layout(int x, int y, int availableWidth, int availableHeight) {
         setBounds(x, y, availableWidth, availableHeight);
         List<UIComponent> vc = visibleChildren();
+        if (vc.isEmpty()) return;
         float flexTotal = 0.0F;
         int fixedTotal = 0;
         for (UIComponent c : vc) {
             if (c instanceof Spacer || c.isFlex()) flexTotal += c.getFlexGrow() > 0.0F ? c.getFlexGrow() : 1.0F;
-            else fixedTotal += c.preferredWidth(measureFont());
+            else fixedTotal += c.measure(Constraints.loose(availableWidth, availableHeight), measureFont()).width();
         }
-        int flexSpace = Math.max(0, availableWidth - fixedTotal - gap * Math.max(0, vc.size() - 1));
+        int baseGaps = gap * Math.max(0, vc.size() - 1);
+        int flexSpace = Math.max(0, availableWidth - fixedTotal - baseGaps);
 
-        int cx = x;
+        List<Integer> widths = new ArrayList<>();
         int distributed = 0;
         float usedWeight = 0.0F;
         for (UIComponent c : vc) {
-            boolean flexible = c instanceof Spacer || c.isFlex();
-            int cw;
-            if (flexible && flexTotal > 0.0F) {
+            if ((c instanceof Spacer || c.isFlex()) && flexTotal > 0.0F) {
                 usedWeight += c.getFlexGrow() > 0.0F ? c.getFlexGrow() : 1.0F;
                 int target = Math.round(flexSpace * usedWeight / flexTotal);
-                cw = target - distributed;
+                widths.add(target - distributed);
                 distributed = target;
             } else {
-                cw = c.preferredWidth(measureFont());
+                widths.add(c.measure(Constraints.loose(availableWidth, availableHeight), measureFont()).width());
             }
-            c.layout(cx, y, cw, availableHeight);
-            cx += cw + gap;
+        }
+
+        int contentWidth = widths.stream().mapToInt(Integer::intValue).sum() + baseGaps;
+        int extra = Math.max(0, availableWidth - contentWidth);
+        int startOffset = 0;
+        int extraGap = 0;
+        switch (justification) {
+            case CENTER -> startOffset = extra / 2;
+            case END -> startOffset = extra;
+            case SPACE_BETWEEN -> extraGap = vc.size() > 1 ? extra / (vc.size() - 1) : 0;
+            case SPACE_AROUND -> { extraGap = extra / vc.size(); startOffset = extraGap / 2; }
+            case SPACE_EVENLY -> { extraGap = extra / (vc.size() + 1); startOffset = extraGap; }
+            default -> { }
+        }
+
+        int cx = x + startOffset;
+        for (int i = 0; i < vc.size(); i++) {
+            UIComponent c = vc.get(i);
+            int cw = widths.get(i);
+            Size measured = c.measure(Constraints.loose(cw, availableHeight), measureFont());
+            int ch = alignment == Alignment.STRETCH ? availableHeight : measured.height();
+            int childY = switch (alignment) {
+                case CENTER -> y + (availableHeight - ch) / 2;
+                case END -> y + availableHeight - ch;
+                default -> y;
+            };
+            c.layout(cx, childY, cw, ch);
+            cx += cw + gap + extraGap;
         }
     }
 

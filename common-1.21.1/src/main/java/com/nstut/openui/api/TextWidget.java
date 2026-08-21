@@ -15,7 +15,11 @@ public class TextWidget extends UIComponent {
         this.centered = centered;
     }
 
-    public void setText(String text) { this.text = text; }
+    public void setText(String text) {
+        if (java.util.Objects.equals(this.text, text)) return;
+        this.text = text;
+        invalidateLayout();
+    }
 
     public static TextWidget label(String text, int color) { return new TextWidget(text, color, false); }
     public static TextWidget centered(String text, int color) { return new TextWidget(text, color, true); }
