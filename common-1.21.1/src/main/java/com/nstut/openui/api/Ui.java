@@ -2,6 +2,15 @@ package com.nstut.openui.api;
 
 import com.nstut.openui.controls.SignalText;
 import com.nstut.openui.controls.TextField;
+import com.nstut.openui.controls.Checkbox;
+import com.nstut.openui.controls.ProgressBar;
+import com.nstut.openui.controls.Slider;
+import com.nstut.openui.controls.SwitchControl;
+import com.nstut.openui.controls.VirtualList;
+import com.nstut.openui.controls.DynamicGrid;
+import com.nstut.openui.controls.SignalSwitcher;
+import com.nstut.openui.controls.AsyncComponent;
+import com.nstut.openui.state.AsyncValue;
 import com.nstut.openui.layout.Insets;
 import com.nstut.openui.state.ReadableSignal;
 import com.nstut.openui.state.Signal;
@@ -9,6 +18,8 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
 
 import java.util.function.Function;
+import java.util.List;
+import java.util.function.Supplier;
 
 public final class Ui {
     private Ui() { }
@@ -56,4 +67,15 @@ public final class Ui {
     public static ButtonWidget button(Component label, Runnable action) { return button(label.getString(), action); }
     public static TextField textField(Signal<String> value) { return new TextField(value); }
     public static TextField textField(Signal<String> value, Font font) { return new TextField(value, font); }
+    public static Checkbox checkbox(String label, Signal<Boolean> value) { return new Checkbox(label, value); }
+    public static SwitchControl toggle(Signal<Boolean> value) { return new SwitchControl(value); }
+    public static ProgressBar progress(ReadableSignal<? extends Number> value) { return new ProgressBar(value); }
+    public static Slider slider(Signal<Double> value, double min, double max) { return new Slider(value, min, max); }
+    public static <T> VirtualList<T> list(ReadableSignal<List<T>> items, Function<T, UIComponent> renderer) { return new VirtualList<>(items, renderer); }
+    public static <T> DynamicGrid<T> grid(ReadableSignal<List<T>> items, Function<T, UIComponent> renderer) { return new DynamicGrid<>(items, renderer); }
+    public static <T> SignalSwitcher<T> switcher(ReadableSignal<T> selection) { return new SignalSwitcher<>(selection); }
+    public static <T> AsyncComponent<T> async(ReadableSignal<AsyncValue<T>> state, Supplier<UIComponent> loading,
+                                               Function<T, UIComponent> success, Function<Throwable, UIComponent> error) {
+        return new AsyncComponent<>(state, loading, success, error);
+    }
 }
