@@ -12,6 +12,9 @@ allprojects {
 }
 
 subprojects {
+    if (project.name == 'neoforge-26.1.2') {
+        return
+    }
     apply plugin: 'dev.architectury.loom'
     apply plugin: 'architectury-plugin'
     apply plugin: 'maven-publish'
@@ -53,11 +56,11 @@ tasks.register('buildAll') {
     group = 'build'
     description = 'Builds every supported Minecraft version and loader.'
     dependsOn ':fabric-1.20.1:build', ':forge-1.20.1:build',
-        ':fabric-1.21.1:build', ':neoforge-1.21.1:build'
+        ':fabric-1.21.1:build', ':neoforge-1.21.1:build',
+        ':neoforge-26.1.2:build'
 }
 
 tasks.register('testAllVersions') {
     group = 'verification'
     dependsOn ':common-1.20.1:test', ':common-1.21.1:test'
 }
-
