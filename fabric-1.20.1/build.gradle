@@ -17,6 +17,17 @@ dependencies {
     shadowBundle project(path: ':common-1.20.1', configuration: 'transformProductionFabric')
 }
 
-processResources { inputs.property 'version', project.version; filesMatching('fabric.mod.json') { expand version: project.version } }
+processResources {
+    def metadata = [
+        version: project.version,
+        mod_id: rootProject.mod_id,
+        mod_name: rootProject.mod_name,
+        mod_description: rootProject.mod_description,
+        mod_authors: rootProject.mod_authors,
+        mod_license: rootProject.mod_license
+    ]
+    inputs.properties metadata
+    filesMatching('fabric.mod.json') { expand metadata }
+}
 shadowJar { configurations = [project.configurations.shadowBundle]; archiveClassifier = 'dev-shadow' }
 remapJar { inputFile.set shadowJar.archiveFile }

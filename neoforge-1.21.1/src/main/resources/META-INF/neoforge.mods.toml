@@ -1,14 +1,14 @@
 modLoader = "javafml"
 loaderVersion = "[4,)"
-license = "MIT"
+license = "${mod_license}"
 issueTrackerURL = "https://github.com/UpperMoon0/OpenUI-MC/issues"
 
 [[mods]]
-modId = "openui_mc"
+modId = "${mod_id}"
 version = "${version}"
-displayName = "OpenUI MC"
-authors = "NsTut"
-description = '''A reusable, composable UI framework for Minecraft mods.'''
+displayName = "${mod_name}"
+authors = "${mod_authors}"
+description = '''${mod_description}'''
 
 [[dependencies.openui_mc]]
 modId = "neoforge"

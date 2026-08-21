@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
-  "id": "openui_mc",
+  "id": "${mod_id}",
   "version": "${version}",
-  "name": "OpenUI MC",
-  "description": "A reusable, composable UI framework for Minecraft mods.",
-  "authors": ["NsTut"],
+  "name": "${mod_name}",
+  "description": "${mod_description}",
+  "authors": ["${mod_authors}"],
   "contact": {
     "sources": "https://github.com/UpperMoon0/OpenUI-MC",
     "issues": "https://github.com/UpperMoon0/OpenUI-MC/issues"
   },
-  "license": "MIT",
+  "license": "${mod_license}",
   "environment": "client",
   "entrypoints": { "main": ["com.nstut.openui.fabric.OpenUiMcFabric"] },
   "depends": {
@@ -19,4 +19,3 @@
     "fabric-api": "*"
   }
 }
-

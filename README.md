@@ -1,6 +1,6 @@
 # OpenUI MC
 
-OpenUI MC is a composable, texture-free UI framework for Minecraft mod developers. It supports Fabric and Forge on Minecraft 1.20.1, plus Fabric and NeoForge on Minecraft 1.21.1.
+OpenUI MC is a reusable, declarative, and reactive UI framework for Minecraft mods. It supports Fabric and Forge on Minecraft 1.20.1, plus Fabric and NeoForge on Minecraft 1.21.1.
 
 ## Framework
 
@@ -25,7 +25,7 @@ includeBuild('../OpenUI-MC') {
 }
 
 // build.gradle
-implementation fg.deobf('com.nstut:openui-mc:0.2.0')
+implementation fg.deobf('com.nstut:openui-mc:0.0.1')
 ```
 
 Available loader modules are `fabric-1.20.1`, `forge-1.20.1`, `fabric-1.21.1`, and `neoforge-1.21.1`. At runtime, include the matching OpenUI MC jar as a required client-side library mod.
