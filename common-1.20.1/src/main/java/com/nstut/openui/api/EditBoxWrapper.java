@@ -9,6 +9,7 @@ import net.minecraft.network.chat.Component;
 public class EditBoxWrapper extends UIComponent implements NativeWidgetOwner {
 
     private final EditBox editBox;
+    private final int textColor;
     private final int bgColor;
     private String placeholder = "";
     private int radius = UiTheme.RADIUS_SM;
@@ -17,9 +18,9 @@ public class EditBoxWrapper extends UIComponent implements NativeWidgetOwner {
         this.editBox = new EditBox(font, 0, 0, 100, 16, Component.empty());
         this.editBox.setMaxLength(maxLength);
         this.editBox.setBordered(false);
-        this.editBox.setTextColor(textColor);
-        this.editBox.setTextColorUneditable(UiTheme.TEXT_DISABLED);
+        this.textColor = textColor;
         this.bgColor = bgColor;
+        if (textColor != 0) this.editBox.setTextColor(textColor);
         focusable(true);
     }
 
@@ -86,6 +87,10 @@ public class EditBoxWrapper extends UIComponent implements NativeWidgetOwner {
         }
         int bg = bgColor != 0 ? bgColor : colors.input();
         UiRender.roundedOutline(g, x, y, width, height, radius, bg, border);
+
+        // Keep editbox text color synchronized with active theme
+        editBox.setTextColor(textColor != 0 ? textColor : colors.onSurface());
+        editBox.setTextColorUneditable(colors.onSurfaceDisabled());
 
         // keep editbox inner bounds aligned with padding
         editBox.setX(x + 4);

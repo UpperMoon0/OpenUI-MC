@@ -22,7 +22,7 @@ public class TextField extends EditBoxWrapper {
     }
 
     public TextField(Signal<String> value, Font font) {
-        super(256, UiTheme.TEXT_PRIMARY, UiTheme.INPUT, font);
+        super(256, 0, 0, font);
         this.value = Objects.requireNonNull(value);
         setValue(value.get());
         getEditBox().setResponder(text -> {

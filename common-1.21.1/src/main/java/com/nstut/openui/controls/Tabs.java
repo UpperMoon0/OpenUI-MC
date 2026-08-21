@@ -72,7 +72,18 @@ public class Tabs<T> extends UIComponent {
         this.selectedValue = val;
         selectedSignal.set(val);
         if (onTabChanged != null) onTabChanged.accept(val);
-        invalidatePaint();
+
+        if (runtime() != null && !theme().reducedMotion() && width > 0) {
+            int tabCount = Math.max(1, tabs.size());
+            int tabW = width / tabCount;
+            float targetIndicatorX = x + findSelectedIndex() * tabW + 2;
+            runtime().animations().animateFloat(indicatorX, targetIndicatorX, theme().durations().hoverMs(), Easing.EASE_OUT, v -> {
+                indicatorX = v;
+                invalidatePaint();
+            });
+        } else {
+            invalidatePaint();
+        }
     }
 
     public T selected() {

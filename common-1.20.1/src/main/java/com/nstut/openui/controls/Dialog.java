@@ -42,15 +42,22 @@ public final class Dialog {
     public static OverlayHandle confirm(OverlayManager overlays, Component title, Component message, Runnable confirm, Runnable cancel) {
         Card card = new Card().elevated(true).outlined(true).padding(14);
         OverlayHandle[] handleRef = new OverlayHandle[1];
+        boolean[] actionTaken = new boolean[1];
 
         ButtonWidget cancelBtn = Ui.button(Component.translatable("gui.cancel"), () -> {
-            if (handleRef[0] != null) handleRef[0].close();
-            if (cancel != null) cancel.run();
+            if (!actionTaken[0]) {
+                actionTaken[0] = true;
+                if (handleRef[0] != null) handleRef[0].close();
+                if (cancel != null) cancel.run();
+            }
         }).ghost();
 
         ButtonWidget confirmBtn = Ui.button(Component.translatable("gui.ok"), () -> {
-            if (handleRef[0] != null) handleRef[0].close();
-            if (confirm != null) confirm.run();
+            if (!actionTaken[0]) {
+                actionTaken[0] = true;
+                if (handleRef[0] != null) handleRef[0].close();
+                if (confirm != null) confirm.run();
+            }
         }).primary();
 
         card.addChild(Ui.column(
@@ -60,7 +67,12 @@ public final class Dialog {
         ).gap(10));
         card.width(220).minHeight(90);
 
-        OverlayHandle handle = show(overlays, card, true, true, cancel);
+        OverlayHandle handle = show(overlays, card, true, true, () -> {
+            if (!actionTaken[0]) {
+                actionTaken[0] = true;
+                if (cancel != null) cancel.run();
+            }
+        });
         handleRef[0] = handle;
         return handle;
     }
@@ -68,10 +80,14 @@ public final class Dialog {
     public static OverlayHandle alert(OverlayManager overlays, Component title, Component message, Runnable onOk) {
         Card card = new Card().elevated(true).outlined(true).padding(14);
         OverlayHandle[] handleRef = new OverlayHandle[1];
+        boolean[] actionTaken = new boolean[1];
 
         ButtonWidget okBtn = Ui.button(Component.translatable("gui.ok"), () -> {
-            if (handleRef[0] != null) handleRef[0].close();
-            if (onOk != null) onOk.run();
+            if (!actionTaken[0]) {
+                actionTaken[0] = true;
+                if (handleRef[0] != null) handleRef[0].close();
+                if (onOk != null) onOk.run();
+            }
         }).primary();
 
         card.addChild(Ui.column(
@@ -81,7 +97,12 @@ public final class Dialog {
         ).gap(10));
         card.width(200).minHeight(80);
 
-        OverlayHandle handle = show(overlays, card, true, true, onOk);
+        OverlayHandle handle = show(overlays, card, true, true, () -> {
+            if (!actionTaken[0]) {
+                actionTaken[0] = true;
+                if (onOk != null) onOk.run();
+            }
+        });
         handleRef[0] = handle;
         return handle;
     }

@@ -4,6 +4,7 @@ import com.nstut.openui.theme.TextStyle;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.FormattedText;
 import net.minecraft.util.FormattedCharSequence;
 
 import java.util.List;
@@ -98,6 +99,10 @@ public class TextWidget extends UIComponent {
         return this;
     }
 
+    public TextWidget ellipsis() {
+        return ellipsis(true);
+    }
+
     public TextWidget ellipsis(boolean ellipsis) {
         this.ellipsis = ellipsis;
         invalidateLayout();
@@ -118,7 +123,12 @@ public class TextWidget extends UIComponent {
         if (font == null) return 0;
         Component comp = getText();
         float scale = style != null ? style.scale() : 1.0F;
-        int rawWidth = font.width(comp);
+        int rawWidth = 0;
+        try {
+            rawWidth = font.width(comp);
+        } catch (Throwable ignored) {
+            rawWidth = comp.getString().length() * 6;
+        }
         return Math.round(rawWidth * scale);
     }
 
@@ -126,16 +136,23 @@ public class TextWidget extends UIComponent {
     public int preferredHeight(Font font) {
         if (font == null) return 10;
         float scale = style != null ? style.scale() : 1.0F;
-        int baseLineHeight = Math.round(font.lineHeight * scale);
+        int baseLineHeight = 9;
+        try {
+            baseLineHeight = Math.round(font.lineHeight * scale);
+        } catch (Throwable ignored) {}
         if (!wrap || width <= 0) {
             String str = getText().getString();
             int lineCount = Math.max(1, str.split("\n", -1).length);
             return lineCount * (baseLineHeight + 2);
         }
-        int availableW = Math.max(10, Math.round(width / scale));
-        List<FormattedCharSequence> lines = font.split(getText(), availableW);
-        int lineCount = Math.min(maxLines, Math.max(1, lines.size()));
-        return lineCount * (baseLineHeight + 2);
+        try {
+            int availableW = Math.max(10, Math.round(width / scale));
+            List<FormattedCharSequence> lines = font.split(getText(), availableW);
+            int lineCount = Math.min(maxLines, Math.max(1, lines.size()));
+            return lineCount * (baseLineHeight + 2);
+        } catch (Throwable ignored) {
+            return baseLineHeight + 2;
+        }
     }
 
     @Override
@@ -163,6 +180,13 @@ public class TextWidget extends UIComponent {
             int count = Math.min(maxLines, lines.size());
             for (int i = 0; i < count; i++) {
                 FormattedCharSequence line = lines.get(i);
+                if (ellipsis && i == maxLines - 1 && lines.size() > maxLines) {
+                    // Ellipsize the final line if more lines exist
+                    FormattedText trimmed = font.substrByWidth(comp, Math.max(10, effectiveWidth - font.width("...")));
+                    line = FormattedCharSequence.composite(
+                            font.split(Component.literal(trimmed.getString() + "..."), effectiveWidth).get(0)
+                    );
+                }
                 int lw = font.width(line);
                 int lx = centered ? drawX + (effectiveWidth - lw) / 2 : drawX;
                 int ly = drawY + i * (font.lineHeight + 2);
@@ -175,15 +199,25 @@ public class TextWidget extends UIComponent {
                 int count = Math.min(maxLines, lines.length);
                 for (int i = 0; i < count; i++) {
                     String line = lines[i];
+                    if (ellipsis && effectiveWidth > 0 && font.width(line) > effectiveWidth) {
+                        line = font.plainSubstrByWidth(line, Math.max(8, effectiveWidth - font.width("..."))) + "...";
+                    }
                     int lw = font.width(line);
                     int lx = centered ? drawX + (effectiveWidth - lw) / 2 : drawX;
                     int ly = drawY + i * (font.lineHeight + 2);
                     g.drawString(font, line, lx, ly, textColor, style.shadow());
                 }
             } else {
-                int tw = font.width(comp);
-                int tx = centered ? drawX + (effectiveWidth - tw) / 2 : drawX;
-                g.drawString(font, comp, tx, drawY, textColor, style.shadow());
+                if (ellipsis && effectiveWidth > 0 && font.width(comp) > effectiveWidth) {
+                    String trimmed = font.plainSubstrByWidth(str, Math.max(8, effectiveWidth - font.width("..."))) + "...";
+                    int tw = font.width(trimmed);
+                    int tx = centered ? drawX + (effectiveWidth - tw) / 2 : drawX;
+                    g.drawString(font, trimmed, tx, drawY, textColor, style.shadow());
+                } else {
+                    int tw = font.width(comp);
+                    int tx = centered ? drawX + (effectiveWidth - tw) / 2 : drawX;
+                    g.drawString(font, comp, tx, drawY, textColor, style.shadow());
+                }
             }
         }
 

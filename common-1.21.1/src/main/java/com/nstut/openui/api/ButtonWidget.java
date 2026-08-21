@@ -1,6 +1,7 @@
 package com.nstut.openui.api;
 
 import com.nstut.openui.animation.Easing;
+import com.nstut.openui.input.EventType;
 import com.nstut.openui.theme.ColorScheme;
 import com.nstut.openui.theme.Theme;
 import net.minecraft.client.gui.Font;
@@ -31,7 +32,6 @@ public class ButtonWidget extends UIComponent {
 
     // Time-based animation state
     private float currentHoverProgress;
-    private long lastAnimTimeNanos = -1;
 
     public ButtonWidget(String label, int normalColor, int hoverColor, int textColor) {
         this(Component.literal(label != null ? label : ""));
@@ -96,13 +96,19 @@ public class ButtonWidget extends UIComponent {
 
     @Override
     public int preferredWidth(Font font) {
-        if (font == null) return 40;
-        Component comp = getLabel();
-        String str = comp.getString();
-        String[] lines = str.split("\n", -1);
-        int maxWidth = 0;
-        for (String line : lines) maxWidth = Math.max(maxWidth, font.width(line));
-        return maxWidth + (size == Size.SMALL ? 8 : (size == Size.LARGE ? 16 : 12));
+        if (font == null) return 60;
+        int basePadding = switch (size) {
+            case SMALL -> 8;
+            case MEDIUM -> 16;
+            case LARGE -> 24;
+        };
+        int textWidth = 40;
+        try {
+            textWidth = font.width(getLabel());
+        } catch (Throwable ignored) {
+            textWidth = getLabel().getString().length() * 6;
+        }
+        return Math.max(40, textWidth + basePadding);
     }
 
     @Override
@@ -121,28 +127,39 @@ public class ButtonWidget extends UIComponent {
     }
 
     @Override
+    protected void onMount() {
+        on(EventType.HOVER_ENTER, e -> {
+            if (runtime() != null && enabled && !theme().reducedMotion()) {
+                runtime().animations().animateFloat(currentHoverProgress, 1.0F, theme().durations().hoverMs(), Easing.EASE_OUT, v -> {
+                    currentHoverProgress = v;
+                    invalidatePaint();
+                });
+            } else {
+                currentHoverProgress = enabled ? 1.0F : 0.0F;
+                invalidatePaint();
+            }
+        });
+        on(EventType.HOVER_LEAVE, e -> {
+            if (runtime() != null && !theme().reducedMotion()) {
+                runtime().animations().animateFloat(currentHoverProgress, 0.0F, theme().durations().hoverMs(), Easing.EASE_OUT, v -> {
+                    currentHoverProgress = v;
+                    invalidatePaint();
+                });
+            } else {
+                currentHoverProgress = 0.0F;
+                invalidatePaint();
+            }
+        });
+    }
+
+    @Override
     public void render(GuiGraphics g, Font font, int mx, int my, float pt) {
         if (!visible) return;
         Theme t = theme();
         ColorScheme colors = t.colors();
 
-        // Time-based animation
-        long now = System.nanoTime();
-        if (lastAnimTimeNanos < 0) lastAnimTimeNanos = now;
-        float dtSeconds = (now - lastAnimTimeNanos) / 1_000_000_000.0F;
-        lastAnimTimeNanos = now;
-
-        float target = (enabled && isHovered()) ? 1.0F : 0.0F;
-        if (t.reducedMotion() || t.durations().hoverMs() <= 0) {
-            currentHoverProgress = target;
-        } else {
-            float durationSec = t.durations().hoverMs() / 1000.0F;
-            float step = dtSeconds / durationSec;
-            if (currentHoverProgress < target) {
-                currentHoverProgress = Math.min(target, currentHoverProgress + step);
-            } else if (currentHoverProgress > target) {
-                currentHoverProgress = Math.max(target, currentHoverProgress - step);
-            }
+        if (t.reducedMotion()) {
+            currentHoverProgress = (enabled && isHovered()) ? 1.0F : 0.0F;
         }
 
         float eased = Easing.EASE_OUT.apply(currentHoverProgress);

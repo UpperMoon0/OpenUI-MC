@@ -112,11 +112,19 @@ public class ContextMenu extends UIComponent {
         int menuW = preferredWidth(font);
         int menuH = preferredHeight(font);
 
+        int minX = lx + 2;
+        int maxX = lx + Math.max(0, availableWidth - menuW - 2);
+        int minY = ly + 2;
+        int maxY = ly + Math.max(0, availableHeight - menuH - 2);
+
         int targetX = mouseX;
         int targetY = mouseY;
 
-        if (targetX + menuW > availableWidth) targetX = Math.max(2, mouseX - menuW);
-        if (targetY + menuH > availableHeight) targetY = Math.max(2, mouseY - menuH);
+        if (targetX + menuW > lx + availableWidth) targetX = Math.max(minX, mouseX - menuW);
+        if (targetY + menuH > ly + availableHeight) targetY = Math.max(minY, mouseY - menuH);
+
+        targetX = Math.max(minX, Math.min(maxX, targetX));
+        targetY = Math.max(minY, Math.min(maxY, targetY));
 
         setBounds(targetX, targetY, menuW, menuH);
     }

@@ -94,15 +94,17 @@ public final class UiRuntime implements AutoCloseable {
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (root == null) return false;
+        boolean hasBlocking = overlays.hasBlockingOverlay();
         UIComponent target = inputTarget(mouseX, mouseY);
         if (target != null && target.isFocusable()) focus.requestFocus(target);
         else if (button == 0) focus.clearFocus();
-        if (target == null) return false;
+        if (target == null) return hasBlocking;
         pressedTarget = target;
         PointerEvent event = new PointerEvent(EventType.MOUSE_DOWN, target, mouseX, mouseY, button, 0, 0);
         dispatch(event);
         if (event.isPointerCaptureRequested()) pointerCapture = event.currentTarget() != null ? event.currentTarget() : target;
         boolean handled = !event.isDefaultPrevented() && target.mouseClicked(mouseX, mouseY, button);
+        if (hasBlocking) handled = true;
         return handled || event.isDefaultPrevented() || event.isPropagationStopped();
     }
 

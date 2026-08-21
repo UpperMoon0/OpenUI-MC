@@ -86,7 +86,7 @@ public class Popover extends UIComponent {
 
         Placement effectivePlacement = placement;
         if (effectivePlacement == Placement.AUTO) {
-            if (ay + ah + offset + popoverH > availableHeight && ay - offset - popoverH >= 0) {
+            if (ay + ah + offset + popoverH > ly + availableHeight && ay - offset - popoverH >= ly) {
                 effectivePlacement = Placement.TOP;
             } else {
                 effectivePlacement = Placement.BOTTOM;
@@ -113,9 +113,14 @@ public class Popover extends UIComponent {
             case AUTO -> {}
         }
 
-        // Viewport clamping
-        targetX = Math.max(4, Math.min(availableWidth - popoverW - 4, targetX));
-        targetY = Math.max(4, Math.min(availableHeight - popoverH - 4, targetY));
+        // Viewport clamping with origin offset
+        int minX = lx + 4;
+        int maxX = lx + Math.max(0, availableWidth - popoverW - 4);
+        int minY = ly + 4;
+        int maxY = ly + Math.max(0, availableHeight - popoverH - 4);
+
+        targetX = Math.max(minX, Math.min(maxX, targetX));
+        targetY = Math.max(minY, Math.min(maxY, targetY));
 
         setBounds(targetX, targetY, popoverW, popoverH);
         content.layoutTree(font, targetX + 6, targetY + 6, contentW, contentH);

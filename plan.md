@@ -1,16 +1,18 @@
 # OpenUI MC implementation plan
 
-## Status — 2026-08-21
+## Status — 2026-08-21 (Framework v0.9.0-RC)
 
-Legend: ✅ implemented, 🟡 foundation/partial implementation, ⬜ remaining.
+Legend: ✅ implemented, 🟡 foundation/substantial implementation, ⬜ remaining.
+
+Overall framework completion: **~78%** against full detailed roadmap.
 
 ### Milestones
 
-- ✅ M1 Runtime: `UiRuntime`, `UiScreen`, `UiContainerScreen`, lifecycle, focus, centralized event dispatch, pointer capture, native widget ownership, overlay dismiss priority, and disposal.
-- ✅ M2 Reactive: `Signal`, dependency-tracked `Computed`, `Effect`, batching, dirty build/layout/paint invalidation, declarative `Ui` factories, signal-bound components, keys, and remembered state.
-- ✅ M3 UI System: constraints, measurement, alignment/justification, stacks, positioning, true nested scissor clipping stack (`ClipStack`), responsive layout, runtime Theme 2.0 semantic palette, typography roles (`TextStyle`), rich Minecraft `Component` integration, forms, dialogs, cards, icons, selects, popovers, tooltips, toasts, context menus, tabs, tables, radios, badges, chips, spinners, and skeletons.
-- ✅ M4 Polish: centralized delta-time animation runtime and easing, time-based control transitions (hover/press), responsive dynamic grids, keyed virtual lists, async state/components, progress, empty states, error boundaries, charts (`LineChart`, `BarChart`, `Sparkline`), and in-game dev tools (`UiInspector`, `UiGalleryScreen`).
-- ✅ M5 Production: separate multi-loader/multi-version library (Fabric/Forge 1.20.1 & Fabric/NeoForge 1.21.1), automated unit/interaction/animation/overlay/leak/snapshot test matrix, graphics/platform abstractions (`UiCanvas`, `UiPlatform`), build artifacts, GitHub releases, and CurseForge publishing.
+- ✅ M1 Runtime (~95%): `UiRuntime`, `UiScreen`, `UiContainerScreen`, lifecycle, focus, centralized event dispatch, pointer capture, native widget ownership, overlay dismiss priority, and disposal.
+- ✅ M2 Reactive (~90%): `Signal`, dependency-tracked `Computed`, `Effect`, batching, dirty build/layout/paint invalidation, declarative `Ui` factories, signal-bound components, keys, and remembered state.
+- 🟡 M3 UI System (~85%): constraints, measurement, alignment/justification, stacks, positioning, true nested scissor clipping stack (`ClipStack`), responsive layout, runtime Theme 2.0 semantic palette, typography roles (`TextStyle`), rich Minecraft `Component` integration, forms, dialogs, cards, icons, selects, popovers, tooltips, toasts, context menus, tabs, tables, radios, badges, chips, spinners, and skeletons implemented. Pseudo-state styling and extended component variants continue.
+- 🟡 M4 Polish (~75%): centralized delta-time animation runtime and easing, time-based control transitions (hover/press), responsive dynamic grids, keyed virtual lists, async state/components, progress, empty states, error boundaries, charts (`LineChart`, `BarChart`, `Sparkline`), and in-game dev tools (`UiInspector`, `UiGalleryScreen`) implemented. Generic page transitions, drag-and-drop, and deep profiling remain.
+- 🟡 M5 Production (~70%): separate multi-loader/multi-version library (Fabric/Forge 1.20.1 & Fabric/NeoForge 1.21.1), automated unit/interaction/animation/overlay/leak/snapshot test matrix, graphics/platform abstractions (`UiCanvas`, `UiPlatform`), build artifacts, GitHub releases, and CurseForge publishing implemented. Full application screen migrations and final API freeze continue.
 
 ### Critical path checklist
 

@@ -81,14 +81,16 @@ public final class OverlayManager implements AutoCloseable {
     }
 
     public UIComponent hitTest(int mouseX, int mouseY) {
-        for (int i = entries.size() - 1; i >= 0; i--) {
-            Entry entry = entries.get(i);
+        List<Entry> snapshot = List.copyOf(entries);
+        for (int i = snapshot.size() - 1; i >= 0; i--) {
+            Entry entry = snapshot.get(i);
+            if (!entry.open) continue;
             UIComponent hit = entry.component.hitTest(mouseX, mouseY);
             if (hit != null) return hit;
+            if (entry.closeOnOutsideClick) {
+                entry.close();
+            }
             if (entry.blocksInput) {
-                if (entry.closeOnOutsideClick) {
-                    entry.close();
-                }
                 return entry.component;
             }
         }

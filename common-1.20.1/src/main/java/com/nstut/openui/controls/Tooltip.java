@@ -49,15 +49,23 @@ public class Tooltip extends UIComponent {
         int tipW = content.preferredWidth(font) + 8;
         int tipH = content.preferredHeight(font) + 6;
 
+        int minX = lx + 2;
+        int maxX = lx + Math.max(0, availableWidth - tipW - 2);
+        int minY = ly + 2;
+        int maxY = ly + Math.max(0, availableHeight - tipH - 2);
+
         int targetX = mouseX + 8;
         int targetY = mouseY + 12;
 
-        if (targetX + tipW > availableWidth) {
-            targetX = Math.max(2, mouseX - tipW - 4);
+        if (targetX + tipW > lx + availableWidth) {
+            targetX = Math.max(minX, mouseX - tipW - 4);
         }
-        if (targetY + tipH > availableHeight) {
-            targetY = Math.max(2, mouseY - tipH - 4);
+        if (targetY + tipH > ly + availableHeight) {
+            targetY = Math.max(minY, mouseY - tipH - 4);
         }
+
+        targetX = Math.max(minX, Math.min(maxX, targetX));
+        targetY = Math.max(minY, Math.min(maxY, targetY));
 
         setBounds(targetX, targetY, tipW, tipH);
         content.layoutTree(font, targetX + 4, targetY + 3, tipW - 8, tipH - 6);

@@ -3,11 +3,10 @@ package com.nstut.openui.runtime;
 import com.nstut.openui.api.ButtonWidget;
 import com.nstut.openui.api.UIComponent;
 import com.nstut.openui.api.Ui;
-import com.nstut.openui.controls.Dialog;
 import com.nstut.openui.overlay.OverlayHandle;
 import com.nstut.openui.overlay.OverlayLayer;
-import com.nstut.openui.overlay.OverlayManager;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import org.junit.jupiter.api.Test;
 
@@ -96,15 +95,56 @@ class OverlayFocusTest {
         UiRuntime runtime = new UiRuntime(new Font(null, false), dummyHost);
         AtomicBoolean screenClicked = new AtomicBoolean(false);
         ButtonWidget screenBtn = Ui.button("Click Me", () -> screenClicked.set(true));
-        screenBtn.layout(10, 10, 100, 20);
-        runtime.setRoot(screenBtn);
 
-        UIComponent modalCard = Ui.card(Ui.text("Modal")).width(120).height(80);
-        modalCard.layout(0, 0, 120, 80);
+        runtime.setRoot(screenBtn);
+        runtime.setViewport(0, 0, 300, 200);
+
+        UIComponent modalCard = new UIComponent() {
+            @Override public int preferredWidth(Font font) { return 120; }
+            @Override public int preferredHeight(Font font) { return 80; }
+            @Override public void layout(int lx, int ly, int w, int h) { setBounds(50, 50, 120, 80); }
+            @Override public void render(GuiGraphics g, Font f, int mx, int my, float pt) {}
+        };
         runtime.overlays().show(OverlayLayer.MODAL, modalCard, true);
 
-        // Click outside modal card
-        boolean handled = runtime.mouseClicked(150, 150, 0);
-        assertFalse(screenClicked.get());
+        // Click on the area where screenBtn is located, but outside modal card (10, 10)
+        boolean handled = runtime.mouseClicked(10, 10, 0);
+        assertTrue(handled, "Modal overlay should absorb and handle the click");
+        assertFalse(screenClicked.get(), "Screen button should not have received click when modal is active");
+    }
+
+    @Test
+    void nonBlockingOverlayDismissesOnOutsideClickAndPermitsUnderlyingClick() {
+        UiRuntime runtime = new UiRuntime(new Font(null, false), dummyHost);
+        AtomicBoolean screenClicked = new AtomicBoolean(false);
+        AtomicBoolean dropdownDismissed = new AtomicBoolean(false);
+
+        ButtonWidget screenBtn = Ui.button("Click Me", () -> screenClicked.set(true));
+        runtime.setRoot(screenBtn);
+        runtime.setViewport(0, 0, 300, 200);
+
+        UIComponent dropdown = new UIComponent() {
+            @Override public int preferredWidth(Font font) { return 80; }
+            @Override public int preferredHeight(Font font) { return 60; }
+            @Override public void layout(int lx, int ly, int w, int h) { setBounds(150, 50, 80, 60); }
+            @Override public void render(GuiGraphics g, Font f, int mx, int my, float pt) {}
+        };
+
+        runtime.overlays().show(
+                OverlayLayer.DROPDOWN,
+                dropdown,
+                false,
+                true,
+                true,
+                () -> dropdownDismissed.set(true)
+        );
+        assertEquals(1, runtime.overlays().size());
+
+        // Click outside dropdown directly on the screen button (15, 15)
+        runtime.mouseClicked(15, 15, 0);
+
+        assertTrue(dropdownDismissed.get(), "Dropdown should have been dismissed by outside click");
+        assertTrue(screenClicked.get(), "Screen button click should have been dispatched");
+        assertEquals(0, runtime.overlays().size());
     }
 }

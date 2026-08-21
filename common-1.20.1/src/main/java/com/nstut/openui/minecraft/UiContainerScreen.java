@@ -34,12 +34,26 @@ public abstract class UiContainerScreen<T extends AbstractContainerMenu> extends
 
     protected final void rebuildUI() { if (uiRuntime != null) uiRuntime.setRoot(buildUI()); }
 
-    @Override protected final void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) { }
+    @Override
+    protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
+        renderBackgroundLayer(graphics, partialTick, mouseX, mouseY);
+    }
+
+    /**
+     * Hook to render custom container backgrounds or slot frames before vanilla slot rendering.
+     */
+    protected void renderBackgroundLayer(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) { }
+
+    /**
+     * Hook to render foreground overlays above container items.
+     */
+    protected void renderForegroundLayer(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) { }
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
         if (uiRuntime != null) uiRuntime.render(graphics, mouseX, mouseY, partialTick);
+        renderForegroundLayer(graphics, partialTick, mouseX, mouseY);
     }
 
     @Override public boolean mouseClicked(double x, double y, int button) { return uiRuntime != null && uiRuntime.mouseClicked(x, y, button) || super.mouseClicked(x, y, button); }

@@ -238,8 +238,8 @@ public class Select<T> extends UIComponent {
             int menuW = Select.this.width;
             int menuX = Select.this.x;
 
-            if (runtime() != null && menuY + menuH > runtime().root().getHeight()) {
-                menuY = Math.max(2, Select.this.y - menuH - 2);
+            if (menuY + menuH > ly + availableHeight) {
+                menuY = Math.max(ly + 2, Select.this.y - menuH - 2);
             }
             setBounds(menuX, menuY, menuW, menuH);
         }
