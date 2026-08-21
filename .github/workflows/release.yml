@@ -6,6 +6,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -189,8 +192,8 @@ jobs:
           echo "Published ${JAR_PATH} to CurseForge as file ID ${file_id}."
 
   release:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: build
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: [build, publish-curseforge]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -211,4 +214,5 @@ jobs:
           tag_name: v${{ steps.version.outputs.value }}
           name: OpenUI MC v${{ steps.version.outputs.value }}
           generate_release_notes: true
+          fail_on_unmatched_files: true
           files: artifacts/**/*.jar
