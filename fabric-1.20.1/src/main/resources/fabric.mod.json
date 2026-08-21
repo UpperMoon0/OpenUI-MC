@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "${mod_id}",
+  "version": "${version}",
+  "name": "${mod_name}",
+  "description": "${mod_description}",
+  "icon": "openui_mc.png",
+  "authors": ["${mod_authors}"],
+  "contact": {
+    "homepage": "https://www.curseforge.com/minecraft/mc-mods/openui-mc",
+    "sources": "https://github.com/UpperMoon0/OpenUI-MC",
+    "issues": "https://github.com/UpperMoon0/OpenUI-MC/issues"
+  },
+  "license": "${mod_license}",
+  "environment": "client",
+  "entrypoints": { "main": ["com.nstut.openui.fabric.OpenUiMcFabric"] },
+  "depends": {
+    "fabricloader": ">=0.16.14",
+    "minecraft": "~1.20.1",
+    "java": ">=17",
+    "fabric-api": "*"
+  }
+}

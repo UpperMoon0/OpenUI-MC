@@ -1,67 +1,66 @@
 plugins {
-    id 'java-library'
-    id 'maven-publish'
-    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'dev.architectury.loom' version '1.11-SNAPSHOT' apply false
+    id 'architectury-plugin' version '3.4-SNAPSHOT'
+    id 'com.gradleup.shadow' version '8.3.6' apply false
 }
 
-group = maven_group
-version = mod_version
+architectury { minecraft = minecraft_version_1_20_1 }
 
-java {
-    toolchain.languageVersion = JavaLanguageVersion.of(17)
-    withSourcesJar()
-    withJavadocJar()
+allprojects {
+    group = rootProject.maven_group
+    version = rootProject.mod_version
 }
 
-minecraft {
-    mappings channel: 'official', version: minecraft_version
+subprojects {
+    if (project.name == 'neoforge-26.1.2') {
+        return
+    }
+    apply plugin: 'dev.architectury.loom'
+    apply plugin: 'architectury-plugin'
+    apply plugin: 'maven-publish'
 
-    runs {
-        client {
-            workingDirectory project.file('run')
-            mods {
-                openui_mc { source sourceSets.main }
+    def mc21 = project.name.contains('1.21.1')
+    def mcVersion = mc21 ? rootProject.minecraft_version_1_21_1 : rootProject.minecraft_version_1_20_1
+
+    base { archivesName = "${rootProject.archives_name}-${project.name}" }
+    loom { silentMojangMappingsLicense() }
+
+    dependencies {
+        minecraft "net.minecraft:minecraft:${mcVersion}"
+        mappings loom.officialMojangMappings()
+    }
+
+    java {
+        withSourcesJar()
+        sourceCompatibility = mc21 ? JavaVersion.VERSION_21 : JavaVersion.VERSION_17
+        targetCompatibility = mc21 ? JavaVersion.VERSION_21 : JavaVersion.VERSION_17
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.release = mc21 ? 21 : 17
+        options.encoding = 'UTF-8'
+    }
+    tasks.withType(Test).configureEach { useJUnitPlatform() }
+
+    publishing {
+        publications {
+            mavenJava(MavenPublication) {
+                artifactId = base.archivesName.get()
+                from components.java
             }
         }
     }
 }
 
-repositories {
-    mavenCentral()
+tasks.register('buildAll') {
+    group = 'build'
+    description = 'Builds every supported Minecraft version and loader.'
+    dependsOn ':fabric-1.20.1:build', ':forge-1.20.1:build',
+        ':fabric-1.21.1:build', ':neoforge-1.21.1:build',
+        ':neoforge-26.1.2:build'
 }
 
-dependencies {
-    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
-    testImplementation platform('org.junit:junit-bom:5.10.2')
-    testImplementation 'org.junit.jupiter:junit-jupiter'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+tasks.register('testAllVersions') {
+    group = 'verification'
+    dependsOn ':common-1.20.1:test', ':common-1.21.1:test', ':neoforge-26.1.2:test'
 }
-
-tasks.named('test', Test).configure {
-    useJUnitPlatform()
-}
-
-tasks.named('processResources', ProcessResources).configure {
-    def properties = [
-        version: mod_version,
-        minecraft_version_range: minecraft_version_range,
-        forge_version_range: forge_version_range,
-        loader_version_range: loader_version_range
-    ]
-    inputs.properties properties
-    filesMatching('META-INF/mods.toml') { expand properties }
-}
-
-tasks.named('jar', Jar).configure {
-    archiveBaseName = archives_name
-}
-
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            from components.java
-            artifactId = archives_name
-        }
-    }
-}
-

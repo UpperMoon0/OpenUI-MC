@@ -1,0 +1,51 @@
+package com.nstut.openui.controls;
+
+import com.nstut.openui.api.TextWidget;
+import com.nstut.openui.api.Ui;
+import com.nstut.openui.state.Signal;
+import com.nstut.openui.state.Signals;
+import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class VirtualListTest {
+
+    @Test
+    void virtualListLimitsActiveChildrenToViewportPlusOverscan() {
+        List<String> bigList = new ArrayList<>();
+        for (int i = 0; i < 1000; i++) {
+            bigList.add("Item " + i);
+        }
+
+        Signal<List<String>> items = Signals.of(bigList);
+        VirtualList<String> list = Ui.list(items, Ui::text)
+                .itemHeight(20)
+                .gap(0)
+                .overscan(2);
+
+        // Viewport height: 100px -> 5 visible items. With overscan 2 on top/bottom -> ~9 active items.
+        list.layout(0, 0, 200, 100);
+
+        assertTrue(list.activeCellCount() <= 10, "Active cells (" + list.activeCellCount() + ") should be bounded by viewport + overscan, not 1000");
+        assertTrue(list.activeCellCount() >= 5);
+    }
+
+    @Test
+    void virtualListReusesKeysWhenDataChanges() {
+        Signal<List<String>> items = Signals.of(List.of("A", "B", "C"));
+        VirtualList<String> list = Ui.list(items, Ui::text)
+                .key(s -> s)
+                .itemHeight(20);
+
+        list.layout(0, 0, 200, 100);
+        assertEquals(3, list.activeCellCount());
+
+        // Update list to A, D, C (A and C should be preserved)
+        items.set(List.of("A", "D", "C"));
+        list.layout(0, 0, 200, 100);
+        assertEquals(3, list.activeCellCount());
+    }
+}

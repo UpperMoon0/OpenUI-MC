@@ -1,0 +1,27 @@
+modLoader = "javafml"
+loaderVersion = "[47,48)"
+license = "${mod_license}"
+issueTrackerURL = "https://github.com/UpperMoon0/OpenUI-MC/issues"
+
+[[mods]]
+modId = "${mod_id}"
+version = "${version}"
+displayName = "${mod_name}"
+displayURL = "https://www.curseforge.com/minecraft/mc-mods/openui-mc"
+logoFile = "openui_mc.png"
+authors = "${mod_authors}"
+description = '''${mod_description}'''
+
+[[dependencies.openui_mc]]
+modId = "forge"
+mandatory = true
+versionRange = "[47,48)"
+ordering = "NONE"
+side = "CLIENT"
+
+[[dependencies.openui_mc]]
+modId = "minecraft"
+mandatory = true
+versionRange = "[1.20.1,1.21)"
+ordering = "NONE"
+side = "CLIENT"
