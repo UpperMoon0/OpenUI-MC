@@ -233,6 +233,8 @@ public class CommandPalette extends UIComponent {
         if (btn == 0 && mx >= x + 6 && mx < x + width - 6) {
             int listY = y + 36;
             int itemH = 20;
+            // Guard: click must be at or below the list start (avoids negative truncation selecting row 0)
+            if (my < listY) return false;
             int clickedIdx = scrollOffset + (int) ((my - listY) / itemH);
             if (clickedIdx >= 0 && clickedIdx < filteredItems.size()) {
                 selectedIndex = clickedIdx;

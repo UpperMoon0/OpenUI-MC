@@ -36,9 +36,16 @@ public class Table<T> extends UIComponent {
         }
     }
 
+    /**
+     * Stable identity key for a retained cell: the logical item key (from keyExtractor)
+     * plus the column index. Using the Object itself as part of the record avoids
+     * the hashCode-collision problem that a "hash:col" String key would produce.
+     */
+    private record CellKey(Object itemKey, int column) {}
+
     private final List<Column<T>> columns = new ArrayList<>();
     private final ReadableSignal<List<T>> itemsSignal;
-    private final Map<String, UIComponent> activeCells = new LinkedHashMap<>();
+    private final Map<CellKey, UIComponent> activeCells = new LinkedHashMap<>();
     private SelectionModel<T> selectionModel;
     private Subscription subscription = Subscription.EMPTY;
     private int scrollOffset = 0;
@@ -145,7 +152,7 @@ public class Table<T> extends UIComponent {
         int endRow = Math.min(items.size(), startRow + visibleRows + 1);
 
         int[] colWidths = calculateColumnWidths();
-        Map<String, UIComponent> nextCells = new LinkedHashMap<>();
+        Map<CellKey, UIComponent> nextCells = new LinkedHashMap<>();
 
         for (int i = startRow; i < endRow; i++) {
             T item = items.get(i);
@@ -153,13 +160,13 @@ public class Table<T> extends UIComponent {
             if (rowY + rowH > ly + availableHeight - 1) break;
 
             Object itemKey = keyExtractor != null ? keyExtractor.apply(item) : item;
-            int itemHash = (itemKey != null ? itemKey.hashCode() : System.identityHashCode(item));
 
             int colX = lx + 4;
             for (int c = 0; c < columns.size(); c++) {
                 Column<T> col = columns.get(c);
                 int cw = colWidths[c];
-                String cellKey = itemHash + ":" + c;
+                // Use a proper record key — avoids hash-collision aliasing from String "hash:col"
+                CellKey cellKey = new CellKey(itemKey, c);
 
                 UIComponent cell = activeCells.get(cellKey);
                 if (cell == null && col.cellRenderer() != null) {
@@ -178,7 +185,7 @@ public class Table<T> extends UIComponent {
         }
 
         // Dispose removed cells
-        for (Map.Entry<String, UIComponent> entry : new ArrayList<>(activeCells.entrySet())) {
+        for (Map.Entry<CellKey, UIComponent> entry : new ArrayList<>(activeCells.entrySet())) {
             if (!nextCells.containsKey(entry.getKey())) {
                 removeChild(entry.getValue());
                 entry.getValue().dispose();

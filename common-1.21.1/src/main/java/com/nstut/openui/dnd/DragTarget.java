@@ -38,6 +38,9 @@ public class DragTarget<T> extends UIComponent {
         return false;
     }
 
+    /** Alias used by Draggable to check before casting. */
+    public boolean accepts(Object data) { return canAccept(data); }
+
     public void handleDrop(DropEvent<?> event) {
         if (canAccept(event.data()) && onDrop != null) {
             onDrop.accept(new DropEvent<>(dataType.cast(event.data()), event.source(), event.mouseX(), event.mouseY()));

@@ -9,7 +9,8 @@ public class UiEvent {
     private EventPhase phase = EventPhase.TARGET;
     private boolean propagationStopped;
     private boolean defaultPrevented;
-    private boolean pointerCaptureRequested;
+    /** The component that explicitly requested pointer capture, set immediately at request time. */
+    private UIComponent pointerCaptureTarget;
 
     public UiEvent(EventType type, UIComponent target) {
         this.type = type;
@@ -22,14 +23,28 @@ public class UiEvent {
     public EventPhase phase() { return phase; }
     public boolean isPropagationStopped() { return propagationStopped; }
     public boolean isDefaultPrevented() { return defaultPrevented; }
-    public boolean isPointerCaptureRequested() { return pointerCaptureRequested; }
+    /** True if any component called capturePointer() during dispatch. */
+    public boolean isPointerCaptureRequested() { return pointerCaptureTarget != null; }
+    /** The component that called capturePointer(), or null if nobody requested it. */
+    public UIComponent pointerCaptureTarget() { return pointerCaptureTarget; }
+
     public void stopPropagation() { propagationStopped = true; }
     public void preventDefault() { defaultPrevented = true; }
-    public void capturePointer() { pointerCaptureRequested = true; }
+
+    /**
+     * Records the component currently handling this event as the pointer-capture owner.
+     * Must be called from within a listener or dispatchEvent() so that currentTarget
+     * is still valid. Stores it immediately so that subsequent bubble phases
+     * cannot overwrite it.
+     */
+    public void capturePointer() {
+        if (pointerCaptureTarget == null) {
+            pointerCaptureTarget = currentTarget;
+        }
+    }
 
     public void route(UIComponent currentTarget, EventPhase phase) {
         this.currentTarget = currentTarget;
         this.phase = phase;
     }
 }
-

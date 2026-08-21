@@ -12,6 +12,11 @@ import java.util.function.Supplier;
 public class Draggable<T> extends UIComponent {
     private final T data;
     private final UIComponent child;
+    /**
+     * Optional factory that creates a *new* feedback widget for the overlay.
+     * If absent, a lightweight GhostFeedback is rendered at the cursor instead,
+     * which avoids reparenting the source child.
+     */
     private Supplier<UIComponent> feedbackSupplier;
     private boolean dragging;
     private double startMouseX, startMouseY;
@@ -52,12 +57,10 @@ public class Draggable<T> extends UIComponent {
     @Override
     public void render(GuiGraphics g, Font font, int mx, int my, float pt) {
         if (!visible) return;
+        // Always render the real child; apply a semi-transparent overlay while dragging
+        child.render(g, font, mx, my, pt);
         if (dragging) {
-            // Render dimmed/translucent
-            child.render(g, font, mx, my, pt);
             g.fill(x, y, x + width, y + height, 0x80000000);
-        } else {
-            child.render(g, font, mx, my, pt);
         }
     }
 
@@ -106,7 +109,16 @@ public class Draggable<T> extends UIComponent {
         dragging = true;
         invalidatePaint();
         if (runtime() != null) {
-            UIComponent fb = (feedbackSupplier != null) ? feedbackSupplier.get() : child;
+            // IMPORTANT: Never pass 'child' itself as feedback — that would reparent the live child
+            // into the overlay and destroy the source component.
+            // Use the caller-supplied factory if available; otherwise create a standalone GhostFeedback
+            // that draws a copy using the source's current bounds.
+            UIComponent fb;
+            if (feedbackSupplier != null) {
+                fb = feedbackSupplier.get();
+            } else {
+                fb = new GhostFeedback(this, child.getWidth(), child.getHeight());
+            }
             feedbackComponent = new DragFeedbackOverlay(fb, (int) currentMouseX, (int) currentMouseY);
             dragOverlay = runtime().overlays().show(OverlayLayer.TOOLTIP, feedbackComponent, false, true, false, null);
         }
@@ -125,7 +137,11 @@ public class Draggable<T> extends UIComponent {
             UIComponent hit = runtime().root().hitTest((int) mx, (int) my);
             DragTarget<?> target = findDragTarget(hit);
             if (target != null) {
-                target.handleDrop(new DropEvent<>(data, this, mx, my));
+                @SuppressWarnings("unchecked")
+                DragTarget<Object> casted = (DragTarget<Object>) target;
+                if (casted.accepts(data)) {
+                    casted.handleDrop(new DropEvent<>(data, this, mx, my));
+                }
             }
         }
     }
@@ -139,6 +155,40 @@ public class Draggable<T> extends UIComponent {
         return null;
     }
 
+    // -------------------------------------------------------------------------
+    // GhostFeedback: a lightweight stand-in that renders a semi-transparent
+    // solid rectangle matching the source size — safe because it holds no reference
+    // to the source's live child widget.
+    // -------------------------------------------------------------------------
+    private static final class GhostFeedback extends UIComponent {
+        private final UIComponent source;
+        private final int srcW, srcH;
+
+        private GhostFeedback(UIComponent source, int srcW, int srcH) {
+            this.source = source;
+            this.srcW = srcW;
+            this.srcH = srcH;
+        }
+
+        @Override public int preferredWidth(Font font) { return srcW > 0 ? srcW : 40; }
+        @Override public int preferredHeight(Font font) { return srcH > 0 ? srcH : 16; }
+
+        @Override
+        public void layout(int lx, int ly, int availableWidth, int availableHeight) {
+            setBounds(lx, ly, availableWidth, availableHeight);
+        }
+
+        @Override
+        public void render(GuiGraphics g, Font font, int mx, int my, float pt) {
+            // Draw the real child at the feedback position with transparency overlay
+            source.render(g, font, mx, my, pt);
+            g.fill(x, y, x + width, y + height, 0x60000000);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // DragFeedbackOverlay: positions the feedback widget at the cursor.
+    // -------------------------------------------------------------------------
     private static final class DragFeedbackOverlay extends UIComponent {
         private final UIComponent feedback;
         private int fx, fy;

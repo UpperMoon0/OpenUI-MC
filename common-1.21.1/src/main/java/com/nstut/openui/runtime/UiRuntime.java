@@ -106,8 +106,14 @@ public final class UiRuntime implements AutoCloseable {
         pressedTarget = target;
         PointerEvent event = new PointerEvent(EventType.MOUSE_DOWN, target, mouseX, mouseY, button, 0, 0);
         dispatch(event);
-        if (event.isPointerCaptureRequested()) pointerCapture = event.currentTarget() != null ? event.currentTarget() : target;
-        boolean handled = !event.isDefaultPrevented() && target.mouseClicked(mouseX, mouseY, button);
+        // Fix: use the component that explicitly called capturePointer(), not currentTarget after bubbling
+        if (event.isPointerCaptureRequested()) pointerCapture = event.pointerCaptureTarget();
+        boolean handled = false;
+        if (!event.isDefaultPrevented()) {
+            // Bubble default-handler up ancestor chain so parent composites (Card, VirtualList, etc.)
+            // receive mouseClicked() when their leaf child does not handle it.
+            handled = bubbleMouseClicked(target, mouseX, mouseY, button);
+        }
         if (hasBlocking) handled = true;
         return handled || event.isDefaultPrevented() || event.isPropagationStopped();
     }
@@ -117,8 +123,8 @@ public final class UiRuntime implements AutoCloseable {
         if (target == null) return false;
         PointerEvent event = new PointerEvent(EventType.SCROLL, target, mouseX, mouseY, -1, 0, delta);
         dispatch(event);
-        return !event.isDefaultPrevented() && target.mouseScrolled(mouseX, mouseY, delta)
-                || event.isDefaultPrevented() || event.isPropagationStopped();
+        boolean handled = !event.isDefaultPrevented() && bubbleMouseScrolled(target, mouseX, mouseY, delta);
+        return handled || event.isDefaultPrevented() || event.isPropagationStopped();
     }
 
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
@@ -126,9 +132,9 @@ public final class UiRuntime implements AutoCloseable {
         if (target == null) return false;
         PointerEvent event = new PointerEvent(EventType.MOUSE_DRAG, target, mouseX, mouseY, button, dragX, dragY);
         dispatch(event);
-        if (event.isPointerCaptureRequested()) pointerCapture = event.currentTarget() != null ? event.currentTarget() : target;
-        return !event.isDefaultPrevented() && target.mouseDragged(mouseX, mouseY, button, dragX, dragY)
-                || event.isDefaultPrevented() || event.isPropagationStopped();
+        if (event.isPointerCaptureRequested()) pointerCapture = event.pointerCaptureTarget();
+        boolean handled = !event.isDefaultPrevented() && target.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+        return handled || event.isDefaultPrevented() || event.isPropagationStopped();
     }
 
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
@@ -205,6 +211,35 @@ public final class UiRuntime implements AutoCloseable {
         }
         UIComponent overlayTarget = overlays.hitTest((int) mouseX, (int) mouseY);
         return overlayTarget != null ? overlayTarget : root == null ? null : root.hitTest((int) mouseX, (int) mouseY);
+    }
+
+    /**
+     * Walk target → parent bubbling mouseClicked() until a component returns true.
+     * This ensures composite controls (Card, VirtualList, Table rows, etc.) whose
+     * behaviour lives in mouseClicked() are not silently bypassed when the hit-test
+     * returns a leaf descendant.
+     */
+    private boolean bubbleMouseClicked(UIComponent from, double mx, double my, int button) {
+        UIComponent cursor = from;
+        while (cursor != null) {
+            if (cursor.mouseClicked(mx, my, button)) return true;
+            cursor = cursor.parent();
+        }
+        return false;
+    }
+
+    /**
+     * Walk target → parent bubbling mouseScrolled() until a component returns true.
+     * This ensures scroll containers (VirtualList, ScrollPane) receive scroll events
+     * when the pointer is over one of their children.
+     */
+    private boolean bubbleMouseScrolled(UIComponent from, double mx, double my, double delta) {
+        UIComponent cursor = from;
+        while (cursor != null) {
+            if (cursor.mouseScrolled(mx, my, delta)) return true;
+            cursor = cursor.parent();
+        }
+        return false;
     }
 
     @Override
