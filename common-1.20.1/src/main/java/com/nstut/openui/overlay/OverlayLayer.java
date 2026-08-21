@@ -1,4 +1,4 @@
 package com.nstut.openui.overlay;
 
-public enum OverlayLayer { DROPDOWN, POPOVER, MODAL, TOAST, TOOLTIP, DEBUG }
+public enum OverlayLayer { MODAL, DROPDOWN, POPOVER, TOAST, TOOLTIP, DEBUG }
 

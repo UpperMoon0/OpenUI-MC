@@ -7,6 +7,7 @@ public class Divider extends UIComponent {
 
     private final int color;
 
+    public Divider() { this(0); }
     public Divider(int color) { this.color = color; }
 
     @Override
@@ -17,6 +18,7 @@ public class Divider extends UIComponent {
 
     @Override
     public void render(GuiGraphics g, Font font, int mx, int my, float pt) {
-        g.fill(x, y, x + width, y + height, color);
+        int col = color != 0 ? color : theme().colors().borderSubtle();
+        g.fill(x, y, x + width, y + height, col);
     }
 }

@@ -41,6 +41,7 @@ public final class UiRuntime implements AutoCloseable {
         this.font = Objects.requireNonNull(font);
         this.nativeWidgets = new NativeWidgetManager(Objects.requireNonNull(widgetHost));
         this.theme = Objects.requireNonNull(theme);
+        this.focus.setOverlayRoots(this.overlays::components);
     }
 
     public UIComponent root() { return root; }
@@ -142,7 +143,7 @@ public final class UiRuntime implements AutoCloseable {
     }
 
     public boolean keyPressed(int key, int scanCode, int modifiers) {
-        if (key == 256 && overlays.hasModal()) { overlays.closeTop(); return true; }
+        if (key == 256 && overlays.closeTopDismissable()) return true;
         if (key == 258) return (modifiers & 1) != 0 ? focus.focusPrevious() : focus.focusNext();
         UIComponent target = focus.focused();
         if (target == null) return false;
@@ -191,6 +192,11 @@ public final class UiRuntime implements AutoCloseable {
     }
 
     private UIComponent inputTarget(double mouseX, double mouseY) {
+        if (layoutDirty && root != null) {
+            root.layoutTree(font, x, y, width, height);
+            overlays.layout(font, x, y, width, height);
+            layoutDirty = false;
+        }
         UIComponent overlayTarget = overlays.hitTest((int) mouseX, (int) mouseY);
         return overlayTarget != null ? overlayTarget : root == null ? null : root.hitTest((int) mouseX, (int) mouseY);
     }

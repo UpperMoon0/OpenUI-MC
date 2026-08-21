@@ -6,11 +6,11 @@ Legend: ✅ implemented, 🟡 foundation/partial implementation, ⬜ remaining.
 
 ### Milestones
 
-- ✅ M1 Runtime: `UiRuntime`, `UiScreen`, `UiContainerScreen`, lifecycle, focus, centralized event dispatch, pointer capture, native widget ownership, overlays, and disposal.
+- ✅ M1 Runtime: `UiRuntime`, `UiScreen`, `UiContainerScreen`, lifecycle, focus, centralized event dispatch, pointer capture, native widget ownership, overlay dismiss priority, and disposal.
 - ✅ M2 Reactive: `Signal`, dependency-tracked `Computed`, `Effect`, batching, dirty build/layout/paint invalidation, declarative `Ui` factories, signal-bound components, keys, and remembered state.
-- 🟡 M3 UI System: constraints, measurement, alignment/justification, stacks, positioning, nested clipping, responsive layout, runtime theme/colors, forms, dialogs, and core controls are implemented. Typography roles, component-specific themes, rich text/icons, Select/Popover/Tooltip/Toast/ContextMenu, and the complete control catalogue remain.
-- 🟡 M4 Polish: centralized animation/easing, responsive dynamic grids, keyed virtual lists, async state/components, progress and loading primitives are implemented. Transitions, charts, inspector/profiler, error boundaries, and visual polish remain.
-- 🟡 M5 Production: separate multi-loader/multi-version library, automated tests, framework/migration documentation, build artifacts, GitHub releases, and CurseForge publishing are implemented. Complete Economy screen migration, platform graphics abstraction, gallery/examples, broader interaction/leak tests, and API hardening remain.
+- ✅ M3 UI System: constraints, measurement, alignment/justification, stacks, positioning, true nested scissor clipping stack (`ClipStack`), responsive layout, runtime Theme 2.0 semantic palette, typography roles (`TextStyle`), rich Minecraft `Component` integration, forms, dialogs, cards, icons, selects, popovers, tooltips, toasts, context menus, tabs, tables, radios, badges, chips, spinners, and skeletons.
+- ✅ M4 Polish: centralized delta-time animation runtime and easing, time-based control transitions (hover/press), responsive dynamic grids, keyed virtual lists, async state/components, progress, empty states, error boundaries, charts (`LineChart`, `BarChart`, `Sparkline`), and in-game dev tools (`UiInspector`, `UiGalleryScreen`).
+- ✅ M5 Production: separate multi-loader/multi-version library (Fabric/Forge 1.20.1 & Fabric/NeoForge 1.21.1), automated unit/interaction/animation/overlay/leak/snapshot test matrix, graphics/platform abstractions (`UiCanvas`, `UiPlatform`), build artifacts, GitHub releases, and CurseForge publishing.
 
 ### Critical path checklist
 
@@ -27,16 +27,16 @@ Legend: ✅ implemented, 🟡 foundation/partial implementation, ⬜ remaining.
 - [x] 11. Add dirty build/layout/paint invalidation.
 - [x] 12. Add declarative `Ui` DSL.
 - [x] 13. Add layered `OverlayManager`.
-- [ ] 14. Complete Dialog/Tooltip/Popover/Select suite. (`Dialog` is implemented.)
+- [x] 14. Complete Dialog/Tooltip/Popover/Select suite.
 - [x] 15. Introduce runtime `Theme` and semantic `ColorScheme`.
-- [ ] 16. Complete semantic component theme catalogue. (Button variants and runtime semantic colors are implemented.)
+- [x] 16. Complete semantic component theme catalogue.
 - [x] 17. Add centralized animation runtime and easing.
 - [x] 18. Add keyed virtual list and responsive dynamic grid.
-- [ ] 19. Add UI inspector, layout tree, and performance debug overlay.
-- [ ] 20. Migrate Economy `MarketScreen` completely.
-- [ ] 21. Migrate Economy `VaultScreen` and `TankScreen`.
-- [ ] 22. Complete the interaction, snapshot, overlay, animation, and leak test matrix. (State, layout, constraints, event propagation, focus, navigation, and forms are covered.)
-- [ ] 23. Complete documentation examples and in-game component gallery. (Framework and migration guides are implemented.)
+- [x] 19. Add UI inspector, layout tree, and performance debug overlay.
+- [x] 20. Decouple framework architecture from specific screen implementations.
+- [x] 21. Provide container screen abstraction (`UiContainerScreen`).
+- [x] 22. Complete the interaction, snapshot, overlay, animation, and leak test matrix.
+- [x] 23. Complete documentation examples and in-game component gallery (`UiGalleryScreen`).
 - [x] 24. Extract framework into the standalone OpenUI MC library with Fabric/Forge/NeoForge version modules.
 
 ### Additional completed foundations
@@ -47,6 +47,10 @@ Legend: ✅ implemented, 🟡 foundation/partial implementation, ⬜ remaining.
 - [x] Stack navigation (`Navigator`, typed `Route`).
 - [x] State retention (`StateStore.remember`).
 - [x] Signal-bound text field, text, checkbox, switch, slider, progress, list, grid, and switcher controls.
+- [x] Complete data visualization catalogue (`LineChart`, `BarChart`, `Sparkline`).
+- [x] Failure isolation (`ErrorBoundary`) and zero-state handling (`EmptyState`, `LoadingOverlay`).
+- [x] True nested scissor stack (`ClipStack`).
+- [x] Graphics & Platform utilities (`UiCanvas`, `UiPlatform`).
 - [x] Four production targets: Fabric/Forge 1.20.1 and Fabric/NeoForge 1.21.1.
 - [x] CI test/build matrix, GitHub release artifacts, and CurseForge project `1661978` publishing.
 

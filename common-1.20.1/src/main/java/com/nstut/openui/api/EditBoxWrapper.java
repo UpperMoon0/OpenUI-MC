@@ -78,12 +78,14 @@ public class EditBoxWrapper extends UIComponent implements NativeWidgetOwner {
     @Override
     public void render(GuiGraphics g, Font font, int mx, int my, float pt) {
         if (!visible) return;
-        int border = editBox.isFocused() ? UiTheme.ACCENT : (hovered ? UiTheme.BORDER_STRONG : UiTheme.BORDER);
+        var colors = theme().colors();
+        int border = editBox.isFocused() ? colors.primary() : (hovered ? colors.borderStrong() : colors.border());
         if (editBox.isFocused()) {
             UiRender.roundedRect(g, x - 1, y - 1, width + 2, height + 2, radius + 1,
-                    UiRender.alpha(UiTheme.ACCENT, 80));
+                    UiRender.alpha(colors.primary(), 80));
         }
-        UiRender.roundedOutline(g, x, y, width, height, radius, bgColor, border);
+        int bg = bgColor != 0 ? bgColor : colors.input();
+        UiRender.roundedOutline(g, x, y, width, height, radius, bg, border);
 
         // keep editbox inner bounds aligned with padding
         editBox.setX(x + 4);
@@ -91,7 +93,7 @@ public class EditBoxWrapper extends UIComponent implements NativeWidgetOwner {
         editBox.setWidth(Math.max(10, width - 8));
 
         if (editBox.getValue().isEmpty() && !placeholder.isEmpty()) {
-            int placeholderColor = editBox.isFocused() ? UiTheme.TEXT_SECONDARY : UiTheme.TEXT_MUTED;
+            int placeholderColor = editBox.isFocused() ? colors.onSurface() : colors.onSurfaceMuted();
             g.drawString(font, placeholder, x + 4, y + (height - font.lineHeight) / 2, placeholderColor);
         }
         // The native widget remains registered for input routing. Rendering it

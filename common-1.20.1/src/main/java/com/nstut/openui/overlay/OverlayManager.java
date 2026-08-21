@@ -16,31 +16,65 @@ public final class OverlayManager implements AutoCloseable {
 
     public OverlayManager(UiRuntime runtime) { this.runtime = runtime; }
 
-    public OverlayHandle show(OverlayLayer layer, UIComponent component) { return show(layer, component, layer == OverlayLayer.MODAL); }
+    public OverlayHandle show(OverlayLayer layer, UIComponent component) {
+        return show(layer, component, layer == OverlayLayer.MODAL, layer != OverlayLayer.TOOLTIP && layer != OverlayLayer.DEBUG, false, null);
+    }
 
     public OverlayHandle show(OverlayLayer layer, UIComponent component, boolean blocksInput) {
-        Entry entry = new Entry(layer, Objects.requireNonNull(component), blocksInput);
+        return show(layer, component, blocksInput, layer != OverlayLayer.TOOLTIP && layer != OverlayLayer.DEBUG, false, null);
+    }
+
+    public OverlayHandle show(OverlayLayer layer, UIComponent component, boolean blocksInput,
+                              boolean closeOnEscape, boolean closeOnOutsideClick, Runnable onClose) {
+        Entry entry = new Entry(layer, Objects.requireNonNull(component), blocksInput, closeOnEscape, closeOnOutsideClick, onClose);
         entries.add(entry);
         entries.sort(Comparator.comparing(Entry::layer));
         component.mount(runtime);
+        if (layer == OverlayLayer.MODAL || blocksInput) {
+            runtime.focus().trapFocus(component);
+        }
         runtime.requestLayout();
         return entry;
+    }
+
+    public boolean closeTopDismissable() {
+        for (int i = entries.size() - 1; i >= 0; i--) {
+            Entry entry = entries.get(i);
+            if (entry.closeOnEscape && entry.open) {
+                entry.close();
+                return true;
+            }
+        }
+        return false;
     }
 
     public void closeTop() {
         if (!entries.isEmpty()) entries.get(entries.size() - 1).close();
     }
 
-    public boolean hasModal() { return entries.stream().anyMatch(entry -> entry.layer == OverlayLayer.MODAL); }
+    public boolean hasModal() {
+        return entries.stream().anyMatch(entry -> entry.layer == OverlayLayer.MODAL && entry.open);
+    }
+
+    public boolean hasBlockingOverlay() {
+        return entries.stream().anyMatch(entry -> entry.blocksInput && entry.open);
+    }
+
     public int size() { return entries.size(); }
     public List<UIComponent> components() { return entries.stream().map(Entry::component).toList(); }
 
     public void layout(Font font, int x, int y, int width, int height) {
-        for (Entry entry : entries) entry.component.layoutTree(font, x, y, width, height);
+        for (Entry entry : List.copyOf(entries)) {
+            entry.component.layoutTree(font, x, y, width, height);
+        }
     }
 
     public void render(GuiGraphics graphics, Font font, int mouseX, int mouseY, float partialTick) {
         for (Entry entry : List.copyOf(entries)) {
+            if (entry.layer == OverlayLayer.MODAL && entry.blocksInput) {
+                int backdropColor = runtime.theme().colors().backdrop();
+                graphics.fill(0, 0, graphics.guiWidth(), graphics.guiHeight(), backdropColor);
+            }
             entry.component.preRender(mouseX, mouseY);
             entry.component.render(graphics, font, mouseX, mouseY, partialTick);
         }
@@ -51,7 +85,12 @@ public final class OverlayManager implements AutoCloseable {
             Entry entry = entries.get(i);
             UIComponent hit = entry.component.hitTest(mouseX, mouseY);
             if (hit != null) return hit;
-            if (entry.blocksInput) return entry.component;
+            if (entry.blocksInput) {
+                if (entry.closeOnOutsideClick) {
+                    entry.close();
+                }
+                return entry.component;
+            }
         }
         return null;
     }
@@ -64,12 +103,19 @@ public final class OverlayManager implements AutoCloseable {
         private final OverlayLayer layer;
         private final UIComponent component;
         private final boolean blocksInput;
+        private final boolean closeOnEscape;
+        private final boolean closeOnOutsideClick;
+        private final Runnable onClose;
         private boolean open = true;
 
-        private Entry(OverlayLayer layer, UIComponent component, boolean blocksInput) {
+        private Entry(OverlayLayer layer, UIComponent component, boolean blocksInput,
+                      boolean closeOnEscape, boolean closeOnOutsideClick, Runnable onClose) {
             this.layer = layer;
             this.component = component;
             this.blocksInput = blocksInput;
+            this.closeOnEscape = closeOnEscape;
+            this.closeOnOutsideClick = closeOnOutsideClick;
+            this.onClose = onClose;
         }
 
         private OverlayLayer layer() { return layer; }
@@ -80,7 +126,11 @@ public final class OverlayManager implements AutoCloseable {
             if (!open) return;
             open = false;
             entries.remove(this);
+            if (layer == OverlayLayer.MODAL || blocksInput) {
+                runtime.focus().untrapFocus(component);
+            }
             component.dispose();
+            if (onClose != null) onClose.run();
             runtime.requestLayout();
         }
     }

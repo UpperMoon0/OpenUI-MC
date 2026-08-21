@@ -16,7 +16,10 @@ public class TextField extends EditBoxWrapper {
     private Predicate<String> validator = ignored -> true;
     private boolean numeric;
 
-    public TextField(Signal<String> value) { this(value, Minecraft.getInstance().font); }
+    public TextField(Signal<String> value) {
+        this(value, Minecraft.getInstance() != null && Minecraft.getInstance().font != null
+                ? Minecraft.getInstance().font : new Font(null, false));
+    }
 
     public TextField(Signal<String> value, Font font) {
         super(256, UiTheme.TEXT_PRIMARY, UiTheme.INPUT, font);

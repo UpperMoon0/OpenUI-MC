@@ -17,6 +17,7 @@ public class Panel extends UIComponent {
     }
 
     public Panel(int bgColor) { this(bgColor, 0); }
+    public Panel() { this(0, 0); }
 
     public Panel radius(int radius) { this.radius = Math.max(0, radius); return this; }
     public Panel padding(int padding) { this.padding = Math.max(0, padding); return this; }
@@ -50,7 +51,10 @@ public class Panel extends UIComponent {
     @Override
     public void render(GuiGraphics g, Font font, int mx, int my, float pt) {
         if (!visible) return;
-        UiRender.surface(g, x, y, width, height, radius, bgColor, borderColor, elevated);
+        var colors = theme().colors();
+        int bg = bgColor != 0 ? bgColor : colors.surfaceRaised();
+        int border = borderColor != 0 ? borderColor : (elevated ? colors.border() : 0);
+        UiRender.surface(g, x, y, width, height, radius, bg, border, elevated);
         renderChildren(g, font, mx, my, pt);
     }
 

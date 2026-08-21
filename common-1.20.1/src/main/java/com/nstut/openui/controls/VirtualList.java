@@ -77,8 +77,8 @@ public class VirtualList<T> extends UIComponent {
     }
 
     @Override public void render(GuiGraphics g, Font font, int mx, int my, float pt) {
-        g.enableScissor(x, y, x + width, y + height);
-        try { renderChildren(g, font, mx, my, pt); } finally { g.disableScissor(); }
+        com.nstut.openui.api.ClipStack.push(g, x, y, width, height);
+        try { renderChildren(g, font, mx, my, pt); } finally { com.nstut.openui.api.ClipStack.pop(g); }
     }
     @Override public boolean mouseScrolled(double mx, double my, double delta) {
         if (mx < x || mx >= x + width || my < y || my >= y + height) return false;

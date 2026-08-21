@@ -58,4 +58,3 @@ public abstract class UiScreen extends Screen {
         super.removed();
     }
 }
-
