@@ -200,9 +200,10 @@ jobs:
             exit 1
           fi
 
-  release:
+  publish-github-release:
+    name: Publish GitHub Release
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    needs: [build, publish-curseforge]
+    needs: [build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
