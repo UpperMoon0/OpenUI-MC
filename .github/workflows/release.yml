@@ -13,7 +13,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -52,7 +52,7 @@ jobs:
             platform: neoforge
             project: neoforge-26.1.2
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -61,7 +61,7 @@ jobs:
       - run: chmod +x gradlew
       - name: Build ${{ matrix.platform }} ${{ matrix.version }}
         run: ./gradlew :${{ matrix.project }}:build
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: openui-mc-${{ matrix.platform }}-${{ matrix.version }}
           path: |
@@ -100,8 +100,8 @@ jobs:
             loader_name: NeoForge
             java_version_name: Java 25
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           name: openui-mc-${{ matrix.platform }}-${{ matrix.version }}
           path: curseforge-artifact
@@ -207,8 +207,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
       - name: Read version
@@ -218,7 +218,7 @@ jobs:
           version="$(sed -n 's/^mod_version[[:space:]]*=[[:space:]]*//p' gradle.properties | head -n1 | tr -d '\r' | xargs)"
           test -n "$version"
           echo "value=$version" >> "$GITHUB_OUTPUT"
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ steps.version.outputs.value }}
           name: OpenUI MC v${{ steps.version.outputs.value }}
