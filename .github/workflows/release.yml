@@ -132,6 +132,7 @@ jobs:
           CURSEFORGE_API_TOKEN: ${{ secrets.CURSEFORGE_API_TOKEN }}
           CURSEFORGE_PROJECT_ID: '1661978'
           MOD_VERSION: ${{ steps.release_file.outputs.mod_version }}
+          CHANGELOG_PATH: changelog/${{ steps.release_file.outputs.mod_version }}.md
           JAR_PATH: ${{ steps.release_file.outputs.jar_path }}
           MINECRAFT_VERSION: ${{ matrix.version }}
           PLATFORM: ${{ matrix.platform }}
@@ -141,6 +142,10 @@ jobs:
           set -euo pipefail
           if [[ -z "${CURSEFORGE_API_TOKEN:-}" ]]; then
             echo "Missing required GitHub secret: CURSEFORGE_API_TOKEN" >&2
+            exit 1
+          fi
+          if [[ ! -f "$CHANGELOG_PATH" ]]; then
+            echo "Missing release changelog: ${CHANGELOG_PATH}" >&2
             exit 1
           fi
 
@@ -161,7 +166,7 @@ jobs:
             fi
           done < <(jq -r '.[]' <<< "$game_version_names")
 
-          changelog="OpenUI MC ${MOD_VERSION} adds reusable UI components for ${LOADER_NAME} ${MINECRAFT_VERSION}."
+          changelog="$(<"$CHANGELOG_PATH")"
           metadata="$(jq -cn \
             --arg changelog "$changelog" \
             --arg displayName "OpenUI MC ${MOD_VERSION} - ${LOADER_NAME} ${MINECRAFT_VERSION}" \
@@ -223,6 +228,6 @@ jobs:
         with:
           tag_name: v${{ steps.version.outputs.value }}
           name: OpenUI MC v${{ steps.version.outputs.value }}
-          generate_release_notes: true
+          body_path: changelog/${{ steps.version.outputs.value }}.md
           fail_on_unmatched_files: true
           files: artifacts/**/*.jar

@@ -30,6 +30,7 @@ import com.nstut.openui.controls.Tabs;
 import com.nstut.openui.controls.TextField;
 import com.nstut.openui.controls.Toast;
 import com.nstut.openui.controls.Tooltip;
+import com.nstut.openui.controls.VirtualGrid;
 import com.nstut.openui.controls.VirtualList;
 import com.nstut.openui.layout.Insets;
 import com.nstut.openui.state.AsyncValue;
@@ -49,35 +50,11 @@ import java.util.function.Supplier;
 public final class Ui {
     private Ui() { }
 
-    public static HStack row(UIComponent... children) {
-        HStack row = new HStack();
-        for (UIComponent child : children) row.addChild(child);
-        return row;
-    }
-
-    public static VStack column(UIComponent... children) {
-        VStack column = new VStack();
-        for (UIComponent child : children) column.addChild(child);
-        return column;
-    }
-
-    public static Stack stack(UIComponent... children) {
-        Stack stack = new Stack();
-        for (UIComponent child : children) stack.addChild(child);
-        return stack;
-    }
-
-    public static ClipStack clip(UIComponent... children) {
-        ClipStack stack = new ClipStack();
-        for (UIComponent child : children) stack.addChild(child);
-        return stack;
-    }
-
-    public static Card card(UIComponent... children) {
-        Card card = new Card();
-        for (UIComponent child : children) card.addChild(child);
-        return card;
-    }
+    public static HStack row(UIComponent... children) { HStack row = new HStack(); for (UIComponent child : children) row.addChild(child); return row; }
+    public static VStack column(UIComponent... children) { VStack column = new VStack(); for (UIComponent child : children) column.addChild(child); return column; }
+    public static Stack stack(UIComponent... children) { Stack stack = new Stack(); for (UIComponent child : children) stack.addChild(child); return stack; }
+    public static ClipStack clip(UIComponent... children) { ClipStack stack = new ClipStack(); for (UIComponent child : children) stack.addChild(child); return stack; }
+    public static Card card(UIComponent... children) { Card card = new Card(); if (children.length == 1) card.addChild(children[0]); else if (children.length > 1) card.addChild(column(children)); return card; }
 
     public static Positioned positioned(UIComponent child) { return new Positioned(child); }
     public static Padding padding(int all, UIComponent child) { return new Padding(all, child); }
@@ -85,26 +62,20 @@ public final class Ui {
     public static Padding padding(Insets insets, UIComponent child) { return new Padding(insets, child); }
     public static Responsive responsive(Function<Responsive.Context, UIComponent> builder) { return new Responsive(builder); }
     public static Spacer spacer() { return new Spacer(); }
-    public static Divider divider() { return new Divider(UiTheme.BORDER_SUBTLE); }
+    public static Divider divider() { return new Divider(); }
 
     public static TextWidget text(String text) { return new TextWidget(text); }
     public static TextWidget text(Component text) { return new TextWidget(text); }
     public static TextWidget text(Supplier<Component> text) { return new TextWidget(text); }
-    public static SignalText text(ReadableSignal<String> text) { return new SignalText(text, UiTheme.TEXT_PRIMARY, false); }
+    public static SignalText text(ReadableSignal<String> text) { return new SignalText(text); }
     public static TextWidget heading(String text) { return new TextWidget(text).style(TextStyle.HEADING); }
     public static TextWidget heading(Component text) { return new TextWidget(text).style(TextStyle.HEADING); }
     public static TextWidget title(String text) { return new TextWidget(text).style(TextStyle.TITLE); }
     public static TextWidget title(Component text) { return new TextWidget(text).style(TextStyle.TITLE); }
 
-    public static ButtonWidget button(String label, Runnable action) {
-        return new ButtonWidget(label).onPress(action).secondary();
-    }
-    public static ButtonWidget button(Component label, Runnable action) {
-        return new ButtonWidget(label).onPress(action).secondary();
-    }
-    public static ButtonWidget button(Supplier<Component> label, Runnable action) {
-        return new ButtonWidget(label).onPress(action).secondary();
-    }
+    public static ButtonWidget button(String label, Runnable action) { return new ButtonWidget(label).onPress(action).secondary(); }
+    public static ButtonWidget button(Component label, Runnable action) { return new ButtonWidget(label).onPress(action).secondary(); }
+    public static ButtonWidget button(Supplier<Component> label, Runnable action) { return new ButtonWidget(label).onPress(action).secondary(); }
 
     public static TextField textField(Signal<String> value) { return new TextField(value); }
     public static TextField textField(Signal<String> value, Font font) { return new TextField(value, font); }
@@ -114,6 +85,7 @@ public final class Ui {
     public static Slider slider(Signal<Double> value, double min, double max) { return new Slider(value, min, max); }
     public static <T> VirtualList<T> list(ReadableSignal<List<T>> items, Function<T, UIComponent> renderer) { return new VirtualList<>(items, renderer); }
     public static <T> DynamicGrid<T> grid(ReadableSignal<List<T>> items, Function<T, UIComponent> renderer) { return new DynamicGrid<>(items, renderer); }
+    public static <T> VirtualGrid<T> virtualGrid(ReadableSignal<List<T>> items, Function<T, UIComponent> renderer) { return new VirtualGrid<>(items, renderer); }
     public static <T> SignalSwitcher<T> switcher(ReadableSignal<T> selection) { return new SignalSwitcher<>(selection); }
     public static <T> AsyncComponent<T> async(ReadableSignal<AsyncValue<T>> state, Supplier<UIComponent> loading,
                                                Function<T, UIComponent> success, Function<Throwable, UIComponent> error) {

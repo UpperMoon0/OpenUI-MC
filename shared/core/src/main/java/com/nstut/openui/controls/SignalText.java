@@ -8,6 +8,13 @@ public final class SignalText extends TextWidget {
     private final ReadableSignal<String> signal;
     private Subscription subscription = Subscription.EMPTY;
 
+    /** Theme-native signal text. The inherited TextWidget resolves its color from the active theme. */
+    public SignalText(ReadableSignal<String> signal) {
+        super(signal.get());
+        this.signal = signal;
+    }
+
+    /** Explicit-color compatibility constructor. */
     public SignalText(ReadableSignal<String> signal, int color, boolean centered) {
         super(signal.get(), color, centered);
         this.signal = signal;
@@ -23,4 +30,3 @@ public final class SignalText extends TextWidget {
         subscription = Subscription.EMPTY;
     }
 }
-

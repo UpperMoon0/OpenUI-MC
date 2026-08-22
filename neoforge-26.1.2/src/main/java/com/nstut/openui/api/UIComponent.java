@@ -199,7 +199,7 @@ public abstract class UIComponent {
     public boolean isFocused() { return runtime != null && runtime.focus().focused() == this; }
     public void requestFocus() { if (runtime != null) runtime.focus().requestFocus(this); }
     public void clearFocus() { if (runtime != null && isFocused()) runtime.focus().clearFocus(); }
-    public UIComponent theme(Theme theme) { this.localTheme = theme; invalidatePaint(); return this; }
+    public UIComponent theme(Theme theme) { if (java.util.Objects.equals(localTheme, theme)) return this; this.localTheme = theme; invalidateLayout(); return this; }
     public Theme theme() {
         if (localTheme != null) return localTheme;
         if (parent != null) return parent.theme();

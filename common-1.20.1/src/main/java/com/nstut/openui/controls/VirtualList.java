@@ -1,5 +1,6 @@
 package com.nstut.openui.controls;
 
+import com.nstut.openui.api.ClipStack;
 import com.nstut.openui.api.UIComponent;
 import com.nstut.openui.state.ReadableSignal;
 import com.nstut.openui.state.Subscription;
@@ -18,12 +19,15 @@ public class VirtualList<T> extends UIComponent {
     private final Function<T, UIComponent> renderer;
     private Function<T, ?> keyExtractor = value -> value;
     private final Map<Object, UIComponent> active = new LinkedHashMap<>();
+    private final Map<Object, T> activeItems = new LinkedHashMap<>();
     private Subscription subscription = Subscription.EMPTY;
     private List<T> snapshot = List.of();
     private int itemHeight = 20;
     private int gap;
     private int overscan = 2;
     private double scrollOffset;
+
+    private record IndexedKey(Object value, int index) { }
 
     public VirtualList(ReadableSignal<List<T>> items, Function<T, UIComponent> renderer) {
         this.items = items;
@@ -52,22 +56,37 @@ public class VirtualList<T> extends UIComponent {
         int first = Math.max(0, (int) (scrollOffset / stride) - overscan);
         int last = Math.min(snapshot.size(), (int) Math.ceil((scrollOffset + availableHeight) / stride) + overscan);
         Map<Object, UIComponent> next = new LinkedHashMap<>();
+        Map<Object, T> nextItems = new LinkedHashMap<>();
+        List<Object> resolvedKeys = new ArrayList<>(last - first);
         for (int index = first; index < last; index++) {
             T item = snapshot.get(index);
-            Object key = Objects.requireNonNullElse(keyExtractor.apply(item), index);
+            Object raw = keyExtractor.apply(item);
+            Object key = raw != null ? raw : index;
+            if (next.containsKey(key)) key = new IndexedKey(key, index);
+            resolvedKeys.add(key);
             UIComponent component = active.get(key);
+            T oldItem = activeItems.get(key);
+            if (component != null && !Objects.equals(oldItem, item)) {
+                removeChild(component);
+                component.dispose();
+                component = null;
+            }
             if (component == null) component = renderer.apply(item).key(String.valueOf(key));
             next.put(key, component);
+            nextItems.put(key, item);
         }
         for (UIComponent child : new ArrayList<>(children)) if (!next.containsValue(child)) { removeChild(child); child.dispose(); }
         for (UIComponent child : next.values()) if (!children.contains(child)) addChild(child);
         active.clear();
         active.putAll(next);
-        int index = first;
-        for (UIComponent child : next.values()) {
+        activeItems.clear();
+        activeItems.putAll(nextItems);
+
+        for (int index = first; index < last; index++) {
+            UIComponent child = next.get(resolvedKeys.get(index - first));
+            if (child == null) continue;
             int childY = y + index * stride - (int) scrollOffset;
             child.layout(x, childY, availableWidth, itemHeight);
-            index++;
         }
     }
 
@@ -77,15 +96,17 @@ public class VirtualList<T> extends UIComponent {
     }
 
     @Override public void render(GuiGraphics g, Font font, int mx, int my, float pt) {
-        com.nstut.openui.api.ClipStack.push(g, x, y, width, height);
-        try { renderChildren(g, font, mx, my, pt); } finally { com.nstut.openui.api.ClipStack.pop(g); }
+        ClipStack.push(g, x, y, width, height);
+        try { renderChildren(g, font, mx, my, pt); } finally { ClipStack.pop(g); }
     }
     @Override public boolean mouseScrolled(double mx, double my, double delta) {
         if (mx < x || mx >= x + width || my < y || my >= y + height) return false;
+        if (delta == 0) return false;
+        double before = scrollOffset;
         scrollOffset -= delta * (itemHeight + gap) * 0.7;
         clampScroll();
+        if (Double.compare(before, scrollOffset) == 0) return false;
         invalidateLayout();
         return true;
     }
 }
-

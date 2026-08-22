@@ -61,7 +61,30 @@ return Ui.padding(12,
 );
 ```
 
-Use `VirtualList` for large, fixed-height collections. Its keyed cells are limited to the visible range plus configurable overscan. Use `DynamicGrid` when columns should adapt to UI scale.
+Use `VirtualList` for large, fixed-height collections and `VirtualGrid` for virtualized grid collections. Their keyed cells are limited to the visible range plus configurable overscan. Use `DynamicGrid` when columns should adapt to UI scale for small/intrinsic collections.
+
+### Flex semantics
+
+Flex applies from **parent → child**:
+
+- `child.flex()` means: *"allocate leftover space to this child inside its flex parent (`HStack` or `VStack`)"*.
+- Calling `parent.flex()` does **not** change how the parent distributes space to its own children; it only affects how the parent itself receives space from its grandparent.
+
+```java
+// Correct: the list child receives remaining height inside root
+VStack root = new VStack();
+root.addChild(header);
+
+UIComponent content = Ui.list(...);
+content.flex();
+root.addChild(content);
+
+// Incorrect: calling root.flex() does not make children expand
+VStack root = new VStack();
+root.flex();
+root.addChild(header);
+root.addChild(Ui.list(...));
+```
 
 ## Input, focus, and native fields
 
