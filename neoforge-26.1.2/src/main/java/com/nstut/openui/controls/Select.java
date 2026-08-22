@@ -198,6 +198,7 @@ public class Select<T> extends UIComponent {
             if (font != null) {
                 int arrowSpace = font.width("▼") + 16;
                 int available = Math.max(1, x + width - arrowSpace - textX);
+                // Pixel-safe ellipsis currently flattens styled component segments.
                 String fullLabel = selected.label().getString();
                 String label = font.width(fullLabel) <= available
                         ? fullLabel

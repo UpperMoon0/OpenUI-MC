@@ -106,6 +106,7 @@ class LayoutRegressionTest {
         row.addChild(spacer);
         row.addChild(flexible);
 
+        assertEquals(38, row.preferredWidth(null));
         row.layout(0, 0, 100, 10);
 
         assertEquals(18, spacer.getWidth());
@@ -137,6 +138,7 @@ class LayoutRegressionTest {
         column.addChild(spacer);
         column.addChild(flexible);
 
+        assertEquals(38, column.preferredHeight(null));
         column.layout(0, 0, 10, 100);
 
         assertEquals(18, spacer.getHeight());

@@ -74,7 +74,7 @@ public class Chip extends UIComponent {
             curX += 12;
         }
 
-        int textCol = selected ? colors.primaryHover() : colors.onSurface();
+        int textCol = selected ? colors.onPrimary() : colors.onSurface();
         UiRender.text(g, font, label, curX, y + (height - font.lineHeight) / 2, textCol);
         curX += font.width(label);
 
@@ -82,7 +82,7 @@ public class Chip extends UIComponent {
             int removeX = x + width - 12;
             int removeY = y + (height - font.lineHeight) / 2;
             boolean removeHovered = mx >= removeX - 2 && mx < removeX + 10 && my >= y && my < y + height;
-            int removeCol = removeHovered ? colors.danger() : colors.onSurfaceMuted();
+            int removeCol = selected ? colors.onPrimary() : (removeHovered ? colors.danger() : colors.onSurfaceMuted());
             UiRender.text(g, font, "×", removeX, removeY, removeCol);
         }
     }
