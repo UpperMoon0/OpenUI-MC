@@ -54,7 +54,7 @@ public final class Ui {
     public static VStack column(UIComponent... children) { VStack column = new VStack(); for (UIComponent child : children) column.addChild(child); return column; }
     public static Stack stack(UIComponent... children) { Stack stack = new Stack(); for (UIComponent child : children) stack.addChild(child); return stack; }
     public static ClipStack clip(UIComponent... children) { ClipStack stack = new ClipStack(); for (UIComponent child : children) stack.addChild(child); return stack; }
-    public static Card card(UIComponent... children) { Card card = new Card(); for (UIComponent child : children) card.addChild(child); return card; }
+    public static Card card(UIComponent... children) { Card card = new Card(); if (children.length == 1) card.addChild(children[0]); else if (children.length > 1) card.addChild(column(children)); return card; }
 
     public static Positioned positioned(UIComponent child) { return new Positioned(child); }
     public static Padding padding(int all, UIComponent child) { return new Padding(all, child); }

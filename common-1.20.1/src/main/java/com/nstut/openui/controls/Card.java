@@ -29,7 +29,7 @@ public class Card extends UIComponent {
     public Card elevated(boolean elevated) { this.elevated = elevated; invalidatePaint(); return this; }
     public Card outlined(boolean outlined) { this.outlined = outlined; invalidatePaint(); return this; }
     public Card padding(int padding) { this.customPadding = Math.max(0,padding); invalidateLayout(); return this; }
-    public Card radius(int radius) { this.customRadius = Math.max(0,radius); return this; }
+    public Card radius(int radius) { this.customRadius = Math.max(0,radius); invalidatePaint(); return this; }
 
     @Override public int preferredWidth(Font font) {
         int pad=customPadding>=0?customPadding:theme().cardTheme().padding();

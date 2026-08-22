@@ -13,11 +13,11 @@ public class Panel extends UIComponent {
     public Panel(int bgColor, int borderColor) { this.bgColor = bgColor; this.borderColor = borderColor; }
     public Panel(int bgColor) { this(bgColor, 0); }
     public Panel() { this(0, 0); }
-    public Panel radius(int radius) { this.radius = Math.max(0, radius); return this; }
-    public Panel padding(int padding) { this.padding = Math.max(0, padding); return this; }
-    public Panel elevated() { this.elevated = true; return this; }
+    public Panel radius(int radius) { this.radius = Math.max(0, radius); invalidatePaint(); return this; }
+    public Panel padding(int padding) { this.padding = Math.max(0, padding); invalidateLayout(); return this; }
+    public Panel elevated() { this.elevated = true; invalidatePaint(); return this; }
     public Panel child(UIComponent child) { addChild(child); return this; }
-    public Panel colors(int background, int border) { this.bgColor = background; this.borderColor = border; return this; }
+    public Panel colors(int background, int border) { this.bgColor = background; this.borderColor = border; invalidatePaint(); return this; }
 
     @Override public int preferredWidth(Font font) { int max=0; for (UIComponent c:children) max=Math.max(max,c.preferredWidth(font)); return max+padding*2; }
     @Override public int preferredHeight(Font font) { int max=0; for (UIComponent c:children) max=Math.max(max,c.preferredHeight(font)); return max+padding*2; }
