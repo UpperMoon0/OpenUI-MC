@@ -22,7 +22,7 @@ public class EditBoxWrapper extends UIComponent implements NativeWidgetOwner {
     }
 
     public EditBoxWrapper(int maxLength, int textColor, int bgColor, Font font) {
-        this.editBox = new ShadowlessEditBox(font, 0, 0, 100, 16, Component.empty());
+        this.editBox = new EditBox(font, 0, 0, 100, 16, Component.empty());
         this.editBox.setMaxLength(maxLength);
         this.editBox.setBordered(false);
         this.textColor = textColor;
@@ -131,8 +131,39 @@ public class EditBoxWrapper extends UIComponent implements NativeWidgetOwner {
                     : font.plainSubstrByWidth(placeholder, Math.max(1, available - font.width("..."))) + "...";
             g.drawString(font, visible, x + 4, y + (height - font.lineHeight) / 2, placeholderColor, false);
         }
-        // The native widget remains registered for input routing. Rendering it
-        // here keeps its text and cursor above the component's styled surface.
-        editBox.render(g, mx, my, pt);
+        renderValue(g, font, colors.onSurface(), colors.onSurfaceDisabled());
+    }
+
+    private void renderValue(GuiGraphics g, Font font, int editableColor, int disabledColor) {
+        String value = editBox.getValue();
+        if (value.isEmpty()) return;
+
+        int available = Math.max(1, width - 8);
+        int cursor = Math.max(0, Math.min(editBox.getCursorPosition(), value.length()));
+        int start = 0;
+        if (font.width(value) > available) {
+            start = cursor;
+            while (start > 0 && font.width(value.substring(start - 1, cursor)) <= available - 2) {
+                start--;
+            }
+        }
+
+        String visible = font.plainSubstrByWidth(value.substring(start), available);
+        int textX = x + 4;
+        int textY = y + (height - font.lineHeight) / 2;
+        ClipStack.push(g, textX, y, available, height);
+        try {
+            g.drawString(font, visible, textX, textY,
+                    editBox.isActive() ? editableColor : disabledColor, false);
+            if (editBox.isFocused() && cursor >= start) {
+                int relativeCursor = Math.min(cursor - start, visible.length());
+                int cursorX = textX + font.width(visible.substring(0, relativeCursor));
+                if (cursorX >= textX && cursorX < textX + available) {
+                    g.fill(cursorX, textY - 1, cursorX + 1, textY + font.lineHeight + 1, editableColor);
+                }
+            }
+        } finally {
+            ClipStack.pop(g);
+        }
     }
 }
