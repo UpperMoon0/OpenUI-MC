@@ -51,7 +51,12 @@ public final class UiRuntime implements AutoCloseable {
     public AnimationManager animations() { return animations; }
     public OverlayManager overlays() { return overlays; }
     public Theme theme() { return theme; }
-    public void theme(Theme theme) { this.theme = Objects.requireNonNull(theme); requestPaint(); }
+    public void theme(Theme theme) {
+        Theme next = Objects.requireNonNull(theme);
+        if (Objects.equals(this.theme, next)) return;
+        this.theme = next;
+        requestLayout();
+    }
 
     public void setRoot(UIComponent root) {
         if (this.root == root) return;

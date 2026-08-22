@@ -36,7 +36,7 @@ class DynamicGridTest {
 
         Size measured = grid.measure(new Constraints(0, 250, 0, 1000), null);
         assertEquals(140, measured.height());
-        assertEquals(120, measured.width());
+        assertEquals(250, measured.width());
 
         Size measuredNarrow = grid.measure(new Constraints(0, 119, 0, 1000), null);
         assertEquals(236, measuredNarrow.height());

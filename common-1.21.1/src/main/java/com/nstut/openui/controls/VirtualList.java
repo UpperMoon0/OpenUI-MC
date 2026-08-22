@@ -57,11 +57,13 @@ public class VirtualList<T> extends UIComponent {
         int last = Math.min(snapshot.size(), (int) Math.ceil((scrollOffset + availableHeight) / stride) + overscan);
         Map<Object, UIComponent> next = new LinkedHashMap<>();
         Map<Object, T> nextItems = new LinkedHashMap<>();
+        List<Object> resolvedKeys = new ArrayList<>(last - first);
         for (int index = first; index < last; index++) {
             T item = snapshot.get(index);
             Object raw = keyExtractor.apply(item);
             Object key = raw != null ? raw : index;
             if (next.containsKey(key)) key = new IndexedKey(key, index);
+            resolvedKeys.add(key);
             UIComponent component = active.get(key);
             T oldItem = activeItems.get(key);
             if (component != null && !Objects.equals(oldItem, item)) {
@@ -81,15 +83,7 @@ public class VirtualList<T> extends UIComponent {
         activeItems.putAll(nextItems);
 
         for (int index = first; index < last; index++) {
-            T item = snapshot.get(index);
-            Object raw = keyExtractor.apply(item);
-            Object key = raw != null ? raw : index;
-            UIComponent child = next.get(key);
-            if (child == null) {
-                for (Map.Entry<Object, UIComponent> e : next.entrySet()) {
-                    if (e.getKey() instanceof IndexedKey ik && ik.index() == index) { child = e.getValue(); break; }
-                }
-            }
+            UIComponent child = next.get(resolvedKeys.get(index - first));
             if (child == null) continue;
             int childY = y + index * stride - (int) scrollOffset;
             child.layout(x, childY, availableWidth, itemHeight);
@@ -107,8 +101,11 @@ public class VirtualList<T> extends UIComponent {
     }
     @Override public boolean mouseScrolled(double mx, double my, double delta) {
         if (mx < x || mx >= x + width || my < y || my >= y + height) return false;
+        if (delta == 0) return false;
+        double before = scrollOffset;
         scrollOffset -= delta * (itemHeight + gap) * 0.7;
         clampScroll();
+        if (Double.compare(before, scrollOffset) == 0) return false;
         invalidateLayout();
         return true;
     }

@@ -102,12 +102,14 @@ public final class VirtualGrid<T> extends UIComponent {
 
         Map<Object, UIComponent> next = new LinkedHashMap<>();
         Map<Object, T> nextItems = new LinkedHashMap<>();
+        List<Object> resolvedKeys = new ArrayList<>(lastIndex - firstIndex);
 
         for (int index = firstIndex; index < lastIndex; index++) {
             T item = snapshot.get(index);
             Object rawKey = keyExtractor.apply(item);
             Object key = rawKey != null ? rawKey : index;
             if (next.containsKey(key)) key = new IndexedKey(key, index);
+            resolvedKeys.add(key);
 
             UIComponent component = active.get(key);
             T previousItem = activeItems.get(key);
@@ -136,15 +138,7 @@ public final class VirtualGrid<T> extends UIComponent {
 
         int cellWidth = Math.max(1, (availableWidth - gap * (lastColumns - 1)) / lastColumns);
         for (int index = firstIndex; index < lastIndex; index++) {
-            T item = snapshot.get(index);
-            Object rawKey = keyExtractor.apply(item);
-            Object key = rawKey != null ? rawKey : index;
-            UIComponent child = next.get(key);
-            if (child == null) {
-                for (Map.Entry<Object, UIComponent> e : next.entrySet()) {
-                    if (e.getKey() instanceof IndexedKey ik && ik.index() == index) { child = e.getValue(); break; }
-                }
-            }
+            UIComponent child = next.get(resolvedKeys.get(index - firstIndex));
             if (child == null) continue;
             int row = index / lastColumns;
             int column = index % lastColumns;
@@ -175,8 +169,10 @@ public final class VirtualGrid<T> extends UIComponent {
     @Override
     public boolean mouseScrolled(double mx, double my, double delta) {
         if (mx < x || mx >= x + width || my < y || my >= y + height || delta == 0) return false;
+        double before = scrollOffset;
         scrollOffset -= delta * (cellHeight + gap) * 0.7;
         clampScroll();
+        if (Double.compare(before, scrollOffset) == 0) return false;
         invalidateLayout();
         return true;
     }

@@ -23,6 +23,7 @@ This is a practical catalog of the public framework surface. The canonical signa
 - `Ui.spacer()`, `Ui.divider()`, and sized/flex constraints.
 - `Ui.grid(items, renderer)` / `DynamicGrid`: responsive repeated cards.
 - `Ui.list(items, renderer)` / `VirtualList`: virtualized, keyed list rows.
+- `Ui.virtualGrid(items, renderer)` / `VirtualGrid`: scrollable, row-virtualized responsive cells. Configure with `.key(...)`, `.minCellWidth(...)`, `.cellHeight(...)`, `.gap(...)`, `.overscanRows(...)`, and inspect/reset with `.columns()`, `.activeCellCount()`, `.scrollOffset()`, and `.resetScroll()`.
 - `ScrollList` and `ScrollGrid`: lower-level scrollable collections.
 
 ## Content and input controls

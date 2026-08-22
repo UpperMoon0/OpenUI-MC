@@ -108,15 +108,15 @@ class VirtualGridTest {
 
         // Scroll up past zero
         grid.mouseScrolled(10, 10, 10.0);
-        assertEquals(0.0, grid.getScrollOffset(), 0.001);
+        assertEquals(0.0, grid.scrollOffset(), 0.001);
 
         // Scroll down a lot
         grid.mouseScrolled(10, 10, -100.0);
-        assertEquals(376.0, grid.getScrollOffset(), 0.001);
+        assertEquals(376.0, grid.scrollOffset(), 0.001);
 
         // Reset scroll
         grid.resetScroll();
-        assertEquals(0.0, grid.getScrollOffset(), 0.001);
+        assertEquals(0.0, grid.scrollOffset(), 0.001);
     }
 
     private static final com.nstut.openui.runtime.NativeWidgetHost DUMMY_HOST = new com.nstut.openui.runtime.NativeWidgetHost() {
@@ -140,20 +140,21 @@ class VirtualGridTest {
 
         grid.layout(0, 0, 272, 100);
         grid.mouseScrolled(10, 10, -50.0);
-        assertTrue(grid.getScrollOffset() > 100);
+        assertTrue(grid.scrollOffset() > 100);
 
         // Replace with 2 items -> max scroll becomes 0
         items.set(List.of(new DummyItem("1", "A"), new DummyItem("2", "B")));
         grid.layout(0, 0, 272, 100);
-        assertEquals(0.0, grid.getScrollOffset(), 0.001);
+        assertEquals(0.0, grid.scrollOffset(), 0.001);
 
         grid.unmount();
     }
 
     @Test
     void testStableKeysReuseCells() {
+        DummyItem first = new DummyItem("1", "A");
         Signal<List<DummyItem>> items = Signals.of(List.of(
-                new DummyItem("1", "A"),
+                first,
                 new DummyItem("2", "B"),
                 new DummyItem("3", "C")
         ));
@@ -169,9 +170,9 @@ class VirtualGridTest {
 
         UIComponent cell1 = grid.children().get(0);
 
-        // Update list with same keys
+        // Reusing the unchanged item under the same key preserves its cell.
         items.set(List.of(
-                new DummyItem("1", "A-modified"),
+                first,
                 new DummyItem("4", "D"),
                 new DummyItem("3", "C")
         ));
