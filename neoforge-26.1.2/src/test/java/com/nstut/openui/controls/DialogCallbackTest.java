@@ -24,7 +24,7 @@ class DialogCallbackTest {
 
     @Test
     void showWrapsRawContentInStandardDialogShell() {
-        UiRuntime runtime = new UiRuntime(new Font(null, false), dummyHost);
+        UiRuntime runtime = new UiRuntime(new Font(null), dummyHost);
         runtime.setViewport(0, 0, 300, 200);
 
         Dialog.show(runtime.overlays(), com.nstut.openui.api.Ui.text("Body"));
