@@ -1,5 +1,7 @@
 # OpenUI MC
 
+![Version](https://img.shields.io/badge/Version-0.0.4-blue)
+
 OpenUI MC is a client-side, declarative, and reactive UI framework for Minecraft mods. It replaces repeated screen plumbing with composable components, signals, managed focus and input, overlays, animation, themes, and lifecycle-aware native widgets.
 
 It is a developer library: players install it when another mod declares OpenUI MC as a dependency.
@@ -23,6 +25,7 @@ It is a developer library: players install it when another mod declares OpenUI M
 - Dialogs, popovers, context menus, tooltips, toasts, command palettes, and layered overlays
 - Runtime themes, navigation, forms and validation, animation, error boundaries, and a UI inspector
 - `UiScreen` and `UiContainerScreen` adapters that own Minecraft lifecycle and input forwarding
+- Semantic, no-shadow text and badge rendering with contrast-aware light and dark themes
 
 ## Quick start
 
@@ -46,6 +49,8 @@ dependencies {
 ```
 
 For Forge 1.20.1, wrap the coordinate with `fg.deobf(...)`. For Fabric, use `modImplementation`. Ship the matching OpenUI MC jar with the consuming mod or declare it as a required runtime dependency.
+
+High-level components own their layout, clipping, and semantic contrast. Custom `UiRender` code remains available when a screen needs exact Minecraft-native rendering; consumers using that escape hatch are responsible for bounds, clipping, contrast, and native slot collision avoidance.
 
 Create a screen by returning one component tree:
 
