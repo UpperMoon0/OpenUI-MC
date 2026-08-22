@@ -30,12 +30,10 @@ public class ClipStack extends Stack {
     public static void pop(GuiGraphicsExtractor graphics) {
         if (graphics == null || STACK.isEmpty()) return;
         STACK.pop();
-        ScissorRect prev = STACK.peek();
-        if (prev != null) {
-            graphics.enableScissor(prev.minX(), prev.minY(), prev.maxX(), prev.maxY());
-        } else {
-            graphics.disableScissor();
-        }
+        // GuiGraphics maintains its own nested scissor stack. Popping once
+        // automatically restores the previous rectangle; enabling it again
+        // would push another scissor and leak render state across frames.
+        graphics.disableScissor();
     }
 
     @Override

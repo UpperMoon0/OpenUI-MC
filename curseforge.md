@@ -17,8 +17,11 @@ OpenUI MC is a library mod. It does not add blocks, items, recipes, or gameplay 
 - Dialogs, popovers, menus, tooltips, toasts, command palettes, and layered overlays
 - Themes, animations, navigation, error boundaries, and UI inspection tools
 - Base classes for ordinary screens and menu/container screens
+- Contrast-aware semantic badges and modern no-shadow text rendering across supported controls
 
 OpenUI MC keeps application code focused on state and business callbacks while its runtime mounts components, computes layout, renders, dispatches input, owns focus, and cleans up resources.
+
+High-level components handle layout, clipping, and semantic contrast. Developers can still use low-level rendering for specialized Minecraft UI, with explicit control over bounds and native container-slot integration.
 
 ## Supported platforms
 

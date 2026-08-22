@@ -90,7 +90,7 @@ public class BarChart extends UIComponent {
             int labelW = font.width(item.label());
             int lx = plotX + i * slotW + (slotW - labelW) / 2;
             int ly = plotY + plotH + 3;
-            g.drawString(font, item.label(), lx, ly, colors.onSurfaceMuted());
+            UiRender.text(g, font, item.label(), lx, ly, colors.onSurfaceMuted());
         }
 
         if (hoveredBar >= 0) {
@@ -101,7 +101,7 @@ public class BarChart extends UIComponent {
             int tipY = Math.max(y + 2, my - 14);
 
             UiRender.roundedOutline(g, tipX - 2, tipY - 2, tw + 4, font.lineHeight + 4, 2, colors.surfaceRaised(), colors.borderStrong());
-            g.drawString(font, valStr, tipX, tipY, colors.onSurface());
+            UiRender.text(g, font, valStr, tipX, tipY, colors.onSurface());
         }
     }
 }

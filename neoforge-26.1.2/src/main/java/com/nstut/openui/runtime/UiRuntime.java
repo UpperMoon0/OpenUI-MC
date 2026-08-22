@@ -110,7 +110,7 @@ public final class UiRuntime implements AutoCloseable {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (root == null) return false;
         boolean hasBlocking = overlays.hasBlockingOverlay();
-        UIComponent target = inputTarget(mouseX, mouseY);
+        UIComponent target = inputTarget(mouseX, mouseY, true);
         UIComponent focusTarget = target;
         while (focusTarget != null && !focusTarget.isFocusable()) {
             focusTarget = focusTarget.parent();
@@ -131,7 +131,7 @@ public final class UiRuntime implements AutoCloseable {
     }
 
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        UIComponent target = inputTarget(mouseX, mouseY);
+        UIComponent target = inputTarget(mouseX, mouseY, false);
         if (target == null) return false;
         PointerEvent event = new PointerEvent(EventType.SCROLL, target, mouseX, mouseY, -1, 0, delta);
         dispatch(event);
@@ -140,7 +140,7 @@ public final class UiRuntime implements AutoCloseable {
     }
 
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        UIComponent target = pointerCapture != null ? pointerCapture : inputTarget(mouseX, mouseY);
+        UIComponent target = pointerCapture != null ? pointerCapture : inputTarget(mouseX, mouseY, false);
         if (target == null) return false;
         PointerEvent event = new PointerEvent(EventType.MOUSE_DRAG, target, mouseX, mouseY, button, dragX, dragY);
         dispatch(event);
@@ -150,12 +150,12 @@ public final class UiRuntime implements AutoCloseable {
     }
 
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        UIComponent target = pointerCapture != null ? pointerCapture : inputTarget(mouseX, mouseY);
+        UIComponent target = pointerCapture != null ? pointerCapture : inputTarget(mouseX, mouseY, false);
         if (target == null) return false;
         PointerEvent event = new PointerEvent(EventType.MOUSE_UP, target, mouseX, mouseY, button, 0, 0);
         dispatch(event);
         boolean handled = !event.isDefaultPrevented() && !event.isPropagationStopped() && target.mouseReleased(mouseX, mouseY, button);
-        UIComponent hit = inputTarget(mouseX, mouseY);
+        UIComponent hit = inputTarget(mouseX, mouseY, false);
         if (pressedTarget != null && pressedTarget == hit) {
             PointerEvent click = new PointerEvent(EventType.CLICK, hit, mouseX, mouseY, button, 0, 0);
             dispatch(click);
@@ -215,7 +215,7 @@ public final class UiRuntime implements AutoCloseable {
         }
     }
 
-    private UIComponent inputTarget(double mouseX, double mouseY) {
+    private UIComponent inputTarget(double mouseX, double mouseY, boolean dismissOutsideOverlays) {
         if (root != null && (layoutDirty || overlayLayoutDirty)) {
             if (layoutDirty) {
                 root.layoutTree(font, x, y, width, height);
@@ -226,7 +226,9 @@ public final class UiRuntime implements AutoCloseable {
                 overlayLayoutDirty = false;
             }
         }
-        UIComponent overlayTarget = overlays.hitTest((int) mouseX, (int) mouseY);
+        UIComponent overlayTarget = dismissOutsideOverlays
+                ? overlays.hitTestForMouseDown((int) mouseX, (int) mouseY)
+                : overlays.hitTest((int) mouseX, (int) mouseY);
         return overlayTarget != null ? overlayTarget : root == null ? null : root.hitTest((int) mouseX, (int) mouseY);
     }
 

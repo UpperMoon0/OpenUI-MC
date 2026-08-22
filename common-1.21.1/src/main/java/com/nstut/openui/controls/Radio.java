@@ -78,7 +78,7 @@ public class Radio<T> extends UIComponent {
         }
 
         int textCol = enabled ? (isHovered() ? colors.onSurface() : colors.onSurfaceMuted()) : colors.onSurfaceDisabled();
-        g.drawString(font, label, x + 16, y + (height - font.lineHeight) / 2, textCol);
+        UiRender.text(g, font, label, x + 16, y + (height - font.lineHeight) / 2, textCol);
     }
 
     @Override

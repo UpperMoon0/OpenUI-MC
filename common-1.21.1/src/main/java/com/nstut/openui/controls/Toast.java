@@ -162,8 +162,8 @@ public class Toast extends UIComponent {
         UiRender.roundedRect(g, drawX + 3, y + 4, 3, height - 8, 1, accentCol);
 
         // Title and Message
-        g.drawString(font, title, drawX + 12, y + 5, colors.onSurface());
-        g.drawString(font, message, drawX + 12, y + 6 + font.lineHeight, colors.onSurfaceMuted());
+        UiRender.text(g, font, title, drawX + 12, y + 5, colors.onSurface());
+        UiRender.text(g, font, message, drawX + 12, y + 6 + font.lineHeight, colors.onSurfaceMuted());
 
         // Progress bar at bottom
         if (progress > 0.0F) {

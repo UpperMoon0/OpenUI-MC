@@ -196,7 +196,14 @@ public class Select<T> extends UIComponent {
                 textX += 20;
             }
             if (font != null) {
-                g.text(font, selected.label(), textX, y + (height - textH) / 2, colors.onSurface());
+                int arrowSpace = font.width("▼") + 16;
+                int available = Math.max(1, x + width - arrowSpace - textX);
+                // Pixel-safe ellipsis currently flattens styled component segments.
+                String fullLabel = selected.label().getString();
+                String label = font.width(fullLabel) <= available
+                        ? fullLabel
+                        : font.plainSubstrByWidth(fullLabel, Math.max(1, available - font.width("..."))) + "...";
+                g.text(font, label, textX, y + (height - textH) / 2, colors.onSurface());
             }
         }
 
@@ -315,7 +322,7 @@ public class Select<T> extends UIComponent {
                         textX += 16;
                     }
 
-                    int textCol = isSelected ? colors.primaryHover() : colors.onSurface();
+                    int textCol = isSelected ? colors.onPrimary() : colors.onSurface();
                     if (font != null) {
                         g.text(font, opt.label(), textX, curY + (itemH - textH) / 2, textCol);
                     }

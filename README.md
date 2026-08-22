@@ -23,6 +23,7 @@ It is a developer library: players install it when another mod declares OpenUI M
 - Dialogs, popovers, context menus, tooltips, toasts, command palettes, and layered overlays
 - Runtime themes, navigation, forms and validation, animation, error boundaries, and a UI inspector
 - `UiScreen` and `UiContainerScreen` adapters that own Minecraft lifecycle and input forwarding
+- Semantic, no-shadow text and badge rendering with contrast-aware light and dark themes
 
 ## Quick start
 
@@ -41,11 +42,13 @@ Then add the dependency in the consuming loader module:
 
 ```groovy
 dependencies {
-    implementation 'com.nstut:openui-mc:0.0.3'
+    implementation "com.nstut:openui-mc:${openui_version}"
 }
 ```
 
-For Forge 1.20.1, wrap the coordinate with `fg.deobf(...)`. For Fabric, use `modImplementation`. Ship the matching OpenUI MC jar with the consuming mod or declare it as a required runtime dependency.
+Set `openui_version` to the release you use. For Forge 1.20.1, wrap the coordinate with `fg.deobf(...)`. For Fabric, use `modImplementation`. Ship the matching OpenUI MC jar with the consuming mod or declare it as a required runtime dependency.
+
+High-level components own their layout, clipping, and semantic contrast. Custom `UiRender` code remains available when a screen needs exact Minecraft-native rendering; consumers using that escape hatch are responsible for bounds, clipping, contrast, and native slot collision avoidance.
 
 Create a screen by returning one component tree:
 

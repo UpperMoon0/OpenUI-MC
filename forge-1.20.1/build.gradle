@@ -29,5 +29,8 @@ processResources {
     inputs.properties metadata
     filesMatching('META-INF/mods.toml') { expand metadata }
 }
-shadowJar { configurations = [project.configurations.shadowBundle]; archiveClassifier = 'dev-shadow' }
+shadowJar {
+    configurations = [project.configurations.shadowBundle]
+    archiveClassifier = 'dev-shadow'
+}
 remapJar { inputFile.set shadowJar.archiveFile }

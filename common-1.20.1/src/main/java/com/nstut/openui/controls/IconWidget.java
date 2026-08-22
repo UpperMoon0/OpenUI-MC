@@ -1,5 +1,7 @@
 package com.nstut.openui.controls;
 
+import com.nstut.openui.api.UiRender;
+
 import com.nstut.openui.api.UIComponent;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -96,7 +98,7 @@ public class IconWidget extends UIComponent {
                 if (glyph != null && font != null) {
                     int color = glyphColor != null ? glyphColor : theme().colors().primary();
                     int tw = font.width(glyph);
-                    g.drawString(font, glyph, x + (width - tw) / 2, y + (height - font.lineHeight) / 2, color);
+                    UiRender.text(g, font, glyph, x + (width - tw) / 2, y + (height - font.lineHeight) / 2, color);
                 }
             }
             case CUSTOM -> {

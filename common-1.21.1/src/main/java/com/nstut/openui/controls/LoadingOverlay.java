@@ -1,5 +1,7 @@
 package com.nstut.openui.controls;
 
+import com.nstut.openui.api.UiRender;
+
 import com.nstut.openui.api.UIComponent;
 import com.nstut.openui.theme.ColorScheme;
 import com.nstut.openui.theme.Theme;
@@ -69,7 +71,7 @@ public class LoadingOverlay extends UIComponent {
             spinner.render(g, font, mx, my, pt);
             if (message != null) {
                 int mw = font.width(message);
-                g.drawString(font, message, x + (width - mw) / 2, y + (height - 20) / 2 + 26, colors.onSurface());
+                UiRender.text(g, font, message, x + (width - mw) / 2, y + (height - 20) / 2 + 26, colors.onSurface());
             }
         }
     }

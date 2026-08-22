@@ -100,6 +100,10 @@ The runtime supplies a `Theme` to every mounted component. Standard controls con
 
 Custom components should implement measurement/layout only when their geometry is special. Minecraft 1.20.1 and 1.21.1 render through `GuiGraphics`; 26.1.2 uses `GuiGraphicsExtractor` and extracted render state. Prefer composing existing components. Register subscriptions in `onMount`, close them in `onUnmount`, use semantic theme colors, and call the narrowest invalidation method after mutation. Coordinate changes require layout invalidation; visual-only changes require paint invalidation.
 
+High-level OpenUI components are the safe path: they own layout, clipping, and semantic foreground/background contrast. `UiRender` and custom render hooks are intentional low-level escape hatches. Code using them owns text contrast, clipping, bounds, and collision avoidance.
+
+Vanilla menu slots and other native screen regions are outside the OpenUI layout tree. OpenUI does not move or reserve those regions automatically, because doing so would change menu coordinates and network-visible behavior. Container screens must explicitly reserve their native regions or anchor custom annotations to the menu's slot constants, and should regression-test those rectangles when layouts change.
+
 ## Cross-version source layout
 
 `shared/core/src/main/java` contains framework classes that compile unchanged for every supported Minecraft target. The 1.20.1 common, 1.21.1 common, and 26.1.2 NeoForge projects all include that source set. APIs or rendering code that differ by Minecraft version remain in their version directories. A class should move into shared core only after it is identical across targets and the complete `testAllVersions` plus `buildAll` matrix passes.

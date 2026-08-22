@@ -43,12 +43,12 @@ public record Theme(
 
     public static Theme light() {
         ColorScheme colors = new ColorScheme(
-                0x80000000, 0xFFEAEAF0, 0xFFF4F4F8, 0xFFFFFFFF, 0xFFE0E0EA,
-                0xFFFFFFFF, 0xFFCCCCCC, 0xFFDDDDDD, 0xFFB0B0C0,
-                0xFF3B68D0, 0xFF4C78E0, 0xFF2A50A8,
-                0xFFD32F2F, 0xFFE53935, 0xFFFFCDD2,
-                0xFFF57C00, 0xFFFB8C00,
-                0xFF388E3C, 0xFF43A047, 0xFFC8E6C9,
+                0x80000000, 0xFFE2E3E8, 0xFFE9EAEF, 0xFFF0F1F4, 0xFFDCDDE3,
+                0xFFF2F3F5, 0xFFC4C6CE, 0xFFD2D4DB, 0xFFA4A7B2,
+                0xFF2A50A8, 0xFF3B68D0, 0xFF1F3F86,
+                0xFFC62828, 0xFFD32F2F, 0xFF8E1F28,
+                0xFF8A5200, 0xFFA66200,
+                0xFF2E7D32, 0xFF388E3C, 0xFF1B5E20,
                 0xFFFFFFFF, 0xFF1C1C24, 0xFF666678, 0xFFA0A0B0,
                 0x20000000, 0x20000000
         );

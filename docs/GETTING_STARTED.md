@@ -22,7 +22,7 @@ includeBuild('../OpenUI-MC') {
 }
 ```
 
-Choose one of `fabric-1.20.1`, `forge-1.20.1`, `fabric-1.21.1`, `neoforge-1.21.1`, or `neoforge-26.1.2`. Add `com.nstut:openui-mc:0.0.3` to the consuming module with the loader's normal mod dependency configuration. The version participates in Gradle resolution even though the composite substitution selects the local project.
+Choose one of `fabric-1.20.1`, `forge-1.20.1`, `fabric-1.21.1`, `neoforge-1.21.1`, or `neoforge-26.1.2`. Add `com.nstut:openui-mc:0.0.4` to the consuming module with the loader's normal mod dependency configuration. The version participates in Gradle resolution even though the composite substitution selects the local project.
 
 Declare `openui_mc` as a required client-side runtime dependency in the consuming mod metadata. End users must install the matching OpenUI jar unless the consuming mod legally and technically bundles it.
 

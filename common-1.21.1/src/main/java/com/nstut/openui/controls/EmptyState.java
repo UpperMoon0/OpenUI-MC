@@ -90,11 +90,11 @@ public class EmptyState extends UIComponent {
         }
 
         int tw = font.width(title);
-        g.drawString(font, title, x + (width - tw) / 2, centerY, theme().colors().onSurface());
+        UiRender.text(g, font, title, x + (width - tw) / 2, centerY, theme().colors().onSurface());
 
         if (description != null) {
             int dw = font.width(description);
-            g.drawString(font, description, x + (width - dw) / 2, centerY + font.lineHeight + 4, theme().colors().onSurfaceMuted());
+            UiRender.text(g, font, description, x + (width - dw) / 2, centerY + font.lineHeight + 4, theme().colors().onSurfaceMuted());
         }
 
         if (actionButton != null) {

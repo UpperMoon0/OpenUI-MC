@@ -163,17 +163,19 @@ public class CommandPalette extends UIComponent {
                 }
 
                 if (font != null) {
-                    int titleCol = isSelected ? colors.primaryHover() : colors.onSurface();
+                    int titleCol = isSelected ? colors.onPrimary() : colors.onSurface();
                     g.text(font, item.title(), x + 12, rowY + (itemH - textH) / 2, titleCol);
 
                     if (item.subtitle() != null) {
                         int subX = x + 16 + font.width(item.title());
-                        g.text(font, item.subtitle(), subX, rowY + (itemH - textH) / 2, colors.onSurfaceMuted());
+                        g.text(font, item.subtitle(), subX, rowY + (itemH - textH) / 2,
+                                isSelected ? colors.onPrimary() : colors.onSurfaceMuted());
                     }
 
                     if (item.shortcutHint() != null) {
                         int hintW = font.width(item.shortcutHint());
-                        g.text(font, item.shortcutHint(), x + width - hintW - 14, rowY + (itemH - textH) / 2, colors.onSurfaceMuted());
+                        g.text(font, item.shortcutHint(), x + width - hintW - 14, rowY + (itemH - textH) / 2,
+                                isSelected ? colors.onPrimary() : colors.onSurfaceMuted());
                     }
                 }
             }

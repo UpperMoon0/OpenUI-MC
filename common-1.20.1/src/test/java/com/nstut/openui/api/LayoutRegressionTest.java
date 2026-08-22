@@ -95,4 +95,70 @@ class LayoutRegressionTest {
         assertEquals(300, tab1Content.getWidth());
         assertEquals(200, tab1Content.getHeight());
     }
+
+    @Test
+    void signalSwitcherBuildsInitiallySelectedLaterRoute() {
+        Signal<String> route = Signals.of("TAB2");
+        FixedBox tab2Content = new FixedBox(50, 50);
+
+        SignalSwitcher<String> switcher = Ui.switcher(route)
+                .when("TAB1", () -> new FixedBox(50, 50))
+                .when("TAB2", () -> tab2Content);
+
+        switcher.layout(15, 25, 300, 200);
+
+        assertEquals(1, switcher.children().size());
+        assertSame(tab2Content, switcher.children().get(0));
+        assertEquals(300, tab2Content.getWidth());
+        assertEquals(200, tab2Content.getHeight());
+    }
+
+    @Test
+    void explicitlySizedHorizontalSpacerRemainsFixed() {
+        HStack row = new HStack();
+        UIComponent leading = new FixedBox(10, 10);
+        UIComponent spacer = new Spacer().width(18);
+        UIComponent flexible = new FixedBox(10, 10).flex();
+        row.addChild(leading);
+        row.addChild(spacer);
+        row.addChild(flexible);
+
+        assertEquals(38, row.preferredWidth(null));
+        row.layout(0, 0, 100, 10);
+
+        assertEquals(18, spacer.getWidth());
+        assertEquals(72, flexible.getWidth());
+    }
+
+    @Test
+    void implicitHorizontalSpacerConsumesRemainingWidth() {
+        HStack row = new HStack();
+        UIComponent leading = new FixedBox(10, 10);
+        UIComponent spacer = new Spacer();
+        UIComponent trailing = new FixedBox(10, 10);
+        row.addChild(leading);
+        row.addChild(spacer);
+        row.addChild(trailing);
+
+        row.layout(0, 0, 100, 10);
+
+        assertEquals(80, spacer.getWidth());
+    }
+
+    @Test
+    void explicitlySizedVerticalSpacerRemainsFixed() {
+        VStack column = new VStack();
+        UIComponent leading = new FixedBox(10, 10);
+        UIComponent spacer = new Spacer().height(18);
+        UIComponent flexible = new FixedBox(10, 10).flex();
+        column.addChild(leading);
+        column.addChild(spacer);
+        column.addChild(flexible);
+
+        assertEquals(38, column.preferredHeight(null));
+        column.layout(0, 0, 10, 100);
+
+        assertEquals(18, spacer.getHeight());
+        assertEquals(72, flexible.getHeight());
+    }
 }
