@@ -117,7 +117,7 @@ public class CommandPalette extends UIComponent {
         if (font != null) {
             String prompt = query.isEmpty() ? "Type a command or search..." : query;
             int promptCol = query.isEmpty() ? colors.onSurfaceMuted() : colors.onSurface();
-            g.drawString(font, prompt, x + 12, y + 6 + (22 - textH) / 2, promptCol);
+            UiRender.text(g, font, prompt, x + 12, y + 6 + (22 - textH) / 2, promptCol);
             if (!query.isEmpty()) {
                 int cursorX = x + 12 + font.width(query);
                 if ((System.currentTimeMillis() / 500) % 2 == 0) {
@@ -139,7 +139,7 @@ public class CommandPalette extends UIComponent {
 
         if (filteredItems.isEmpty()) {
             if (font != null) {
-                g.drawString(font, "No matching commands", x + (width - font.width("No matching commands")) / 2, listY + 20, colors.onSurfaceMuted());
+                UiRender.text(g, font, "No matching commands", x + (width - font.width("No matching commands")) / 2, listY + 20, colors.onSurfaceMuted());
             }
             return;
         }
@@ -164,16 +164,16 @@ public class CommandPalette extends UIComponent {
 
                 if (font != null) {
                     int titleCol = isSelected ? colors.primaryHover() : colors.onSurface();
-                    g.drawString(font, item.title(), x + 12, rowY + (itemH - textH) / 2, titleCol);
+                    UiRender.text(g, font, item.title(), x + 12, rowY + (itemH - textH) / 2, titleCol);
 
                     if (item.subtitle() != null) {
                         int subX = x + 16 + font.width(item.title());
-                        g.drawString(font, item.subtitle(), subX, rowY + (itemH - textH) / 2, colors.onSurfaceMuted());
+                        UiRender.text(g, font, item.subtitle(), subX, rowY + (itemH - textH) / 2, colors.onSurfaceMuted());
                     }
 
                     if (item.shortcutHint() != null) {
                         int hintW = font.width(item.shortcutHint());
-                        g.drawString(font, item.shortcutHint(), x + width - hintW - 14, rowY + (itemH - textH) / 2, colors.onSurfaceMuted());
+                        UiRender.text(g, font, item.shortcutHint(), x + width - hintW - 14, rowY + (itemH - textH) / 2, colors.onSurfaceMuted());
                     }
                 }
             }

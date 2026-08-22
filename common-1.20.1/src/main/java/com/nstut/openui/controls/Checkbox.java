@@ -25,7 +25,7 @@ public class Checkbox extends UIComponent {
             g.fill(x + 2, y + 4, x + 4, y + 7, colors.onPrimary());
             g.fill(x + 4, y + 6, x + 8, y + 8, colors.onPrimary());
         }
-        g.drawString(font, label, x + 14, y + 1, colors.onSurface());
+        UiRender.text(g, font, label, x + 14, y + 1, colors.onSurface());
     }
 
     @Override public boolean mouseClicked(double mx, double my, int button) {

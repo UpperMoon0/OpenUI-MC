@@ -74,9 +74,9 @@ public class ErrorBoundary extends UIComponent {
             ColorScheme colors = t.colors();
 
             UiRender.roundedOutline(g, x, y, width, height, t.radii().small(), colors.dangerDeep(), colors.danger());
-            g.drawString(font, "Component Error", x + 8, y + 6, colors.danger());
+            UiRender.text(g, font, "Component Error", x + 8, y + 6, colors.danger());
             String msg = caughtError.getMessage() != null ? caughtError.getMessage() : caughtError.getClass().getSimpleName();
-            g.drawString(font, msg, x + 8, y + 8 + font.lineHeight, colors.onSurfaceMuted());
+            UiRender.text(g, font, msg, x + 8, y + 8 + font.lineHeight, colors.onSurfaceMuted());
             return;
         }
 

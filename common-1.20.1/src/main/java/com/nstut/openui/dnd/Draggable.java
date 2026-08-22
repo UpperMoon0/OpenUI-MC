@@ -219,7 +219,7 @@ public class Draggable<T> extends UIComponent {
                 int border = theme.colors().border();
                 UiRender.roundedOutline(g, cx, cy, srcW, srcH, 3, fill, border);
                 int textH = font != null ? font.lineHeight : 9;
-                g.drawString(font, textWidget.getText(), cx + 4, cy + (srcH - textH) / 2, textColor);
+                UiRender.text(g, font, textWidget.getText(), cx + 4, cy + (srcH - textH) / 2, textColor);
             } else {
                 g.fill(cx, cy, cx + srcW, cy + srcH, theme.colors().surface() | 0xDD000000);
                 UiRender.roundedOutline(g, cx, cy, srcW, srcH, 3, theme.colors().surface(), theme.colors().border());

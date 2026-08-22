@@ -101,7 +101,7 @@ public class UiInspector extends UIComponent {
 
         int textH = font != null ? font.lineHeight : 9;
         if (font != null) {
-            g.drawString(font, "UI Inspector", panelX + 6, panelY + 6, 0xFF5B8DF2);
+            UiRender.text(g, font, "UI Inspector", panelX + 6, panelY + 6, 0xFF5B8DF2);
         }
 
         int count = countMounted(runtime.root());
@@ -109,21 +109,21 @@ public class UiInspector extends UIComponent {
         int activeOverlays = runtime.overlays().size();
 
         if (font != null) {
-            g.drawString(font, "Mounted: " + count + "  Anim: " + activeAnim + "  Overlays: " + activeOverlays, panelX + 6, panelY + 18, 0xFF8A8A9E);
+            UiRender.text(g, font, "Mounted: " + count + "  Anim: " + activeAnim + "  Overlays: " + activeOverlays, panelX + 6, panelY + 18, 0xFF8A8A9E);
         }
 
         UIComponent target = selectedComponent != null ? selectedComponent : runtime.root().hitTest(mx, my);
         if (target != null && font != null) {
             String name = target.getClass().getSimpleName();
             if (name.isEmpty()) name = target.getClass().getName();
-            g.drawString(font, "Target: " + name + (target.key() != null ? " [" + target.key() + "]" : ""), panelX + 6, panelY + 32, 0xFFE2E2EA);
-            g.drawString(font, "Bounds: " + target.getX() + "," + target.getY() + " " + target.getWidth() + "x" + target.getHeight(), panelX + 6, panelY + 44, 0xFF8A8A9E);
-            g.drawString(font, "State: vis=" + target.isVisible() + " hov=" + target.isHovered() + " foc=" + target.isFocused(), panelX + 6, panelY + 56, 0xFF8A8A9E);
-            g.drawString(font, "Dirty: B=" + target.isDirty(DirtyFlag.BUILD) + " L=" + target.isDirty(DirtyFlag.LAYOUT) + " P=" + target.isDirty(DirtyFlag.PAINT), panelX + 6, panelY + 68, 0xFFE5A43B);
-            g.drawString(font, "Flex: " + target.isFlex() + " grow=" + target.getFlexGrow(), panelX + 6, panelY + 80, 0xFF8A8A9E);
+            UiRender.text(g, font, "Target: " + name + (target.key() != null ? " [" + target.key() + "]" : ""), panelX + 6, panelY + 32, 0xFFE2E2EA);
+            UiRender.text(g, font, "Bounds: " + target.getX() + "," + target.getY() + " " + target.getWidth() + "x" + target.getHeight(), panelX + 6, panelY + 44, 0xFF8A8A9E);
+            UiRender.text(g, font, "State: vis=" + target.isVisible() + " hov=" + target.isHovered() + " foc=" + target.isFocused(), panelX + 6, panelY + 56, 0xFF8A8A9E);
+            UiRender.text(g, font, "Dirty: B=" + target.isDirty(DirtyFlag.BUILD) + " L=" + target.isDirty(DirtyFlag.LAYOUT) + " P=" + target.isDirty(DirtyFlag.PAINT), panelX + 6, panelY + 68, 0xFFE5A43B);
+            UiRender.text(g, font, "Flex: " + target.isFlex() + " grow=" + target.getFlexGrow(), panelX + 6, panelY + 80, 0xFF8A8A9E);
 
             // Render mini tree
-            g.drawString(font, "── Component Hierarchy ──", panelX + 6, panelY + 96, 0xFF6B7280);
+            UiRender.text(g, font, "── Component Hierarchy ──", panelX + 6, panelY + 96, 0xFF6B7280);
             List<TreeEntry> entries = new ArrayList<>();
             buildTree(runtime.root(), 0, entries);
 
@@ -140,7 +140,7 @@ public class UiInspector extends UIComponent {
                     int col = isTarget ? 0xFF5B8DF2 : (entry.component.isFocused() ? 0xFF4ADE80 : 0xFF9CA3AF);
                     String indent = "  ".repeat(entry.depth);
                     String line = indent + (entry.component.children().isEmpty() ? "• " : "▼ ") + entry.label;
-                    g.drawString(font, line, panelX + 6, rowY, col);
+                    UiRender.text(g, font, line, panelX + 6, rowY, col);
                 }
             } finally {
                 ClipStack.pop(g);

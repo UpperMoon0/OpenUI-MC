@@ -321,7 +321,7 @@ public class Select<T> extends UIComponent {
                         textX += 16;
                     }
 
-                    int textCol = isSelected ? colors.primaryHover() : colors.onSurface();
+                    int textCol = isSelected ? colors.onPrimary() : colors.onSurface();
                     if (font != null) {
                         g.text(font, opt.label(), textX, curY + (itemH - textH) / 2, textCol);
                     }

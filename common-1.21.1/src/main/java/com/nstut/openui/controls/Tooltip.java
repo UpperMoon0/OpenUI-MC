@@ -102,7 +102,7 @@ public class Tooltip extends UIComponent {
 
         @Override
         public void render(GuiGraphics g, Font font, int mx, int my, float pt) {
-            g.drawString(font, text, x, y, theme().colors().onSurface(), false);
+            UiRender.text(g, font, text, x, y, theme().colors().onSurface());
         }
     }
 }

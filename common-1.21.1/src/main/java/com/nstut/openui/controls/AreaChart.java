@@ -71,7 +71,7 @@ public class AreaChart extends UIComponent {
 
         if (data.size() < 2) {
             if (font != null) {
-                g.drawString(font, "No Data", x + (width - font.width("No Data")) / 2, y + (height - font.lineHeight) / 2, colors.onSurfaceMuted());
+                UiRender.text(g, font, "No Data", x + (width - font.width("No Data")) / 2, y + (height - font.lineHeight) / 2, colors.onSurfaceMuted());
             }
             return;
         }
@@ -155,7 +155,7 @@ public class AreaChart extends UIComponent {
             int tipY = Math.max(y + 2, py[hoveredIndex] - 16);
 
             UiRender.roundedOutline(g, tipX - 2, tipY - 2, tw + 4, font.lineHeight + 4, 2, colors.surfaceRaised(), colors.borderStrong());
-            g.drawString(font, label, tipX, tipY, colors.onSurface());
+            UiRender.text(g, font, label, tipX, tipY, colors.onSurface());
         }
     }
 

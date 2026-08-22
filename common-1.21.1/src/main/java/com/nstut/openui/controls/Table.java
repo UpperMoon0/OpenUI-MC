@@ -237,7 +237,7 @@ public class Table<T> extends UIComponent {
             int cw = colWidths[c];
             String sortIndicator = (sortColumn == c) ? (sortAscending ? " ▲" : " ▼") : "";
             Component headerText = Component.empty().append(col.header()).append(sortIndicator);
-            g.drawString(font, headerText, colX, y + (headerH - font.lineHeight) / 2, colors.onSurfaceMuted());
+            UiRender.text(g, font, headerText, colX, y + (headerH - font.lineHeight) / 2, colors.onSurfaceMuted());
             colX += cw;
         }
 
