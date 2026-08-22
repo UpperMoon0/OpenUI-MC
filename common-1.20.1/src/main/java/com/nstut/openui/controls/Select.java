@@ -196,7 +196,13 @@ public class Select<T> extends UIComponent {
                 textX += 20;
             }
             if (font != null) {
-                g.drawString(font, selected.label(), textX, y + (height - textH) / 2, colors.onSurface());
+                int arrowSpace = font.width("▼") + 16;
+                int available = Math.max(1, x + width - arrowSpace - textX);
+                String fullLabel = selected.label().getString();
+                String label = font.width(fullLabel) <= available
+                        ? fullLabel
+                        : font.plainSubstrByWidth(fullLabel, Math.max(1, available - font.width("..."))) + "...";
+                g.drawString(font, label, textX, y + (height - textH) / 2, colors.onSurface(), false);
             }
         }
 
@@ -204,7 +210,7 @@ public class Select<T> extends UIComponent {
         String arrow = open ? "▲" : "▼";
         int arrowW = font != null ? font.width(arrow) : 6;
         if (font != null) {
-            g.drawString(font, arrow, x + width - arrowW - 8, y + (height - textH) / 2, colors.onSurfaceMuted());
+            g.drawString(font, arrow, x + width - arrowW - 8, y + (height - textH) / 2, colors.onSurfaceMuted(), false);
         }
     }
 

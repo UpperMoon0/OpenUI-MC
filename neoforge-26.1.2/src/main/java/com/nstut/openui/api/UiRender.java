@@ -1,11 +1,16 @@
 package com.nstut.openui.api;
 
 import com.nstut.openui.theme.ColorScheme;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /** Lightweight, texture-free drawing primitives shared by OpenUI MC consumers. */
 public final class UiRender {
     private UiRender() {}
+
+    public static void text(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color) {
+        g.text(font, text, x, y, color);
+    }
 
     public static void roundedRect(GuiGraphicsExtractor g, int x, int y, int width, int height,
                                    int radius, int color) {

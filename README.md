@@ -41,7 +41,7 @@ Then add the dependency in the consuming loader module:
 
 ```groovy
 dependencies {
-    implementation 'com.nstut:openui-mc:0.0.3'
+    implementation 'com.nstut:openui-mc:0.0.4'
 }
 ```
 

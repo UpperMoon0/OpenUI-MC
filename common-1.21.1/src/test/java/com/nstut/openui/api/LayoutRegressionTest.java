@@ -93,4 +93,51 @@ class LayoutRegressionTest {
         assertEquals(300, tab1Content.getWidth());
         assertEquals(200, tab1Content.getHeight());
     }
+
+    @Test
+    void explicitlySizedHorizontalSpacerRemainsFixed() {
+        HStack row = new HStack();
+        UIComponent leading = new FixedBox(10, 10);
+        UIComponent spacer = new Spacer().width(18);
+        UIComponent flexible = new FixedBox(10, 10).flex();
+        row.addChild(leading);
+        row.addChild(spacer);
+        row.addChild(flexible);
+
+        row.layout(0, 0, 100, 10);
+
+        assertEquals(18, spacer.getWidth());
+        assertEquals(72, flexible.getWidth());
+    }
+
+    @Test
+    void implicitHorizontalSpacerConsumesRemainingWidth() {
+        HStack row = new HStack();
+        UIComponent leading = new FixedBox(10, 10);
+        UIComponent spacer = new Spacer();
+        UIComponent trailing = new FixedBox(10, 10);
+        row.addChild(leading);
+        row.addChild(spacer);
+        row.addChild(trailing);
+
+        row.layout(0, 0, 100, 10);
+
+        assertEquals(80, spacer.getWidth());
+    }
+
+    @Test
+    void explicitlySizedVerticalSpacerRemainsFixed() {
+        VStack column = new VStack();
+        UIComponent leading = new FixedBox(10, 10);
+        UIComponent spacer = new Spacer().height(18);
+        UIComponent flexible = new FixedBox(10, 10).flex();
+        column.addChild(leading);
+        column.addChild(spacer);
+        column.addChild(flexible);
+
+        column.layout(0, 0, 10, 100);
+
+        assertEquals(18, spacer.getHeight());
+        assertEquals(72, flexible.getHeight());
+    }
 }

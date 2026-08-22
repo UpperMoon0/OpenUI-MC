@@ -27,6 +27,10 @@ public class VStack extends UIComponent {
         return vc;
     }
 
+    private boolean isVerticalFlex(UIComponent child) {
+        return child.isFlex() || (child instanceof Spacer && !child.hasRequestedHeight());
+    }
+
     @Override
     public int preferredWidth(Font font) {
         int max = 0;
@@ -51,7 +55,7 @@ public class VStack extends UIComponent {
         float flexTotal = 0.0F;
         int fixedTotal = 0;
         for (UIComponent c : vc) {
-            if (c instanceof Spacer || c.isFlex()) flexTotal += c.getFlexGrow() > 0.0F ? c.getFlexGrow() : 1.0F;
+            if (isVerticalFlex(c)) flexTotal += c.getFlexGrow() > 0.0F ? c.getFlexGrow() : 1.0F;
             else fixedTotal += c.measure(Constraints.loose(availableWidth, availableHeight), measureFont()).height();
         }
         int baseGaps = gap * Math.max(0, vc.size() - 1);
@@ -61,7 +65,7 @@ public class VStack extends UIComponent {
         int distributed = 0;
         float usedWeight = 0.0F;
         for (UIComponent c : vc) {
-            if ((c instanceof Spacer || c.isFlex()) && flexTotal > 0.0F) {
+            if (isVerticalFlex(c) && flexTotal > 0.0F) {
                 usedWeight += c.getFlexGrow() > 0.0F ? c.getFlexGrow() : 1.0F;
                 int target = Math.round(flexSpace * usedWeight / flexTotal);
                 heights.add(target - distributed);

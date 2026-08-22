@@ -18,10 +18,10 @@ public record TextStyle(
         MONO
     }
 
-    public static final TextStyle DISPLAY = new TextStyle(Role.DISPLAY, 1.5F, true, true, false, null);
-    public static final TextStyle TITLE = new TextStyle(Role.TITLE, 1.25F, true, true, false, null);
-    public static final TextStyle HEADING = new TextStyle(Role.HEADING, 1.1F, true, true, false, null);
-    public static final TextStyle BODY = new TextStyle(Role.BODY, 1.0F, true, false, false, null);
+    public static final TextStyle DISPLAY = new TextStyle(Role.DISPLAY, 1.5F, false, true, false, null);
+    public static final TextStyle TITLE = new TextStyle(Role.TITLE, 1.25F, false, true, false, null);
+    public static final TextStyle HEADING = new TextStyle(Role.HEADING, 1.1F, false, true, false, null);
+    public static final TextStyle BODY = new TextStyle(Role.BODY, 1.0F, false, false, false, null);
     public static final TextStyle LABEL = new TextStyle(Role.LABEL, 1.0F, false, false, false, null);
     public static final TextStyle CAPTION = new TextStyle(Role.CAPTION, 0.85F, false, false, false, null);
     public static final TextStyle MONO = new TextStyle(Role.MONO, 1.0F, false, false, false, null);
