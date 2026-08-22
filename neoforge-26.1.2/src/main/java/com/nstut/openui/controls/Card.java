@@ -12,7 +12,7 @@ public class Card extends UIComponent {
     private boolean hoverable = true;
     private boolean clickable = false;
     private boolean selected = false;
-    private boolean elevated = true;
+    private Boolean elevatedOverride;
     private boolean outlined = true;
     private int customPadding = -1;
     private int customRadius = -1;
@@ -26,7 +26,8 @@ public class Card extends UIComponent {
     public Card clickable(boolean clickable) { this.clickable = clickable; focusable(clickable); return this; }
     public Card onClick(Runnable onClick) { this.onClick = onClick; return clickable(true); }
     public Card selected(boolean selected) { this.selected = selected; invalidatePaint(); return this; }
-    public Card elevated(boolean elevated) { this.elevated = elevated; invalidatePaint(); return this; }
+    public Card elevated(boolean elevated) { if (java.util.Objects.equals(elevatedOverride, elevated)) return this; elevatedOverride = elevated; invalidatePaint(); return this; }
+    public Card themeElevation() { if (elevatedOverride == null) return this; elevatedOverride = null; invalidatePaint(); return this; }
     public Card outlined(boolean outlined) { this.outlined = outlined; invalidatePaint(); return this; }
     public Card padding(int padding) { this.customPadding = Math.max(0,padding); invalidateLayout(); return this; }
     public Card radius(int radius) { this.customRadius = Math.max(0,radius); invalidatePaint(); return this; }
@@ -66,6 +67,7 @@ public class Card extends UIComponent {
         int hoverBorder=selected?colors.primaryHover():(outlined?colors.borderStrong():0);
         int border=UiRender.mix(baseBorder,hoverBorder,eased);
         if(isFocused()) border=colors.primary();
+        boolean elevated = elevatedOverride != null ? elevatedOverride : t.cardTheme().elevated();
         if(elevated) UiRender.shadow(g,x,y,width,height,radius,colors);
         UiRender.roundedOutline(g,x,y,width,height,radius,bg,border);
         for(UIComponent child:children) child.render(g,font,mx,my,pt);

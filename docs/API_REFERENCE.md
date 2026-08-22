@@ -24,6 +24,7 @@ This is a practical catalog of the public framework surface. The canonical signa
 - `Ui.grid(items, renderer)` / `DynamicGrid`: responsive repeated cards.
 - `Ui.list(items, renderer)` / `VirtualList`: virtualized, keyed list rows.
 - `Ui.virtualGrid(items, renderer)` / `VirtualGrid`: scrollable, row-virtualized responsive cells. Configure with `.key(...)`, `.minCellWidth(...)`, `.cellHeight(...)`, `.gap(...)`, `.overscanRows(...)`, and inspect/reset with `.columns()`, `.activeCellCount()`, `.scrollOffset()`, and `.resetScroll()`.
+- `Ui.card(a, b, c)`: decorates one logical content component; multiple arguments are automatically stacked vertically.
 - `ScrollList` and `ScrollGrid`: lower-level scrollable collections.
 
 ## Content and input controls
@@ -38,6 +39,8 @@ This is a practical catalog of the public framework surface. The canonical signa
 - Drag and drop: `draggable(data, child)` and `dragTarget(type, child)` with acceptance and drop callbacks.
 
 Stable keys are important for retained tables, grids, and lists. When a table signal emits a new item instance for the same logical key, OpenUI recreates that retained cell so updated display data is not stale.
+
+For virtual collections, the same key with an equal item reuses its cell; a changed item recreates it; duplicate keys are safely disambiguated by visible index.
 
 ## Reactive state
 

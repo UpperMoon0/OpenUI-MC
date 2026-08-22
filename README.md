@@ -16,7 +16,7 @@ It is a developer library: players install it when another mod declares OpenUI M
 
 ## What it provides
 
-- Declarative rows, columns, stacks, padding, clipping, responsive layouts, grids, and virtual lists
+- Declarative rows, columns, stacks, padding, clipping, responsive DynamicGrid layouts, VirtualList, and VirtualGrid
 - Reactive `Signal`, `Computed`, `Effect`, batching, remembered state, and async state
 - Buttons, text fields, checkboxes, switches, sliders, selects, tabs, tables, charts, loading and empty states
 - Capture/target/bubble events, focus traversal, pointer capture, drag and drop, and native widget ownership
