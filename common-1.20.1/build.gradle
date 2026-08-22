@@ -2,7 +2,12 @@ architectury { common rootProject.enabled_platforms_1_20_1.split(',') }
 
 sourceSets.main.java.srcDir rootProject.file('shared/core/src/main/java')
 
+repositories {
+    maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
+}
+
 dependencies {
+    compileOnly 'org.spongepowered:mixin:0.8.5'
     testImplementation platform('org.junit:junit-bom:5.10.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
