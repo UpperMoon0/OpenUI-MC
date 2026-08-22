@@ -29,5 +29,12 @@ processResources {
     inputs.properties metadata
     filesMatching('META-INF/mods.toml') { expand metadata }
 }
-shadowJar { configurations = [project.configurations.shadowBundle]; archiveClassifier = 'dev-shadow' }
+jar {
+    manifest { attributes 'MixinConfigs': 'openui-common-1.20.1.mixins.json' }
+}
+shadowJar {
+    configurations = [project.configurations.shadowBundle]
+    archiveClassifier = 'dev-shadow'
+    manifest { attributes 'MixinConfigs': 'openui-common-1.20.1.mixins.json' }
+}
 remapJar { inputFile.set shadowJar.archiveFile }
