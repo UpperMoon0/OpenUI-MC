@@ -5,6 +5,8 @@ import com.nstut.openui.api.Stack;
 import com.nstut.openui.api.UIComponent;
 import com.nstut.openui.api.Ui;
 import com.nstut.openui.layout.Alignment;
+import com.nstut.openui.layout.Constraints;
+import com.nstut.openui.layout.Size;
 import com.nstut.openui.overlay.OverlayHandle;
 import com.nstut.openui.overlay.OverlayLayer;
 import com.nstut.openui.overlay.OverlayManager;
@@ -26,7 +28,8 @@ public final class Dialog {
     public static OverlayHandle show(OverlayManager overlays, UIComponent content,
                                     boolean closeOnEscape, boolean closeOnBackdropClick, Runnable onClose) {
         if (overlays == null || content == null) return null;
-        DialogContainer container = new DialogContainer(content);
+        UIComponent dialogContent = content instanceof Card ? content : shell(content);
+        DialogContainer container = new DialogContainer(dialogContent);
         return overlays.show(
                 OverlayLayer.MODAL,
                 container,
@@ -35,6 +38,12 @@ public final class Dialog {
                 closeOnBackdropClick,
                 onClose
         );
+    }
+
+    private static Card shell(UIComponent content) {
+        Card shell = new Card(content).elevated(true).outlined(true).padding(12);
+        shell.width(200).minHeight(60);
+        return shell;
     }
 
     public static final class DialogContainer extends UIComponent {
@@ -49,20 +58,21 @@ public final class Dialog {
 
         @Override
         public int preferredWidth(Font font) {
-            return content.preferredWidth(font);
+            return content.measure(Constraints.loose(Constraints.INFINITY, Constraints.INFINITY), font).width();
         }
 
         @Override
         public int preferredHeight(Font font) {
-            return content.preferredHeight(font);
+            return content.measure(Constraints.loose(Constraints.INFINITY, Constraints.INFINITY), font).height();
         }
 
         @Override
         public void layout(int lx, int ly, int availableWidth, int availableHeight) {
             setBounds(lx, ly, availableWidth, availableHeight);
             Font f = measureFont();
-            int cw = content.preferredWidth(f);
-            int ch = content.preferredHeight(f);
+            Size measured = content.measure(Constraints.loose(availableWidth, availableHeight), f);
+            int cw = measured.width();
+            int ch = measured.height();
             int cx = lx + (availableWidth - cw) / 2;
             int cy = ly + (availableHeight - ch) / 2;
             content.layoutTree(f, cx, cy, cw, ch);
@@ -108,9 +118,9 @@ public final class Dialog {
         card.addChild(Ui.column(
                 Ui.heading(title),
                 Ui.text(message),
-                Ui.row(cancelBtn, confirmBtn).gap(6)
+                Ui.row(cancelBtn, confirmBtn).gap(6).justify(com.nstut.openui.layout.Justification.END)
         ).gap(10));
-        card.width(220).minHeight(90);
+        card.width(220).minHeight(76);
 
         OverlayHandle handle = show(overlays, card, true, true, () -> {
             if (!actionTaken[0]) {
@@ -138,9 +148,9 @@ public final class Dialog {
         card.addChild(Ui.column(
                 Ui.heading(title),
                 Ui.text(message),
-                Ui.row(okBtn)
+                Ui.row(okBtn).justify(com.nstut.openui.layout.Justification.END)
         ).gap(10));
-        card.width(200).minHeight(80);
+        card.width(200).minHeight(70);
 
         OverlayHandle handle = show(overlays, card, true, true, () -> {
             if (!actionTaken[0]) {
@@ -164,9 +174,9 @@ public final class Dialog {
                 Ui.row(
                         Ui.button(Component.translatable("gui.cancel"), cancel).ghost(),
                         Ui.button(Component.translatable("gui.ok"), confirm).primary()
-                ).gap(6)
+                ).gap(6).justify(com.nstut.openui.layout.Justification.END)
         ).gap(10));
-        card.width(220).minHeight(90);
+        card.width(220).minHeight(76);
         return new Stack().align(Alignment.CENTER, Alignment.CENTER).child(card);
     }
 }

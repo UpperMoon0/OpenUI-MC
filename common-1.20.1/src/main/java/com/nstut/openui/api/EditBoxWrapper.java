@@ -22,7 +22,7 @@ public class EditBoxWrapper extends UIComponent implements NativeWidgetOwner {
     }
 
     public EditBoxWrapper(int maxLength, int textColor, int bgColor, Font font) {
-        this.editBox = new EditBox(font, 0, 0, 100, 16, Component.empty());
+        this.editBox = new ShadowlessEditBox(font, 0, 0, 100, 16, Component.empty());
         this.editBox.setMaxLength(maxLength);
         this.editBox.setBordered(false);
         this.textColor = textColor;
