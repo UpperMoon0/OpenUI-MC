@@ -3,6 +3,7 @@ package com.nstut.openui.runtime;
 import com.nstut.openui.api.ButtonWidget;
 import com.nstut.openui.api.UIComponent;
 import com.nstut.openui.api.Ui;
+import com.nstut.openui.api.VStack;
 import com.nstut.openui.controls.Checkbox;
 import com.nstut.openui.controls.Select;
 import com.nstut.openui.controls.SwitchControl;
@@ -83,6 +84,27 @@ class InteractionTest {
 
         runtime.keyPressed(265, 0, 0);
         assertEquals("B", selection.get());
+    }
+
+    @Test
+    void selectDropdownStaysOpenWhenOpeningPressIsReleased() {
+        UiRuntime runtime = new UiRuntime(new Font(null), dummyHost);
+        Signal<String> selection = Signals.of("A");
+        Select<String> select = Ui.select(selection).option("A", "A").option("B", "B");
+        VStack root = new VStack();
+        root.addChild(select);
+        runtime.setRoot(root);
+        runtime.setViewport(0, 0, 120, 80);
+
+        runtime.mouseClicked(10, 10, 0);
+        assertEquals(1, runtime.overlays().size());
+
+        runtime.mouseReleased(10, 10, 0);
+        assertEquals(1, runtime.overlays().size());
+
+        runtime.mouseClicked(110, 70, 0);
+        assertEquals(0, runtime.overlays().size());
+        runtime.close();
     }
 
     @Test

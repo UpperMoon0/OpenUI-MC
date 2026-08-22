@@ -70,24 +70,41 @@ public final class OverlayManager implements AutoCloseable {
     }
 
     public void render(GuiGraphics graphics, Font font, int mouseX, int mouseY, float partialTick) {
+        int z = 300;
         for (Entry entry : List.copyOf(entries)) {
-            if (entry.layer == OverlayLayer.MODAL && entry.blocksInput) {
-                int backdropColor = runtime.theme().colors().backdrop();
-                graphics.fill(0, 0, graphics.guiWidth(), graphics.guiHeight(), backdropColor);
+            graphics.pose().pushPose();
+            graphics.pose().translate(0, 0, z);
+            try {
+                if (entry.layer == OverlayLayer.MODAL && entry.blocksInput) {
+                    int backdropColor = runtime.theme().colors().backdrop();
+                    graphics.fill(0, 0, graphics.guiWidth(), graphics.guiHeight(), backdropColor);
+                }
+                entry.component.preRender(mouseX, mouseY);
+                entry.component.render(graphics, font, mouseX, mouseY, partialTick);
+            } finally {
+                graphics.pose().popPose();
             }
-            entry.component.preRender(mouseX, mouseY);
-            entry.component.render(graphics, font, mouseX, mouseY, partialTick);
+            z += 50;
         }
     }
 
     public UIComponent hitTest(int mouseX, int mouseY) {
+        return hitTest(mouseX, mouseY, false);
+    }
+
+    /** Hit-tests a new mouse press and dismisses overlays configured for outside-click closing. */
+    public UIComponent hitTestForMouseDown(int mouseX, int mouseY) {
+        return hitTest(mouseX, mouseY, true);
+    }
+
+    private UIComponent hitTest(int mouseX, int mouseY, boolean dismissOutside) {
         List<Entry> snapshot = List.copyOf(entries);
         for (int i = snapshot.size() - 1; i >= 0; i--) {
             Entry entry = snapshot.get(i);
             if (!entry.open) continue;
             UIComponent hit = entry.component.hitTest(mouseX, mouseY);
             if (hit != null) return hit;
-            if (entry.closeOnOutsideClick) {
+            if (dismissOutside && entry.closeOnOutsideClick) {
                 entry.close();
             }
             if (entry.blocksInput) {

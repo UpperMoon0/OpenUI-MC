@@ -95,6 +95,23 @@ class LayoutRegressionTest {
     }
 
     @Test
+    void signalSwitcherBuildsInitiallySelectedLaterRoute() {
+        Signal<String> route = Signals.of("TAB2");
+        FixedBox tab2Content = new FixedBox(50, 50);
+
+        SignalSwitcher<String> switcher = Ui.switcher(route)
+                .when("TAB1", () -> new FixedBox(50, 50))
+                .when("TAB2", () -> tab2Content);
+
+        switcher.layout(15, 25, 300, 200);
+
+        assertEquals(1, switcher.children().size());
+        assertSame(tab2Content, switcher.children().get(0));
+        assertEquals(300, tab2Content.getWidth());
+        assertEquals(200, tab2Content.getHeight());
+    }
+
+    @Test
     void explicitlySizedHorizontalSpacerRemainsFixed() {
         HStack row = new HStack();
         UIComponent leading = new FixedBox(10, 10);

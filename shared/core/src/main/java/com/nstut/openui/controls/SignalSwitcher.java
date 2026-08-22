@@ -21,11 +21,15 @@ public final class SignalSwitcher<T> extends Stack {
     @Override protected void onUnmount() { subscription.close(); subscription = Subscription.EMPTY; }
     private void refresh() {
         T current = selection.get();
-        if (java.util.Objects.equals(current, displayed)) return;
-        displayed = current;
         Supplier<UIComponent> builder = routes.get(current);
+        // Routes are normally registered through a fluent when(...).when(...) chain.
+        // Do not remember a selection before its route has been registered: doing so
+        // leaves a rebuilt screen blank when the active route is not the first route.
+        if (builder == null) return;
+        if (java.util.Objects.equals(current, displayed) && !children.isEmpty()) return;
+        displayed = current;
         clearChildren();
-        if (builder != null) addChild(builder.get());
+        addChild(builder.get());
     }
 }
 
