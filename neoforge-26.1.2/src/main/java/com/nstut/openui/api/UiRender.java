@@ -1,5 +1,6 @@
 package com.nstut.openui.api;
 
+import com.nstut.openui.theme.ColorScheme;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /** Lightweight, texture-free drawing primitives shared by OpenUI MC consumers. */
@@ -14,7 +15,6 @@ public final class UiRender {
             g.fill(x, y, x + width, y + height, color);
             return;
         }
-
         g.fill(x + r, y, x + width - r, y + height, color);
         g.fill(x, y + r, x + width, y + height - r, color);
         for (int row = 0; row < r; row++) {
@@ -33,15 +33,22 @@ public final class UiRender {
             return;
         }
         roundedRect(g, x, y, width, height, radius, borderColor);
-        roundedRect(g, x + 1, y + 1, width - 2, height - 2,
-                Math.max(0, radius - 1), fillColor);
+        roundedRect(g, x + 1, y + 1, width - 2, height - 2, Math.max(0, radius - 1), fillColor);
     }
 
+    /** Legacy/default-dark shadow overload. Theme-aware consumers should pass ColorScheme. */
     public static void shadow(GuiGraphicsExtractor g, int x, int y, int width, int height, int radius) {
         roundedRect(g, x - 2, y + 2, width + 4, height + 3, radius + 2, UiTheme.SHADOW_SOFT);
         roundedRect(g, x - 1, y + 1, width + 2, height + 2, radius + 1, UiTheme.SHADOW);
     }
 
+    public static void shadow(GuiGraphicsExtractor g, int x, int y, int width, int height, int radius, ColorScheme colors) {
+        int soft = alpha(colors.shadow(), Math.max(16, channel(colors.shadow(), 24) / 2));
+        roundedRect(g, x - 2, y + 2, width + 4, height + 3, radius + 2, soft);
+        roundedRect(g, x - 1, y + 1, width + 2, height + 2, radius + 1, colors.shadow());
+    }
+
+    /** Legacy/default-dark surface overload. */
     public static void surface(GuiGraphicsExtractor g, int x, int y, int width, int height,
                                int radius, int fillColor, int borderColor, boolean elevated) {
         if (elevated) shadow(g, x, y, width, height, radius);
@@ -51,20 +58,52 @@ public final class UiRender {
         }
     }
 
+    /** Theme-aware surface without implicit shadow. */
+    public static void surface(GuiGraphicsExtractor g, int x, int y, int width, int height,
+                               int radius, int fillColor, int borderColor, ColorScheme colors) {
+        surface(g, x, y, width, height, radius, fillColor, borderColor, false, colors);
+    }
+
+    public static void surface(GuiGraphicsExtractor g, int x, int y, int width, int height,
+                               int radius, int fillColor, int borderColor, boolean elevated, ColorScheme colors) {
+        if (elevated) shadow(g, x, y, width, height, radius, colors);
+        roundedOutline(g, x, y, width, height, radius, fillColor, borderColor);
+        if (width > radius * 2 + 2 && height > 3) {
+            g.fill(x + radius, y + 1, x + width - radius, y + 2, colors.highlight());
+        }
+    }
+
     public static void pill(GuiGraphicsExtractor g, int x, int y, int width, int height,
                             int fillColor, int borderColor) {
         roundedOutline(g, x, y, width, height, Math.max(1, height / 2), fillColor, borderColor);
     }
 
+    /** Legacy/default-dark slot overload. */
     public static void slot(GuiGraphicsExtractor g, int x, int y, int width, int height) {
         roundedOutline(g, x, y, width, height, UiTheme.RADIUS_SM, UiTheme.SLOT, UiTheme.BORDER);
         if (width > 4) g.fill(x + 3, y + 1, x + width - 3, y + 2, 0x12FFFFFF);
     }
 
+    public static void slot(GuiGraphicsExtractor g, int x, int y, int width, int height, ColorScheme colors) {
+        roundedOutline(g, x, y, width, height, UiTheme.RADIUS_SM, colors.input(), colors.border());
+        if (width > 4) g.fill(x + 3, y + 1, x + width - 3, y + 2, colors.highlight());
+    }
+
+    /** Legacy/default-dark progress overload. */
     public static void progressTrack(GuiGraphicsExtractor g, int x, int y, int width, int height,
                                      float progress, int fillColor) {
+        progressTrack(g, x, y, width, height, progress, UiTheme.INPUT, fillColor);
+    }
+
+    public static void progressTrack(GuiGraphicsExtractor g, int x, int y, int width, int height,
+                                     float progress, ColorScheme colors) {
+        progressTrack(g, x, y, width, height, progress, colors.input(), colors.primary());
+    }
+
+    public static void progressTrack(GuiGraphicsExtractor g, int x, int y, int width, int height,
+                                     float progress, int trackColor, int fillColor) {
         float clamped = Math.max(0.0F, Math.min(1.0F, progress));
-        roundedRect(g, x, y, width, height, Math.max(1, height / 2), UiTheme.INPUT);
+        roundedRect(g, x, y, width, height, Math.max(1, height / 2), trackColor);
         int fillWidth = Math.round(width * clamped);
         if (fillWidth > 0) {
             roundedRect(g, x, y, fillWidth, height, Math.max(1, height / 2), fillColor);

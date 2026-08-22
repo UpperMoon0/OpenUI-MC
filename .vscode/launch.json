@@ -1,0 +1,71 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "neoforge-26.1.2 - Client",
+      "presentation": {
+        "group": "Mod Development - neoforge-26.1.2",
+        "order": 0
+      },
+      "projectName": "neoforge-26.1.2",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@D:\\Workspaces\\Minecraft Projects\\MC Mods\\Inventors\\OpenUI-MC\\neoforge-26.1.2\\build\\moddev\\clientRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@D:\\Workspaces\\Minecraft Projects\\MC Mods\\Inventors\\OpenUI-MC\\neoforge-26.1.2\\build\\moddev\\clientRunVmArgs.txt",
+        "-Dfml.modFolders\u003dopenui_mc%%D:\\Workspaces\\Minecraft Projects\\MC Mods\\Inventors\\OpenUI-MC\\neoforge-26.1.2\\bin\\main"
+      ],
+      "cwd": "${workspaceFolder}\\neoforge-26.1.2\\run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "neoforge-26.1.2 - GameTestServer",
+      "presentation": {
+        "group": "Mod Development - neoforge-26.1.2",
+        "order": 1
+      },
+      "projectName": "neoforge-26.1.2",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@D:\\Workspaces\\Minecraft Projects\\MC Mods\\Inventors\\OpenUI-MC\\neoforge-26.1.2\\build\\moddev\\gameTestServerRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@D:\\Workspaces\\Minecraft Projects\\MC Mods\\Inventors\\OpenUI-MC\\neoforge-26.1.2\\build\\moddev\\gameTestServerRunVmArgs.txt",
+        "-Dfml.modFolders\u003dopenui_mc%%D:\\Workspaces\\Minecraft Projects\\MC Mods\\Inventors\\OpenUI-MC\\neoforge-26.1.2\\bin\\main"
+      ],
+      "cwd": "${workspaceFolder}\\neoforge-26.1.2\\run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "neoforge-26.1.2 - Server",
+      "presentation": {
+        "group": "Mod Development - neoforge-26.1.2",
+        "order": 2
+      },
+      "projectName": "neoforge-26.1.2",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@D:\\Workspaces\\Minecraft Projects\\MC Mods\\Inventors\\OpenUI-MC\\neoforge-26.1.2\\build\\moddev\\serverRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@D:\\Workspaces\\Minecraft Projects\\MC Mods\\Inventors\\OpenUI-MC\\neoforge-26.1.2\\build\\moddev\\serverRunVmArgs.txt",
+        "-Dfml.modFolders\u003dopenui_mc%%D:\\Workspaces\\Minecraft Projects\\MC Mods\\Inventors\\OpenUI-MC\\neoforge-26.1.2\\bin\\main"
+      ],
+      "cwd": "${workspaceFolder}\\neoforge-26.1.2\\run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    }
+  ]
+}
