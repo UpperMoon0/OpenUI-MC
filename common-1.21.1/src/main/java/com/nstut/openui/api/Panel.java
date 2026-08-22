@@ -11,8 +11,8 @@ public class Panel extends UIComponent {
     private boolean elevated;
 
     public Panel(int bgColor, int borderColor) { this.backgroundOverride = bgColor; this.borderOverride = borderColor; }
-    public Panel(int bgColor) { this(bgColor, 0); }
-    public Panel() { this(0, 0); }
+    public Panel(int bgColor) { this.backgroundOverride = bgColor; }
+    public Panel() { }
     public Panel radius(int radius) { int next = Math.max(0, radius); if (customRadius == next) return this; customRadius = next; invalidatePaint(); return this; }
     public Panel themeRadius() { if (customRadius < 0) return this; customRadius = -1; invalidatePaint(); return this; }
     public Panel padding(int padding) { int next = Math.max(0, padding); if (customPadding == next) return this; customPadding = next; invalidateLayout(); return this; }
@@ -23,6 +23,8 @@ public class Panel extends UIComponent {
     public Panel themeColors() { backgroundOverride = null; borderOverride = null; invalidatePaint(); return this; }
     private int effectiveRadius() { return customRadius >= 0 ? customRadius : theme().radii().medium(); }
     private int effectivePadding() { return customPadding >= 0 ? customPadding : theme().spacing().sm(); }
+    int effectiveBackground() { return backgroundOverride != null ? backgroundOverride : theme().colors().surfaceRaised(); }
+    int effectiveBorder() { return borderOverride != null ? borderOverride : (elevated ? theme().colors().border() : 0); }
 
     @Override public int preferredWidth(Font font) { int padding=effectivePadding(), max=0; for (UIComponent c:children) max=Math.max(max,c.preferredWidth(font)); return max+padding*2; }
     @Override public int preferredHeight(Font font) { int padding=effectivePadding(), max=0; for (UIComponent c:children) max=Math.max(max,c.preferredHeight(font)); return max+padding*2; }
@@ -35,8 +37,8 @@ public class Panel extends UIComponent {
     @Override public void render(GuiGraphics g, Font font, int mx, int my, float pt) {
         if (!visible) return;
         var colors=theme().colors();
-        int bg=backgroundOverride != null ? backgroundOverride : colors.surfaceRaised();
-        int border=borderOverride != null ? borderOverride : (elevated?colors.border():0);
+        int bg=effectiveBackground();
+        int border=effectiveBorder();
         UiRender.surface(g,x,y,width,height,effectiveRadius(),bg,border,elevated,colors);
         renderChildren(g,font,mx,my,pt);
     }
