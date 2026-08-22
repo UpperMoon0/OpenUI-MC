@@ -12,7 +12,10 @@ class PanelTest {
 
         Panel backgroundOnly = new Panel(0xFF123456);
         assertEquals(0xFF123456, backgroundOnly.effectiveBackground());
-        assertEquals(backgroundOnly.theme().colors().border(), backgroundOnly.effectiveBorder());
+        assertEquals(0, backgroundOnly.effectiveBorder());
+
+        Panel elevatedBackground = new Panel(0xFF123456).elevated();
+        assertEquals(elevatedBackground.theme().colors().border(), elevatedBackground.effectiveBorder());
 
         Panel explicit = new Panel(0, 0);
         assertEquals(0, explicit.effectiveBackground());
