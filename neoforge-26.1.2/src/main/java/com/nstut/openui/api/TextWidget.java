@@ -3,6 +3,7 @@ package com.nstut.openui.api;
 import com.nstut.openui.theme.TextStyle;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FormattedText;
 import net.minecraft.util.FormattedCharSequence;
@@ -20,6 +21,7 @@ public class TextWidget extends UIComponent {
     private boolean wrap;
     private int maxLines = Integer.MAX_VALUE;
     private boolean ellipsis = true;
+    private boolean marquee;
 
     public TextWidget(String text, int color, boolean centered) {
         this(Component.literal(text != null ? text : ""), color, centered);
@@ -109,6 +111,12 @@ public class TextWidget extends UIComponent {
         return this;
     }
 
+    public TextWidget marquee() {
+        this.marquee = true;
+        invalidatePaint();
+        return this;
+    }
+
     public static TextWidget label(String text, int color) { return new TextWidget(text, color, false); }
     public static TextWidget label(Component text, int color) { return new TextWidget(text, color, false); }
     public static TextWidget centered(String text, int color) { return new TextWidget(text, color, true); }
@@ -174,6 +182,20 @@ public class TextWidget extends UIComponent {
         int drawX = useScale ? 0 : x;
         int drawY = useScale ? 0 : y;
         int effectiveWidth = useScale ? Math.round(width / scale) : width;
+
+        if (marquee && !wrap && effectiveWidth > 0) {
+            int textW = font.width(comp);
+            if (textW > effectiveWidth) {
+                int offset = UiAnimationUtil.marqueeOffset(textW, effectiveWidth, System.currentTimeMillis());
+                g.enableScissor(x, y, x + width, y + height);
+                g.text(font, comp, drawX - offset, drawY, textColor, style.shadow());
+                g.disableScissor();
+                if (useScale) {
+                    g.pose().popMatrix();
+                }
+                return;
+            }
+        }
 
         if (wrap && effectiveWidth > 0) {
             List<FormattedCharSequence> lines = font.split(comp, effectiveWidth);

@@ -37,6 +37,7 @@ import com.nstut.openui.state.AsyncValue;
 import com.nstut.openui.state.ReadableSignal;
 import com.nstut.openui.state.Signal;
 import com.nstut.openui.theme.TextStyle;
+import com.nstut.openui.controls.ScrollView;
 import com.nstut.openui.theme.Theme;
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
@@ -56,6 +57,7 @@ public final class Ui {
     public static ClipStack clip(UIComponent... children) { ClipStack stack = new ClipStack(); for (UIComponent child : children) stack.addChild(child); return stack; }
     public static Card card(UIComponent... children) { Card card = new Card(); if (children.length == 1) card.addChild(children[0]); else if (children.length > 1) card.addChild(column(children)); return card; }
 
+    public static ScrollView scroll(UIComponent content) { return new ScrollView(content); }
     public static Positioned positioned(UIComponent child) { return new Positioned(child); }
     public static Padding padding(int all, UIComponent child) { return new Padding(all, child); }
     public static Padding padding(int vertical, int horizontal, UIComponent child) { return new Padding(vertical, horizontal, child); }

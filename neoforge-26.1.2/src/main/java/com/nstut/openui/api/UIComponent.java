@@ -12,6 +12,7 @@ import com.nstut.openui.runtime.UiRuntime;
 import com.nstut.openui.theme.Theme;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.Font;
+import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -44,6 +45,7 @@ public abstract class UIComponent {
     private boolean focusable;
     private String key;
     private Theme localTheme;
+    private Component tooltip;
     private final EnumMap<EventType, List<Consumer<UiEvent>>> captureListeners = new EnumMap<>(EventType.class);
     private final EnumMap<EventType, List<Consumer<UiEvent>>> bubbleListeners = new EnumMap<>(EventType.class);
 
@@ -292,6 +294,18 @@ public abstract class UIComponent {
     }
 
     public boolean isHovered() { return hovered; }
+
+    public UIComponent tooltip(String text) {
+        return tooltip(text != null ? Component.literal(text) : null);
+    }
+
+    public UIComponent tooltip(Component text) {
+        this.tooltip = text;
+        return this;
+    }
+
+    public Component tooltip() { return tooltip; }
+
 
     protected final void renderChildren(GuiGraphicsExtractor g, Font font, int mx, int my, float pt) {
         for (UIComponent child : children) {
