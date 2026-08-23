@@ -7,7 +7,9 @@ import com.nstut.openui.theme.Theme;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
 
+import java.util.List;
 import java.util.Objects;
 
 public class Tooltip extends UIComponent {
@@ -90,25 +92,42 @@ public class Tooltip extends UIComponent {
     }
 
     private static final class TooltipText extends UIComponent {
+        /** Max text width before the runtime wraps onto further lines. */
+        private static final int MAX_TEXT_WIDTH = 200;
+
         private final Component text;
 
         private TooltipText(Component text) {
             this.text = text;
         }
 
+        private List<FormattedCharSequence> wrapped(Font font) {
+            if (font == null) return List.of();
+            return font.split(text, MAX_TEXT_WIDTH);
+        }
+
         @Override
         public int preferredWidth(Font font) {
-            return font != null ? font.width(text) : 40;
+            if (font == null) return 40;
+            return Math.min(font.width(text), MAX_TEXT_WIDTH);
         }
 
         @Override
         public int preferredHeight(Font font) {
-            return font != null ? font.lineHeight : 9;
+            if (font == null) return 9;
+            return Math.max(1, wrapped(font).size()) * (font.lineHeight + 1);
         }
 
         @Override
         public void render(GuiGraphicsExtractor g, Font font, int mx, int my, float pt) {
-            g.text(font, text, x, y, theme().colors().onSurface());
+            if (font == null) return;
+            int color = theme().colors().onSurface();
+            int lineHeight = font.lineHeight + 1;
+            int y = this.y;
+            for (FormattedCharSequence line : wrapped(font)) {
+                g.text(font, line, x, y, color);
+                y += lineHeight;
+            }
         }
     }
 }
