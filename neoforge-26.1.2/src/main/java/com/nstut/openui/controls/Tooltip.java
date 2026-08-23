@@ -9,6 +9,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -21,7 +22,7 @@ public class Tooltip extends UIComponent {
     }
 
     public Tooltip(Component text) {
-        this(new TooltipText(text));
+        this(new TooltipText(text != null ? text : Component.empty()));
     }
 
     public Tooltip(UIComponent content) {
@@ -35,6 +36,16 @@ public class Tooltip extends UIComponent {
      * tooltip (the runtime hover tracker) request an overlay layout instead so
      * mouse movement never re-lays-out the whole component tree.
      */
+    public static List<Component> splitLines(Component text) {
+        String raw = text != null ? text.getString() : "";
+        List<Component> out = new ArrayList<>();
+        for (String part : raw.split("\n", -1)) {
+            out.add(Component.literal(part));
+        }
+        if (out.isEmpty()) out.add(Component.empty());
+        return out;
+    }
+
     public void setPosition(int mx, int my) {
         this.mouseX = mx;
         this.mouseY = my;
@@ -91,6 +102,27 @@ public class Tooltip extends UIComponent {
         content.render(g, font, mx, my, pt);
     }
 
+    public static void drawHover(GuiGraphicsExtractor g, Font font, Component text,
+                                 int mouseX, int mouseY,
+                                 int boundsX, int boundsY, int boundsW, int boundsH) {
+        drawHover(g, font, new TooltipText(text != null ? text : Component.empty()), mouseX, mouseY, boundsX, boundsY, boundsW, boundsH);
+    }
+
+    public static void drawHover(GuiGraphicsExtractor g, Font font, List<FormattedCharSequence> lines,
+                                 int mouseX, int mouseY,
+                                 int boundsX, int boundsY, int boundsW, int boundsH) {
+        drawHover(g, font, new SequencesLines(lines), mouseX, mouseY, boundsX, boundsY, boundsW, boundsH);
+    }
+
+    private static void drawHover(GuiGraphicsExtractor g, Font font, UIComponent content,
+                                  int mouseX, int mouseY,
+                                  int boundsX, int boundsY, int boundsW, int boundsH) {
+        Tooltip tip = new Tooltip(content);
+        tip.setPosition(mouseX, mouseY);
+        tip.layoutTree(font, boundsX, boundsY, boundsW, boundsH);
+        tip.render(g, font, mouseX, mouseY, 1.0F);
+    }
+
     private static final class TooltipText extends UIComponent {
         /** Max text width before the runtime wraps onto further lines. */
         private static final int MAX_TEXT_WIDTH = 200;
@@ -98,18 +130,30 @@ public class Tooltip extends UIComponent {
         private final Component text;
 
         private TooltipText(Component text) {
-            this.text = text;
+            this.text = text != null ? text : Component.empty();
         }
 
         private List<FormattedCharSequence> wrapped(Font font) {
             if (font == null) return List.of();
-            return font.split(text, MAX_TEXT_WIDTH);
+            List<FormattedCharSequence> out = new ArrayList<>();
+            for (String part : text.getString().split("\n", -1)) {
+                if (part.isEmpty()) {
+                    out.add(FormattedCharSequence.EMPTY);
+                    continue;
+                }
+                out.addAll(font.split(Component.literal(part), MAX_TEXT_WIDTH));
+            }
+            return out;
         }
 
         @Override
         public int preferredWidth(Font font) {
             if (font == null) return 40;
-            return Math.min(font.width(text), MAX_TEXT_WIDTH);
+            int w = 0;
+            for (FormattedCharSequence line : wrapped(font)) {
+                w = Math.max(w, font.width(line));
+            }
+            return w;
         }
 
         @Override
@@ -123,10 +167,45 @@ public class Tooltip extends UIComponent {
             if (font == null) return;
             int color = theme().colors().onSurface();
             int lineHeight = font.lineHeight + 1;
-            int y = this.y;
+            int ly = y;
             for (FormattedCharSequence line : wrapped(font)) {
-                g.text(font, line, x, y, color);
-                y += lineHeight;
+                g.text(font, line, x, ly, color);
+                ly += lineHeight;
+            }
+        }
+    }
+
+    private static final class SequencesLines extends UIComponent {
+        private final List<FormattedCharSequence> lines;
+
+        private SequencesLines(List<FormattedCharSequence> lines) {
+            this.lines = lines;
+        }
+
+        @Override
+        public int preferredWidth(Font font) {
+            if (font == null) return 40;
+            int w = 0;
+            for (FormattedCharSequence line : lines) {
+                w = Math.max(w, font.width(line));
+            }
+            return w;
+        }
+
+        @Override
+        public int preferredHeight(Font font) {
+            int lh = font != null ? font.lineHeight : 9;
+            return lines.size() * lh + Math.max(0, lines.size() - 1) * 2;
+        }
+
+        @Override
+        public void render(GuiGraphicsExtractor g, Font font, int mx, int my, float pt) {
+            int color = theme().colors().onSurface();
+            int lh = font != null ? font.lineHeight : 9;
+            int ly = y;
+            for (FormattedCharSequence line : lines) {
+                g.text(font, line, x, ly, color, false);
+                ly += lh + 2;
             }
         }
     }

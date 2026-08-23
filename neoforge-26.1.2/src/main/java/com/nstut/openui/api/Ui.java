@@ -38,6 +38,7 @@ import com.nstut.openui.state.AsyncValue;
 import com.nstut.openui.state.ReadableSignal;
 import com.nstut.openui.state.Signal;
 import com.nstut.openui.theme.TextStyle;
+import com.nstut.openui.controls.ScrollView;
 import com.nstut.openui.theme.Theme;
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;

@@ -3,6 +3,7 @@ package com.nstut.openui.api;
 import com.nstut.openui.theme.TextStyle;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FormattedText;
 import net.minecraft.util.FormattedCharSequence;
@@ -190,6 +191,20 @@ public class TextWidget extends UIComponent {
         int drawX = useScale ? 0 : x;
         int drawY = useScale ? 0 : y;
         int effectiveWidth = useScale ? Math.round(width / scale) : width;
+
+        if (marquee && !wrap && effectiveWidth > 0) {
+            int textW = font.width(comp);
+            if (textW > effectiveWidth) {
+                int offset = UiAnimationUtil.marqueeOffset(textW, effectiveWidth, System.currentTimeMillis());
+                g.enableScissor(x, y, x + width, y + height);
+                g.text(font, comp, drawX - offset, drawY, textColor, style.shadow());
+                g.disableScissor();
+                if (useScale) {
+                    g.pose().popMatrix();
+                }
+                return;
+            }
+        }
 
         if (wrap && effectiveWidth > 0) {
             List<FormattedCharSequence> lines = font.split(comp, effectiveWidth);

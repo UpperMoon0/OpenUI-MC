@@ -7,6 +7,7 @@ import com.nstut.openui.input.KeyboardEvent;
 import com.nstut.openui.input.PointerEvent;
 import com.nstut.openui.input.UiEvent;
 import com.nstut.openui.animation.AnimationManager;
+import com.nstut.openui.controls.Tooltip;
 import com.nstut.openui.theme.Theme;
 import com.nstut.openui.overlay.OverlayManager;
 import net.minecraft.client.gui.Font;
@@ -98,6 +99,10 @@ public final class UiRuntime implements AutoCloseable {
         }
         root.preRender(mouseX, mouseY);
         root.render(graphics, font, mouseX, mouseY, partialTick);
+        UIComponent tipTarget = findTooltipTarget(root);
+        if (tipTarget != null) {
+            Tooltip.drawHover(graphics, font, tipTarget.tooltip(), mouseX, mouseY, x, y, width, height);
+        }
         overlays.render(graphics, font, mouseX, mouseY, partialTick);
         root.markPainted();
         paintDirty = false;
@@ -271,5 +276,14 @@ public final class UiRuntime implements AutoCloseable {
         pressedTarget = null;
         if (root != null) root.dispose();
         root = null;
+    }
+
+    private UIComponent findTooltipTarget(UIComponent c) {
+        if (c == null || !c.isVisible()) return null;
+        for (UIComponent child : c.children()) {
+            UIComponent hit = findTooltipTarget(child);
+            if (hit != null) return hit;
+        }
+        return (c.isHovered() && c.tooltip() != null) ? c : null;
     }
 }
