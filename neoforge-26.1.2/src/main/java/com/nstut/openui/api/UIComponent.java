@@ -44,6 +44,7 @@ public abstract class UIComponent {
     private boolean focusable;
     private String key;
     private Theme localTheme;
+    private net.minecraft.network.chat.Component tooltip;
     private final EnumMap<EventType, List<Consumer<UiEvent>>> captureListeners = new EnumMap<>(EventType.class);
     private final EnumMap<EventType, List<Consumer<UiEvent>>> bubbleListeners = new EnumMap<>(EventType.class);
 
@@ -204,6 +205,13 @@ public abstract class UIComponent {
     public void requestFocus() { if (runtime != null) runtime.focus().requestFocus(this); }
     public void clearFocus() { if (runtime != null && isFocused()) runtime.focus().clearFocus(); }
     public UIComponent theme(Theme theme) { if (java.util.Objects.equals(localTheme, theme)) return this; this.localTheme = theme; invalidateLayout(); return this; }
+    /**
+     * Attaches a hover tooltip shown by the runtime while the pointer rests on
+     * this component (or a descendant without its own tooltip). Null clears it.
+     */
+    public UIComponent tooltip(net.minecraft.network.chat.Component text) { this.tooltip = text; return this; }
+    public UIComponent tooltip(String text) { return tooltip(text != null ? net.minecraft.network.chat.Component.literal(text) : null); }
+    public net.minecraft.network.chat.Component tooltipText() { return tooltip; }
     public Theme theme() {
         if (localTheme != null) return localTheme;
         if (parent != null) return parent.theme();

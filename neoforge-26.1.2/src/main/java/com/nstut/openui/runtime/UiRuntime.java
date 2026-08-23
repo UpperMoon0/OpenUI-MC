@@ -1,12 +1,15 @@
 package com.nstut.openui.runtime;
 
 import com.nstut.openui.api.UIComponent;
+import com.nstut.openui.controls.Tooltip;
 import com.nstut.openui.input.EventPhase;
 import com.nstut.openui.input.EventType;
 import com.nstut.openui.input.KeyboardEvent;
 import com.nstut.openui.input.PointerEvent;
 import com.nstut.openui.input.UiEvent;
 import com.nstut.openui.animation.AnimationManager;
+import com.nstut.openui.overlay.OverlayHandle;
+import com.nstut.openui.overlay.OverlayLayer;
 import com.nstut.openui.theme.Theme;
 import com.nstut.openui.overlay.OverlayManager;
 import net.minecraft.client.gui.Font;
@@ -33,6 +36,11 @@ public final class UiRuntime implements AutoCloseable {
     private int height;
     private UIComponent pointerCapture;
     private UIComponent pressedTarget;
+    private UIComponent tooltipOwner;
+    private Tooltip tooltipOverlay;
+    private OverlayHandle tooltipHandle;
+    private int tooltipMouseX = Integer.MIN_VALUE;
+    private int tooltipMouseY = Integer.MIN_VALUE;
 
     public UiRuntime(Font font, NativeWidgetHost widgetHost) {
         this(font, widgetHost, Theme.dark());
@@ -97,6 +105,7 @@ public final class UiRuntime implements AutoCloseable {
             overlayLayoutDirty = false;
         }
         root.preRender(mouseX, mouseY);
+        updateTooltipTracking(mouseX, mouseY);
         root.render(graphics, font, mouseX, mouseY, partialTick);
         overlays.render(graphics, font, mouseX, mouseY, partialTick);
         root.markPainted();
@@ -105,6 +114,50 @@ public final class UiRuntime implements AutoCloseable {
 
     public void preRender(int mouseX, int mouseY) {
         if (root != null) root.preRender(mouseX, mouseY);
+    }
+
+    /**
+     * Frame-driven hover tooltip tracking: resolves the deepest component under
+     * the pointer, walks up to the nearest owner with an attached tooltip, and
+     * shows/moves/hides a single TOOLTIP-layer overlay accordingly. Suppressed
+     * while a blocking overlay (modal/dialog) is open.
+     */
+    private void updateTooltipTracking(int mouseX, int mouseY) {
+        UIComponent owner = null;
+        if (!overlays.hasBlockingOverlay()) {
+            UIComponent target = root.hitTest(mouseX, mouseY);
+            for (UIComponent cursor = target; cursor != null; cursor = cursor.parent()) {
+                if (cursor.tooltipText() != null) {
+                    owner = cursor;
+                    break;
+                }
+            }
+        }
+        if (owner != tooltipOwner) {
+            closeTooltip();
+            if (owner != null) {
+                tooltipOverlay = new Tooltip(owner.tooltipText());
+                tooltipHandle = overlays.show(OverlayLayer.TOOLTIP, tooltipOverlay);
+                tooltipOwner = owner;
+                tooltipMouseX = Integer.MIN_VALUE;
+                tooltipMouseY = Integer.MIN_VALUE;
+            }
+        }
+        if (tooltipOverlay != null && (mouseX != tooltipMouseX || mouseY != tooltipMouseY)) {
+            // Tooltip.setPosition only records the anchor; overlay relayout is
+            // requested here so the root layout stays untouched.
+            tooltipOverlay.setPosition(mouseX, mouseY);
+            requestOverlayLayout();
+            tooltipMouseX = mouseX;
+            tooltipMouseY = mouseY;
+        }
+    }
+
+    private void closeTooltip() {
+        if (tooltipHandle != null) tooltipHandle.close();
+        tooltipHandle = null;
+        tooltipOverlay = null;
+        tooltipOwner = null;
     }
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
@@ -263,6 +316,7 @@ public final class UiRuntime implements AutoCloseable {
 
     @Override
     public void close() {
+        closeTooltip();
         nativeWidgets.close();
         animations.close();
         overlays.close();

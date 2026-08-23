@@ -27,10 +27,16 @@ public class Tooltip extends UIComponent {
         addChild(content);
     }
 
+    /**
+     * Records a new cursor anchor applied on the next overlay layout pass.
+     * Deliberately does NOT invalidate the root layout; callers driving the
+     * tooltip (the runtime hover tracker) request an overlay layout instead so
+     * mouse movement never re-lays-out the whole component tree.
+     */
     public void setPosition(int mx, int my) {
         this.mouseX = mx;
         this.mouseY = my;
-        invalidateLayout();
+        invalidatePaint();
     }
 
     @Override

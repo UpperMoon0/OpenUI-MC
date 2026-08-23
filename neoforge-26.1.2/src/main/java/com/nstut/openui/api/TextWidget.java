@@ -20,6 +20,7 @@ public class TextWidget extends UIComponent {
     private boolean wrap;
     private int maxLines = Integer.MAX_VALUE;
     private boolean ellipsis = true;
+    private boolean marquee;
 
     public TextWidget(String text, int color, boolean centered) {
         this(Component.literal(text != null ? text : ""), color, centered);
@@ -106,6 +107,21 @@ public class TextWidget extends UIComponent {
     public TextWidget ellipsis(boolean ellipsis) {
         this.ellipsis = ellipsis;
         invalidateLayout();
+        return this;
+    }
+
+    /**
+     * Ping-pong scrolls the text horizontally (rest, slide left, rest, slide
+     * back) whenever it exceeds the laid-out width, clipped to this widget's
+     * bounds. Text that fits is drawn normally (centered if requested).
+     */
+    public TextWidget marquee() {
+        return marquee(true);
+    }
+
+    public TextWidget marquee(boolean marquee) {
+        this.marquee = marquee;
+        invalidatePaint();
         return this;
     }
 
@@ -213,7 +229,18 @@ public class TextWidget extends UIComponent {
                     g.text(font, line, lx, ly, textColor, style.shadow());
                 }
             } else {
-                if (ellipsis && effectiveWidth > 0 && font.width(comp) > effectiveWidth) {
+                if (marquee && effectiveWidth > 0 && font.width(comp) > effectiveWidth) {
+                    // Ping-pong the full string inside a hard clip instead of
+                    // truncating it; UiAnimationUtil supplies the shared
+                    // rest/slide/rest/return timing used across consumers.
+                    int offset = UiAnimationUtil.pingPongOffset(font.width(comp), effectiveWidth, System.currentTimeMillis());
+                    ClipStack.push(g, x, y, width, height);
+                    try {
+                        g.text(font, comp, drawX - offset, drawY, textColor, style.shadow());
+                    } finally {
+                        ClipStack.pop(g);
+                    }
+                } else if (ellipsis && effectiveWidth > 0 && font.width(comp) > effectiveWidth) {
                     String trimmed = font.plainSubstrByWidth(str, Math.max(8, effectiveWidth - font.width("..."))) + "...";
                     int tw = font.width(trimmed);
                     int tx = centered ? drawX + (effectiveWidth - tw) / 2 : drawX;
