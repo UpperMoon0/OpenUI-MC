@@ -156,7 +156,10 @@ public class Tabs<T> extends UIComponent {
         Theme t = theme();
         ColorScheme colors = t.colors();
 
-        UiRender.roundedOutline(g, x, y, width, height, t.radii().small(), colors.surface(), colors.borderSubtle());
+        // roundedOutline paints both the interior and border. Select the focus
+        // border in this pass so a second zero-fill outline cannot cover the bar.
+        UiRender.roundedOutline(g, x, y, width, height, t.radii().small(), colors.surface(),
+                isFocused() ? colors.primary() : colors.borderSubtle());
 
         int tabCount = tabs.size();
         int tabW = width / tabCount;
@@ -190,9 +193,6 @@ public class Tabs<T> extends UIComponent {
             }
         }
 
-        if (isFocused()) {
-            UiRender.roundedOutline(g, x, y, width, height, t.radii().small(), 0, colors.primary());
-        }
     }
 
     @Override
