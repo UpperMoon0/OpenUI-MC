@@ -216,6 +216,11 @@ public class ButtonWidget extends UIComponent {
         String str = comp.getString();
         String[] lines = str.split("\n", -1);
         int finalTextColor = enabled ? textCol : colors.onSurfaceDisabled();
+        int secondaryTextColor = enabled ? colors.onSurfaceMuted() : colors.onSurfaceDisabled();
+        if (enabled && variant == Variant.GHOST && customTextColor == null) {
+            finalTextColor = contrastTextColor(fillColor, textCol, colors.onPrimary());
+            secondaryTextColor = contrastTextColor(fillColor, colors.onSurfaceMuted(), colors.onPrimary());
+        }
 
         if (lines.length >= 2) {
             int totalTextHeight = font.lineHeight * 2;
@@ -224,7 +229,7 @@ public class ButtonWidget extends UIComponent {
             int secondWidth = font.width(lines[1]);
             int firstX = alignLeft ? x + 8 : x + (width - firstWidth) / 2;
             int secondX = alignLeft ? x + 8 : x + (width - secondWidth) / 2;
-            g.drawString(font, lines[0], firstX, firstY, colors.onSurfaceMuted(), false);
+            g.drawString(font, lines[0], firstX, firstY, secondaryTextColor, false);
             g.drawString(font, lines[1], secondX, firstY + font.lineHeight, finalTextColor, false);
         } else {
             int tw = font.width(comp);
@@ -232,6 +237,30 @@ public class ButtonWidget extends UIComponent {
             int tx = alignLeft ? x + (activeIndicator ? 9 : 7) : x + (width - tw) / 2;
             g.drawString(font, comp, tx, ty, finalTextColor, false);
         }
+    }
+
+    static int contrastTextColor(int background, int preferred, int alternate) {
+        if (((background >>> 24) & 0xFF) < 128) return preferred;
+        return contrastRatio(background, alternate) > contrastRatio(background, preferred)
+                ? alternate : preferred;
+    }
+
+    private static double contrastRatio(int first, int second) {
+        double a = relativeLuminance(first);
+        double b = relativeLuminance(second);
+        return (Math.max(a, b) + 0.05D) / (Math.min(a, b) + 0.05D);
+    }
+
+    private static double relativeLuminance(int color) {
+        double red = linearChannel((color >>> 16) & 0xFF);
+        double green = linearChannel((color >>> 8) & 0xFF);
+        double blue = linearChannel(color & 0xFF);
+        return 0.2126D * red + 0.7152D * green + 0.0722D * blue;
+    }
+
+    private static double linearChannel(int channel) {
+        double value = channel / 255.0D;
+        return value <= 0.04045D ? value / 12.92D : Math.pow((value + 0.055D) / 1.055D, 2.4D);
     }
 
     @Override
