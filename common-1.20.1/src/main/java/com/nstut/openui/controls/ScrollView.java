@@ -8,11 +8,17 @@ import com.nstut.openui.layout.Size;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 
-/** Clips and vertically scrolls one child when its content exceeds the viewport. */
+/**
+ * Clips a single child to its bounds and scrolls overflowing content with the
+ * mouse wheel, drawing a slim scrollbar while the content exceeds the viewport.
+ * Pair with {@code .flex()} inside a column so the viewport absorbs exactly the
+ * leftover space instead of pushing siblings off screen.
+ */
 public class ScrollView extends UIComponent {
     private static final int SCROLLBAR_WIDTH = 3;
     private static final int SCROLLBAR_GAP = 2;
     private static final int WHEEL_STEP = 24;
+    /** Natural viewport cap for un-flexed usage; flex parents override this. */
     private static final int DEFAULT_VIEWPORT = 160;
 
     private double scrollOffset;
@@ -32,7 +38,8 @@ public class ScrollView extends UIComponent {
 
     @Override public int preferredHeight(Font font) {
         UIComponent content = content();
-        return content == null ? 0 : Math.min(content.preferredHeight(font), DEFAULT_VIEWPORT);
+        if (content == null) return 0;
+        return Math.min(content.preferredHeight(font), DEFAULT_VIEWPORT);
     }
 
     @Override

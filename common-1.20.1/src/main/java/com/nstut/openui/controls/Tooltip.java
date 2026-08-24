@@ -29,10 +29,11 @@ public class Tooltip extends UIComponent {
         addChild(content);
     }
 
+    /** Records a cursor anchor for the next overlay-only layout pass. */
     public void setPosition(int mx, int my) {
         this.mouseX = mx;
         this.mouseY = my;
-        invalidateLayout();
+        invalidatePaint();
     }
 
     @Override
@@ -106,6 +107,7 @@ public class Tooltip extends UIComponent {
         tip.render(g, font, mouseX, mouseY, 1.0F);
     }
 
+    /** Static text content whose style-preserving wrapped lines are cached per font. */
     private static final class TooltipText extends UIComponent {
         /** Max text width before the runtime wraps onto further lines. */
         private static final int MAX_TEXT_WIDTH = 200;

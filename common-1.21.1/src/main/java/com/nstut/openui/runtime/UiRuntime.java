@@ -8,6 +8,8 @@ import com.nstut.openui.input.PointerEvent;
 import com.nstut.openui.input.UiEvent;
 import com.nstut.openui.animation.AnimationManager;
 import com.nstut.openui.controls.Tooltip;
+import com.nstut.openui.overlay.OverlayHandle;
+import com.nstut.openui.overlay.OverlayLayer;
 import com.nstut.openui.theme.Theme;
 import com.nstut.openui.overlay.OverlayManager;
 import net.minecraft.client.gui.Font;
@@ -34,6 +36,14 @@ public final class UiRuntime implements AutoCloseable {
     private int height;
     private UIComponent pointerCapture;
     private UIComponent pressedTarget;
+    private UIComponent tooltipOwner;
+    private Tooltip tooltipOverlay;
+    private OverlayHandle tooltipHandle;
+    private int tooltipMouseX = Integer.MIN_VALUE;
+    private int tooltipMouseY = Integer.MIN_VALUE;
+    private UIComponent hoverCandidate;
+    private long hoverCandidateSinceNanos;
+    private static final long TOOLTIP_DWELL_NANOS = 300_000_000L;
 
     public UiRuntime(Font font, NativeWidgetHost widgetHost) {
         this(font, widgetHost, Theme.dark());
@@ -93,16 +103,13 @@ public final class UiRuntime implements AutoCloseable {
             root.layoutTree(font, x, y, width, height);
             layoutDirty = false;
         }
+        root.preRender(mouseX, mouseY);
+        updateTooltipTracking(mouseX, mouseY);
         if (overlayLayoutDirty) {
             overlays.layout(font, x, y, width, height);
             overlayLayoutDirty = false;
         }
-        root.preRender(mouseX, mouseY);
         root.render(graphics, font, mouseX, mouseY, partialTick);
-        UIComponent tipTarget = findTooltipTarget(root);
-        if (tipTarget != null) {
-            Tooltip.drawHover(graphics, font, tipTarget.tooltip(), mouseX, mouseY, x, y, width, height);
-        }
         overlays.render(graphics, font, mouseX, mouseY, partialTick);
         root.markPainted();
         paintDirty = false;
@@ -110,6 +117,56 @@ public final class UiRuntime implements AutoCloseable {
 
     public void preRender(int mouseX, int mouseY) {
         if (root != null) root.preRender(mouseX, mouseY);
+    }
+
+    /** Tracks one runtime tooltip with consistent dwell and overlay behavior. */
+    private void updateTooltipTracking(int mouseX, int mouseY) {
+        UIComponent owner = null;
+        boolean blocked = overlays.hasBlockingOverlay() || pressedTarget != null || pointerCapture != null;
+        if (!blocked) {
+            owner = findTooltipOwner(root.hitTest(mouseX, mouseY));
+            if (owner == null) {
+                List<UIComponent> layers = overlays.components();
+                for (int i = layers.size() - 1; i >= 0 && owner == null; i--) {
+                    owner = findTooltipOwner(layers.get(i).hitTest(mouseX, mouseY));
+                }
+            }
+        }
+        long nowNanos = System.nanoTime();
+        if (owner != hoverCandidate) {
+            hoverCandidate = owner;
+            hoverCandidateSinceNanos = nowNanos;
+            closeTooltip();
+        }
+        boolean dwellElapsed = owner == null
+                || nowNanos - hoverCandidateSinceNanos >= TOOLTIP_DWELL_NANOS;
+        if (dwellElapsed && owner != tooltipOwner && owner != null) {
+            tooltipOverlay = new Tooltip(owner.tooltip());
+            tooltipHandle = overlays.show(OverlayLayer.TOOLTIP, tooltipOverlay);
+            tooltipOwner = owner;
+            tooltipMouseX = Integer.MIN_VALUE;
+            tooltipMouseY = Integer.MIN_VALUE;
+        }
+        if (tooltipOverlay != null && (mouseX != tooltipMouseX || mouseY != tooltipMouseY)) {
+            tooltipOverlay.setPosition(mouseX, mouseY);
+            requestOverlayLayout();
+            tooltipMouseX = mouseX;
+            tooltipMouseY = mouseY;
+        }
+    }
+
+    private UIComponent findTooltipOwner(UIComponent target) {
+        for (UIComponent cursor = target; cursor != null; cursor = cursor.parent()) {
+            if (cursor.tooltip() != null) return cursor;
+        }
+        return null;
+    }
+
+    private void closeTooltip() {
+        if (tooltipHandle != null) tooltipHandle.close();
+        tooltipHandle = null;
+        tooltipOverlay = null;
+        tooltipOwner = null;
     }
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
@@ -268,6 +325,7 @@ public final class UiRuntime implements AutoCloseable {
 
     @Override
     public void close() {
+        closeTooltip();
         nativeWidgets.close();
         animations.close();
         overlays.close();
@@ -278,12 +336,4 @@ public final class UiRuntime implements AutoCloseable {
         root = null;
     }
 
-    private UIComponent findTooltipTarget(UIComponent c) {
-        if (c == null || !c.isVisible()) return null;
-        for (UIComponent child : c.children()) {
-            UIComponent hit = findTooltipTarget(child);
-            if (hit != null) return hit;
-        }
-        return (c.isHovered() && c.tooltip() != null) ? c : null;
-    }
 }

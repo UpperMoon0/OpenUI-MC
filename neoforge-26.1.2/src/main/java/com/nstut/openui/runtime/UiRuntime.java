@@ -104,12 +104,12 @@ public final class UiRuntime implements AutoCloseable {
             root.layoutTree(font, x, y, width, height);
             layoutDirty = false;
         }
+        root.preRender(mouseX, mouseY);
+        updateTooltipTracking(mouseX, mouseY);
         if (overlayLayoutDirty) {
             overlays.layout(font, x, y, width, height);
             overlayLayoutDirty = false;
         }
-        root.preRender(mouseX, mouseY);
-        updateTooltipTracking(mouseX, mouseY);
         root.render(graphics, font, mouseX, mouseY, partialTick);
         overlays.render(graphics, font, mouseX, mouseY, partialTick);
         root.markPainted();
@@ -128,7 +128,7 @@ public final class UiRuntime implements AutoCloseable {
      */
     private void updateTooltipTracking(int mouseX, int mouseY) {
         UIComponent owner = null;
-        boolean blocked = overlays.hasBlockingOverlay();
+        boolean blocked = overlays.hasBlockingOverlay() || pressedTarget != null || pointerCapture != null;
         if (!blocked) {
             owner = findTooltipOwner(root.hitTest(mouseX, mouseY));
             if (owner == null) {
