@@ -211,10 +211,6 @@ public abstract class UIComponent {
     public void requestFocus() { if (runtime != null) runtime.focus().requestFocus(this); }
     public void clearFocus() { if (runtime != null && isFocused()) runtime.focus().clearFocus(); }
     public UIComponent theme(Theme theme) { if (java.util.Objects.equals(localTheme, theme)) return this; this.localTheme = theme; invalidateLayout(); return this; }
-    /**
-     * Attaches a hover tooltip shown by the runtime while the pointer rests on
-     * this component (or a descendant without its own tooltip). Null clears it.
-     */
     public Theme theme() {
         if (localTheme != null) return localTheme;
         if (parent != null) return parent.theme();
@@ -308,6 +304,10 @@ public abstract class UIComponent {
         return tooltip(text != null ? Component.literal(text) : null);
     }
 
+    /**
+     * Attaches a hover tooltip shown by the runtime while the pointer rests on
+     * this component (or a descendant without its own tooltip). Null clears it.
+     */
     public UIComponent tooltip(Component text) {
         this.tooltip = text;
         return this;
