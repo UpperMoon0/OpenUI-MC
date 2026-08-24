@@ -29,15 +29,4 @@ public final class UiAnimationUtil {
         }
         return Math.round(offset);
     }
-
-    public static int marqueeOffset(int textWidth, int viewportWidth, long elapsedMillis) {
-        if (textWidth <= 0 || viewportWidth <= 0 || textWidth <= viewportWidth) return 0;
-        int travel = textWidth + viewportWidth;
-        long travelMillis = Math.max(1L, (long) Math.ceil(travel / MARQUEE_PIXELS_PER_MILLI));
-        long cycleMillis = MARQUEE_PAUSE_MILLIS + travelMillis;
-        long phase = Math.floorMod(elapsedMillis, cycleMillis);
-        if (phase < MARQUEE_PAUSE_MILLIS) return 0;
-        float moved = (phase - MARQUEE_PAUSE_MILLIS) * MARQUEE_PIXELS_PER_MILLI;
-        return Math.min(travel, Math.round(moved));
-    }
 }

@@ -9,7 +9,6 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -36,16 +35,6 @@ public class Tooltip extends UIComponent {
      * tooltip (the runtime hover tracker) request an overlay layout instead so
      * mouse movement never re-lays-out the whole component tree.
      */
-    public static List<Component> splitLines(Component text) {
-        String raw = text != null ? text.getString() : "";
-        List<Component> out = new ArrayList<>();
-        for (String part : raw.split("\n", -1)) {
-            out.add(Component.literal(part));
-        }
-        if (out.isEmpty()) out.add(Component.empty());
-        return out;
-    }
-
     public void setPosition(int mx, int my) {
         this.mouseX = mx;
         this.mouseY = my;
@@ -128,22 +117,21 @@ public class Tooltip extends UIComponent {
         private static final int MAX_TEXT_WIDTH = 200;
 
         private final Component text;
+        private List<FormattedCharSequence> wrappedLines;
+        private Font wrappedWith;
 
         private TooltipText(Component text) {
             this.text = text != null ? text : Component.empty();
         }
 
+        /** Wraps once per font; {@link Font#split} preserves component styling. */
         private List<FormattedCharSequence> wrapped(Font font) {
             if (font == null) return List.of();
-            List<FormattedCharSequence> out = new ArrayList<>();
-            for (String part : text.getString().split("\n", -1)) {
-                if (part.isEmpty()) {
-                    out.add(FormattedCharSequence.EMPTY);
-                    continue;
-                }
-                out.addAll(font.split(Component.literal(part), MAX_TEXT_WIDTH));
+            if (wrappedLines == null || wrappedWith != font) {
+                wrappedLines = font.split(text, MAX_TEXT_WIDTH);
+                wrappedWith = font;
             }
-            return out;
+            return wrappedLines;
         }
 
         @Override
@@ -166,11 +154,10 @@ public class Tooltip extends UIComponent {
         public void render(GuiGraphicsExtractor g, Font font, int mx, int my, float pt) {
             if (font == null) return;
             int color = theme().colors().onSurface();
-            int lineHeight = font.lineHeight + 1;
             int ly = y;
             for (FormattedCharSequence line : wrapped(font)) {
                 g.text(font, line, x, ly, color);
-                ly += lineHeight;
+                ly += font.lineHeight + 1;
             }
         }
     }

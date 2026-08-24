@@ -210,7 +210,6 @@ public abstract class UIComponent {
      * Attaches a hover tooltip shown by the runtime while the pointer rests on
      * this component (or a descendant without its own tooltip). Null clears it.
      */
-    public Component tooltipText() { return tooltip; }
     public Theme theme() {
         if (localTheme != null) return localTheme;
         if (parent != null) return parent.theme();

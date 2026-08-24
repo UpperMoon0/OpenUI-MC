@@ -192,19 +192,6 @@ public class TextWidget extends UIComponent {
         int drawY = useScale ? 0 : y;
         int effectiveWidth = useScale ? Math.round(width / scale) : width;
 
-        if (marquee && !wrap && effectiveWidth > 0) {
-            int textW = font.width(comp);
-            if (textW > effectiveWidth) {
-                int offset = UiAnimationUtil.marqueeOffset(textW, effectiveWidth, System.currentTimeMillis());
-                g.enableScissor(x, y, x + width, y + height);
-                g.text(font, comp, drawX - offset, drawY, textColor, style.shadow());
-                g.disableScissor();
-                if (useScale) {
-                    g.pose().popMatrix();
-                }
-                return;
-            }
-        }
 
         if (wrap && effectiveWidth > 0) {
             List<FormattedCharSequence> lines = font.split(comp, effectiveWidth);

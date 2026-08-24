@@ -183,20 +183,6 @@ public class TextWidget extends UIComponent {
         int drawY = useScale ? 0 : y;
         int effectiveWidth = useScale ? Math.round(width / scale) : width;
 
-        if (marquee && !wrap && effectiveWidth > 0) {
-            int textW = font.width(comp);
-            if (textW > effectiveWidth) {
-                int offset = UiAnimationUtil.marqueeOffset(textW, effectiveWidth, Util.getMillis());
-                g.enableScissor(x, y, x + width, y + height);
-                g.drawString(font, comp, drawX - offset, drawY, textColor, style.shadow());
-                g.disableScissor();
-                if (useScale) {
-                    g.pose().popPose();
-                }
-                return;
-            }
-        }
-
         if (wrap && effectiveWidth > 0) {
             List<FormattedCharSequence> lines = font.split(comp, effectiveWidth);
             int count = Math.min(maxLines, lines.size());
@@ -235,7 +221,18 @@ public class TextWidget extends UIComponent {
                     g.drawString(font, line, lx, ly, textColor, style.shadow());
                 }
             } else {
-                if (ellipsis && effectiveWidth > 0 && font.width(comp) > effectiveWidth) {
+                if (marquee && effectiveWidth > 0 && font.width(comp) > effectiveWidth) {
+                    // Ping-pong the full string inside a hard clip instead of
+                    // truncating it; UiAnimationUtil supplies the shared
+                    // rest/slide/rest/return timing used across consumers.
+                    int offset = UiAnimationUtil.pingPongOffset(font.width(comp), effectiveWidth, Util.getMillis());
+                    ClipStack.push(g, x, y, width, height);
+                    try {
+                        g.drawString(font, comp, drawX - offset, drawY, textColor, style.shadow());
+                    } finally {
+                        ClipStack.pop(g);
+                    }
+                } else if (ellipsis && effectiveWidth > 0 && font.width(comp) > effectiveWidth) {
                     String trimmed = font.plainSubstrByWidth(str, Math.max(8, effectiveWidth - font.width("..."))) + "...";
                     int tw = font.width(trimmed);
                     int tx = centered ? drawX + (effectiveWidth - tw) / 2 : drawX;

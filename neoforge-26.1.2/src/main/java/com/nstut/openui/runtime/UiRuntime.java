@@ -127,7 +127,7 @@ public final class UiRuntime implements AutoCloseable {
         if (!overlays.hasBlockingOverlay()) {
             UIComponent target = root.hitTest(mouseX, mouseY);
             for (UIComponent cursor = target; cursor != null; cursor = cursor.parent()) {
-                if (cursor.tooltipText() != null) {
+                if (cursor.tooltip() != null) {
                     owner = cursor;
                     break;
                 }
@@ -136,7 +136,7 @@ public final class UiRuntime implements AutoCloseable {
         if (owner != tooltipOwner) {
             closeTooltip();
             if (owner != null) {
-                tooltipOverlay = new Tooltip(owner.tooltipText());
+                tooltipOverlay = new Tooltip(owner.tooltip());
                 tooltipHandle = overlays.show(OverlayLayer.TOOLTIP, tooltipOverlay);
                 tooltipOwner = owner;
                 tooltipMouseX = Integer.MIN_VALUE;
