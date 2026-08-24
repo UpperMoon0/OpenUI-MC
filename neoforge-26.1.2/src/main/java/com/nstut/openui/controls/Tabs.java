@@ -191,7 +191,7 @@ public class Tabs<T> extends UIComponent {
             }
 
             if (font != null) {
-                g.text(font, tab.label(), textX, textY, textCol);
+                g.text(font, tab.label(), textX, textY, textCol, false);
             }
         }
     }

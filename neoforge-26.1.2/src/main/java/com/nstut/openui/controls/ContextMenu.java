@@ -159,11 +159,11 @@ public class ContextMenu extends UIComponent {
                 }
 
                 int textCol = item.enabled() ? (isItemHovered ? colors.primaryHover() : colors.onSurface()) : colors.onSurfaceDisabled();
-                g.text(font, item.label(), textX, curY + (itemH - font.lineHeight) / 2, textCol);
+                g.text(font, item.label(), textX, curY + (itemH - font.lineHeight) / 2, textCol, false);
 
                 if (item.shortcut() != null) {
                     int scW = font.width(item.shortcut());
-                    g.text(font, item.shortcut(), x + width - scW - 8, curY + (itemH - font.lineHeight) / 2, colors.onSurfaceMuted());
+                    g.text(font, item.shortcut(), x + width - scW - 8, curY + (itemH - font.lineHeight) / 2, colors.onSurfaceMuted(), false);
                 }
                 curY += itemH;
             }

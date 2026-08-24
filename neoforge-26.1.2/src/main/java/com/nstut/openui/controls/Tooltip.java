@@ -162,7 +162,7 @@ public class Tooltip extends UIComponent {
             int color = theme().colors().onSurface();
             int ly = y;
             for (FormattedCharSequence line : wrapped(font)) {
-                g.text(font, line, x, ly, color);
+                g.text(font, line, x, ly, color, false);
                 ly += font.lineHeight + 1;
             }
         }

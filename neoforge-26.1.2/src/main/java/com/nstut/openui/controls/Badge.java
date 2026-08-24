@@ -76,6 +76,6 @@ public class Badge extends UIComponent {
         UiRender.roundedRect(g, x, y, width, height, height / 2, bg);
         int tw = font.width(label);
         int textColor = variant == Variant.NEUTRAL ? colors.onSurface() : colors.onPrimary();
-        g.text(font, label, x + (width - tw) / 2, y + (height - font.lineHeight) / 2, textColor);
+        g.text(font, label, x + (width - tw) / 2, y + (height - font.lineHeight) / 2, textColor, false);
     }
 }

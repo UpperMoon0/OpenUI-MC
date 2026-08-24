@@ -70,6 +70,10 @@ public abstract class UIComponent {
         if (child.parent != null) child.parent.removeChild(child);
         children.add(child);
         child.parent = this;
+        // Children may be materialized during layout (for example by a
+        // VirtualList). Give them the current font immediately so their first
+        // measurement matches every subsequent layout pass.
+        child.setMeasureFont(measureFont);
         if (runtime != null) child.mount(runtime);
         invalidateBuild();
     }
@@ -93,6 +97,7 @@ public abstract class UIComponent {
         old.unmount();
         old.parent = null;
         child.parent = this;
+        child.setMeasureFont(measureFont);
         if (runtime != null) child.mount(runtime);
         invalidateBuild();
     }
