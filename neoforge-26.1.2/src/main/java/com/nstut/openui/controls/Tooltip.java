@@ -112,6 +112,12 @@ public class Tooltip extends UIComponent {
         tip.render(g, font, mouseX, mouseY, 1.0F);
     }
 
+    /**
+     * Single-owner text content for a tooltip. Wrapped lines are cached per
+     * font; callers showing dynamic (signal/supplier-backed) text should
+     * attach a fresh {@link Tooltip} when the text changes — the runtime
+     * re-creates the overlay on owner change, so static components are fine.
+     */
     private static final class TooltipText extends UIComponent {
         /** Max text width before the runtime wraps onto further lines. */
         private static final int MAX_TEXT_WIDTH = 200;

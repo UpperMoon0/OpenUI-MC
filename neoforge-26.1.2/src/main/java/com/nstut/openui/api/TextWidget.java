@@ -235,7 +235,8 @@ public class TextWidget extends UIComponent {
                     // Ping-pong the full string inside a hard clip instead of
                     // truncating it; UiAnimationUtil supplies the shared
                     // rest/slide/rest/return timing used across consumers.
-                    int offset = UiAnimationUtil.pingPongOffset(font.width(comp), effectiveWidth, System.currentTimeMillis());
+                    // Monotonic clock: wall-clock jumps (NTP, sleep/resume) would visibly skip the animation.
+                    int offset = UiAnimationUtil.pingPongOffset(font.width(comp), effectiveWidth, System.nanoTime() / 1_000_000L);
                     ClipStack.push(g, x, y, width, height);
                     try {
                         g.text(font, comp, drawX - offset, drawY, textColor, style.shadow());

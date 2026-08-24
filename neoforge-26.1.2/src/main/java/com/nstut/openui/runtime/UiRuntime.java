@@ -41,6 +41,10 @@ public final class UiRuntime implements AutoCloseable {
     private OverlayHandle tooltipHandle;
     private int tooltipMouseX = Integer.MIN_VALUE;
     private int tooltipMouseY = Integer.MIN_VALUE;
+    private UIComponent hoverCandidate;
+    private long hoverCandidateSinceNanos;
+    /** Pointer must rest this long on one owner before its tooltip shows. */
+    private static final long TOOLTIP_DWELL_NANOS = 300_000_000L;
 
     public UiRuntime(Font font, NativeWidgetHost widgetHost) {
         this(font, widgetHost, Theme.dark());
@@ -124,17 +128,29 @@ public final class UiRuntime implements AutoCloseable {
      */
     private void updateTooltipTracking(int mouseX, int mouseY) {
         UIComponent owner = null;
-        if (!overlays.hasBlockingOverlay()) {
-            UIComponent target = root.hitTest(mouseX, mouseY);
-            for (UIComponent cursor = target; cursor != null; cursor = cursor.parent()) {
-                if (cursor.tooltip() != null) {
-                    owner = cursor;
-                    break;
+        boolean blocked = overlays.hasBlockingOverlay();
+        if (!blocked) {
+            owner = findTooltipOwner(root.hitTest(mouseX, mouseY));
+            if (owner == null) {
+                // Non-blocking overlays (menus, popups, palettes) render above
+                // the root and must own tooltips too; topmost layer wins.
+                List<UIComponent> layers = overlays.components();
+                for (int i = layers.size() - 1; i >= 0 && owner == null; i--) {
+                    owner = findTooltipOwner(layers.get(i).hitTest(mouseX, mouseY));
                 }
             }
         }
-        if (owner != tooltipOwner) {
+        // Dwell: require the pointer to rest on the same owner briefly so
+        // brushing across dense lists does not strobe tooltips.
+        long nowNanos = System.nanoTime();
+        if (owner != hoverCandidate) {
+            hoverCandidate = owner;
+            hoverCandidateSinceNanos = nowNanos;
             closeTooltip();
+        }
+        boolean dwellElapsed = owner == null
+                || nowNanos - hoverCandidateSinceNanos >= TOOLTIP_DWELL_NANOS;
+        if (dwellElapsed && owner != tooltipOwner) {
             if (owner != null) {
                 tooltipOverlay = new Tooltip(owner.tooltip());
                 tooltipHandle = overlays.show(OverlayLayer.TOOLTIP, tooltipOverlay);
@@ -151,6 +167,14 @@ public final class UiRuntime implements AutoCloseable {
             tooltipMouseX = mouseX;
             tooltipMouseY = mouseY;
         }
+    }
+
+    /** Walks up from the hit component to the nearest tooltip owner. */
+    private UIComponent findTooltipOwner(UIComponent target) {
+        for (UIComponent cursor = target; cursor != null; cursor = cursor.parent()) {
+            if (cursor.tooltip() != null) return cursor;
+        }
+        return null;
     }
 
     private void closeTooltip() {
