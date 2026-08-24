@@ -90,11 +90,11 @@ public class EmptyState extends UIComponent {
         }
 
         int tw = font.width(title);
-        g.text(font, title, x + (width - tw) / 2, centerY, theme().colors().onSurface());
+        g.text(font, title, x + (width - tw) / 2, centerY, theme().colors().onSurface(), false);
 
         if (description != null) {
             int dw = font.width(description);
-            g.text(font, description, x + (width - dw) / 2, centerY + font.lineHeight + 4, theme().colors().onSurfaceMuted());
+            g.text(font, description, x + (width - dw) / 2, centerY + font.lineHeight + 4, theme().colors().onSurfaceMuted(), false);
         }
 
         if (actionButton != null) {

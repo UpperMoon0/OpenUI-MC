@@ -1,17 +1,41 @@
 package com.nstut.openui.controls;
 
+import com.nstut.openui.api.ButtonWidget;
 import com.nstut.openui.api.TextWidget;
 import com.nstut.openui.api.Ui;
 import com.nstut.openui.state.Signal;
 import com.nstut.openui.state.Signals;
+import net.minecraft.client.gui.Font;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class VirtualListTest {
+
+    @Test
+    void materializedRowsUseTheRealFontOnTheirFirstLayout() {
+        Signal<List<String>> items = Signals.of(List.of("row"));
+        AtomicReference<ButtonWidget> renderedButton = new AtomicReference<>();
+        VirtualList<String> list = Ui.list(items, ignored -> {
+            ButtonWidget button = Ui.button("Select", () -> {}).small();
+            renderedButton.set(button);
+            return Ui.row(Ui.spacer().flex(), button);
+        }).itemHeight(24);
+        Font font = new Font(null, false);
+
+        list.layoutTree(font, 0, 0, 200, 24);
+
+        ButtonWidget button = renderedButton.get();
+        assertNotNull(button);
+        assertEquals(button.preferredWidth(font), button.getWidth());
+        int firstWidth = button.getWidth();
+        list.layoutTree(font, 0, 0, 200, 24);
+        assertEquals(firstWidth, button.getWidth());
+    }
 
     @Test
     void virtualListLimitsActiveChildrenToViewportPlusOverscan() {

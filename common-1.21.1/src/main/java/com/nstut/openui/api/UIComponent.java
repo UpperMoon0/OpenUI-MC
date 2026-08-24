@@ -70,6 +70,9 @@ public abstract class UIComponent {
         if (child.parent != null) child.parent.removeChild(child);
         children.add(child);
         child.parent = this;
+        // Virtualized controls may create children during layout. Propagate
+        // the active font immediately so first-frame measurement is stable.
+        child.setMeasureFont(measureFont);
         if (runtime != null) child.mount(runtime);
         invalidateBuild();
     }
@@ -93,6 +96,7 @@ public abstract class UIComponent {
         old.unmount();
         old.parent = null;
         child.parent = this;
+        child.setMeasureFont(measureFont);
         if (runtime != null) child.mount(runtime);
         invalidateBuild();
     }

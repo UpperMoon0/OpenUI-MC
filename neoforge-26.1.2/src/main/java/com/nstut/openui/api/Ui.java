@@ -21,6 +21,7 @@ import com.nstut.openui.controls.Select;
 import com.nstut.openui.controls.SignalSwitcher;
 import com.nstut.openui.controls.SignalText;
 import com.nstut.openui.controls.Skeleton;
+import com.nstut.openui.controls.ScrollView;
 import com.nstut.openui.controls.Slider;
 import com.nstut.openui.controls.Sparkline;
 import com.nstut.openui.controls.Spinner;
@@ -57,7 +58,6 @@ public final class Ui {
     public static ClipStack clip(UIComponent... children) { ClipStack stack = new ClipStack(); for (UIComponent child : children) stack.addChild(child); return stack; }
     public static Card card(UIComponent... children) { Card card = new Card(); if (children.length == 1) card.addChild(children[0]); else if (children.length > 1) card.addChild(column(children)); return card; }
 
-    public static ScrollView scroll(UIComponent content) { return new ScrollView(content); }
     public static Positioned positioned(UIComponent child) { return new Positioned(child); }
     public static Padding padding(int all, UIComponent child) { return new Padding(all, child); }
     public static Padding padding(int vertical, int horizontal, UIComponent child) { return new Padding(vertical, horizontal, child); }
@@ -86,6 +86,7 @@ public final class Ui {
     public static ProgressBar progress(ReadableSignal<? extends Number> value) { return new ProgressBar(value); }
     public static Slider slider(Signal<Double> value, double min, double max) { return new Slider(value, min, max); }
     public static <T> VirtualList<T> list(ReadableSignal<List<T>> items, Function<T, UIComponent> renderer) { return new VirtualList<>(items, renderer); }
+    public static ScrollView scroll(UIComponent content) { return new ScrollView(content); }
     public static <T> DynamicGrid<T> grid(ReadableSignal<List<T>> items, Function<T, UIComponent> renderer) { return new DynamicGrid<>(items, renderer); }
     public static <T> VirtualGrid<T> virtualGrid(ReadableSignal<List<T>> items, Function<T, UIComponent> renderer) { return new VirtualGrid<>(items, renderer); }
     public static <T> SignalSwitcher<T> switcher(ReadableSignal<T> selection) { return new SignalSwitcher<>(selection); }

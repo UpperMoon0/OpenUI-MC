@@ -134,7 +134,7 @@ public class EditBoxWrapper extends UIComponent implements NativeWidgetOwner {
             String visible = font.width(placeholder) <= available
                     ? placeholder
                     : font.plainSubstrByWidth(placeholder, Math.max(1, available - font.width("..."))) + "...";
-            g.text(font, visible, x + 4, y + (height - font.lineHeight) / 2, placeholderColor);
+            g.text(font, visible, x + 4, y + (height - font.lineHeight) / 2, placeholderColor, false);
         }
         // The native widget remains registered for input routing. Rendering it
         // here keeps its text and cursor above the component's styled surface.

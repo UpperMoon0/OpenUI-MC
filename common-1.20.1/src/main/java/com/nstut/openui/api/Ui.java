@@ -17,6 +17,7 @@ import com.nstut.openui.controls.LoadingOverlay;
 import com.nstut.openui.controls.Popover;
 import com.nstut.openui.controls.ProgressBar;
 import com.nstut.openui.controls.Radio;
+import com.nstut.openui.controls.ScrollView;
 import com.nstut.openui.controls.Select;
 import com.nstut.openui.controls.SignalSwitcher;
 import com.nstut.openui.controls.SignalText;
@@ -83,6 +84,7 @@ public final class Ui {
     public static SwitchControl toggle(Signal<Boolean> value) { return new SwitchControl(value); }
     public static ProgressBar progress(ReadableSignal<? extends Number> value) { return new ProgressBar(value); }
     public static Slider slider(Signal<Double> value, double min, double max) { return new Slider(value, min, max); }
+    public static ScrollView scroll(UIComponent content) { return new ScrollView(content); }
     public static <T> VirtualList<T> list(ReadableSignal<List<T>> items, Function<T, UIComponent> renderer) { return new VirtualList<>(items, renderer); }
     public static <T> DynamicGrid<T> grid(ReadableSignal<List<T>> items, Function<T, UIComponent> renderer) { return new DynamicGrid<>(items, renderer); }
     public static <T> VirtualGrid<T> virtualGrid(ReadableSignal<List<T>> items, Function<T, UIComponent> renderer) { return new VirtualGrid<>(items, renderer); }

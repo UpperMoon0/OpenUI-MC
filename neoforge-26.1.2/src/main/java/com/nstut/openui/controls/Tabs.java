@@ -156,7 +156,12 @@ public class Tabs<T> extends UIComponent {
         Theme t = theme();
         ColorScheme colors = t.colors();
 
-        UiRender.roundedOutline(g, x, y, width, height, t.radii().small(), colors.surface(), colors.borderSubtle());
+        // The outline repaints the interior with the surface color, so it must happen
+        // before the indicator pill and labels. A focused state only swaps the border
+        // color; drawing it as a separate zero-fill outline would paint a solid
+        // primary rectangle over the whole bar.
+        UiRender.roundedOutline(g, x, y, width, height, t.radii().small(), colors.surface(),
+                isFocused() ? colors.primary() : colors.borderSubtle());
 
         int tabCount = tabs.size();
         int tabW = width / tabCount;
@@ -186,12 +191,8 @@ public class Tabs<T> extends UIComponent {
             }
 
             if (font != null) {
-                g.text(font, tab.label(), textX, textY, textCol);
+                g.text(font, tab.label(), textX, textY, textCol, false);
             }
-        }
-
-        if (isFocused()) {
-            UiRender.roundedOutline(g, x, y, width, height, t.radii().small(), 0, colors.primary());
         }
     }
 

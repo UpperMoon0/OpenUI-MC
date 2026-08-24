@@ -62,5 +62,38 @@ tasks.register('buildAll') {
 
 tasks.register('testAllVersions') {
     group = 'verification'
-    dependsOn ':common-1.20.1:test', ':common-1.21.1:test', ':neoforge-26.1.2:test'
+    dependsOn 'checkLegacySourceParity', ':common-1.20.1:test', ':common-1.21.1:test', ':neoforge-26.1.2:test'
+}
+
+tasks.register('checkLegacySourceParity') {
+    group = 'verification'
+    description = 'Prevents the shared 1.20.1/1.21.1 implementation from drifting outside explicit API adapters.'
+    doLast {
+        def leftRoot = file('common-1.20.1/src/main/java')
+        def rightRoot = file('common-1.21.1/src/main/java')
+        def allowedDifferences = [
+            'com/nstut/openui/api/EditBoxWrapper.java',
+            'com/nstut/openui/minecraft/UiContainerScreen.java',
+            'com/nstut/openui/minecraft/UiScreen.java'
+        ] as Set
+        def relativeFiles = { File root ->
+            fileTree(root).matching { include '**/*.java' }.files.collect {
+                root.toPath().relativize(it.toPath()).toString().replace('\\', '/')
+            } as Set
+        }
+        def leftFiles = relativeFiles(leftRoot)
+        def rightFiles = relativeFiles(rightRoot)
+        def unexpected = []
+        (leftFiles + rightFiles).sort().each { path ->
+            if (allowedDifferences.contains(path)) return
+            def left = new File(leftRoot, path)
+            def right = new File(rightRoot, path)
+            if (!left.isFile() || !right.isFile() || !java.util.Arrays.equals(left.bytes, right.bytes)) {
+                unexpected << path
+            }
+        }
+        if (!unexpected.isEmpty()) {
+            throw new GradleException("Legacy shared-source parity drift:\n - " + unexpected.join('\n - '))
+        }
+    }
 }

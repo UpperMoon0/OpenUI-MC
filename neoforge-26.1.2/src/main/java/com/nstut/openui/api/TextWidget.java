@@ -111,8 +111,17 @@ public class TextWidget extends UIComponent {
         return this;
     }
 
+    /**
+     * Ping-pong scrolls the text horizontally (rest, slide left, rest, slide
+     * back) whenever it exceeds the laid-out width, clipped to this widget's
+     * bounds. Text that fits is drawn normally (centered if requested).
+     */
     public TextWidget marquee() {
-        this.marquee = true;
+        return marquee(true);
+    }
+
+    public TextWidget marquee(boolean marquee) {
+        this.marquee = marquee;
         invalidatePaint();
         return this;
     }
@@ -183,19 +192,6 @@ public class TextWidget extends UIComponent {
         int drawY = useScale ? 0 : y;
         int effectiveWidth = useScale ? Math.round(width / scale) : width;
 
-        if (marquee && !wrap && effectiveWidth > 0) {
-            int textW = font.width(comp);
-            if (textW > effectiveWidth) {
-                int offset = UiAnimationUtil.marqueeOffset(textW, effectiveWidth, System.currentTimeMillis());
-                g.enableScissor(x, y, x + width, y + height);
-                g.text(font, comp, drawX - offset, drawY, textColor, style.shadow());
-                g.disableScissor();
-                if (useScale) {
-                    g.pose().popMatrix();
-                }
-                return;
-            }
-        }
 
         if (wrap && effectiveWidth > 0) {
             List<FormattedCharSequence> lines = font.split(comp, effectiveWidth);
@@ -235,7 +231,19 @@ public class TextWidget extends UIComponent {
                     g.text(font, line, lx, ly, textColor, style.shadow());
                 }
             } else {
-                if (ellipsis && effectiveWidth > 0 && font.width(comp) > effectiveWidth) {
+                if (marquee && effectiveWidth > 0 && font.width(comp) > effectiveWidth) {
+                    // Ping-pong the full string inside a hard clip instead of
+                    // truncating it; UiAnimationUtil supplies the shared
+                    // rest/slide/rest/return timing used across consumers.
+                    // Monotonic clock: wall-clock jumps (NTP, sleep/resume) would visibly skip the animation.
+                    int offset = UiAnimationUtil.pingPongOffset(font.width(comp), effectiveWidth, System.nanoTime() / 1_000_000L);
+                    ClipStack.push(g, x, y, width, height);
+                    try {
+                        g.text(font, comp, drawX - offset, drawY, textColor, style.shadow());
+                    } finally {
+                        ClipStack.pop(g);
+                    }
+                } else if (ellipsis && effectiveWidth > 0 && font.width(comp) > effectiveWidth) {
                     String trimmed = font.plainSubstrByWidth(str, Math.max(8, effectiveWidth - font.width("..."))) + "...";
                     int tw = font.width(trimmed);
                     int tx = centered ? drawX + (effectiveWidth - tw) / 2 : drawX;

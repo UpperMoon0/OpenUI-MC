@@ -9,7 +9,6 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -22,7 +21,7 @@ public class Tooltip extends UIComponent {
     }
 
     public Tooltip(Component text) {
-        this(new TooltipText(splitLines(text)));
+        this(new TooltipText(text != null ? text : Component.empty()));
     }
 
     public Tooltip(UIComponent content) {
@@ -30,20 +29,11 @@ public class Tooltip extends UIComponent {
         addChild(content);
     }
 
-    public static List<Component> splitLines(Component text) {
-        String raw = text != null ? text.getString() : "";
-        List<Component> out = new ArrayList<>();
-        for (String part : raw.split("\n", -1)) {
-            out.add(Component.literal(part));
-        }
-        if (out.isEmpty()) out.add(Component.empty());
-        return out;
-    }
-
+    /** Records a cursor anchor for the next overlay-only layout pass. */
     public void setPosition(int mx, int my) {
         this.mouseX = mx;
         this.mouseY = my;
-        invalidateLayout();
+        invalidatePaint();
     }
 
     @Override
@@ -99,7 +89,7 @@ public class Tooltip extends UIComponent {
     public static void drawHover(GuiGraphics g, Font font, Component text,
                                  int mouseX, int mouseY,
                                  int boundsX, int boundsY, int boundsW, int boundsH) {
-        drawHover(g, font, new TooltipText(splitLines(text)), mouseX, mouseY, boundsX, boundsY, boundsW, boundsH);
+        drawHover(g, font, new TooltipText(text != null ? text : Component.empty()), mouseX, mouseY, boundsX, boundsY, boundsW, boundsH);
     }
 
     public static void drawHover(GuiGraphics g, Font font, List<FormattedCharSequence> lines,
@@ -117,18 +107,34 @@ public class Tooltip extends UIComponent {
         tip.render(g, font, mouseX, mouseY, 1.0F);
     }
 
+    /** Static text content whose style-preserving wrapped lines are cached per font. */
     private static final class TooltipText extends UIComponent {
-        private final List<Component> lines;
+        /** Max text width before the runtime wraps onto further lines. */
+        private static final int MAX_TEXT_WIDTH = 200;
 
-        private TooltipText(List<Component> lines) {
-            this.lines = lines;
+        private final Component text;
+        private List<FormattedCharSequence> wrappedLines;
+        private Font wrappedWith;
+
+        private TooltipText(Component text) {
+            this.text = text != null ? text : Component.empty();
+        }
+
+        /** Wraps once per font; {@link Font#split} preserves component styling. */
+        private List<FormattedCharSequence> wrapped(Font font) {
+            if (font == null) return List.of();
+            if (wrappedLines == null || wrappedWith != font) {
+                wrappedLines = font.split(text, MAX_TEXT_WIDTH);
+                wrappedWith = font;
+            }
+            return wrappedLines;
         }
 
         @Override
         public int preferredWidth(Font font) {
             if (font == null) return 40;
             int w = 0;
-            for (Component line : lines) {
+            for (FormattedCharSequence line : wrapped(font)) {
                 w = Math.max(w, font.width(line));
             }
             return w;
@@ -136,18 +142,18 @@ public class Tooltip extends UIComponent {
 
         @Override
         public int preferredHeight(Font font) {
-            int lh = font != null ? font.lineHeight : 9;
-            return lines.size() * lh + Math.max(0, lines.size() - 1) * 2;
+            if (font == null) return 9;
+            return Math.max(1, wrapped(font).size()) * (font.lineHeight + 1);
         }
 
         @Override
         public void render(GuiGraphics g, Font font, int mx, int my, float pt) {
+            if (font == null) return;
             int color = theme().colors().onSurface();
-            int lh = font != null ? font.lineHeight : 9;
             int ly = y;
-            for (Component line : lines) {
-                UiRender.text(g, font, line, x, ly, color);
-                ly += lh + 2;
+            for (FormattedCharSequence line : wrapped(font)) {
+                g.drawString(font, line, x, ly, color, false);
+                ly += font.lineHeight + 1;
             }
         }
     }

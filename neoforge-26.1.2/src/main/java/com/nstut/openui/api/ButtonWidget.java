@@ -224,13 +224,13 @@ public class ButtonWidget extends UIComponent {
             int secondWidth = font.width(lines[1]);
             int firstX = alignLeft ? x + 8 : x + (width - firstWidth) / 2;
             int secondX = alignLeft ? x + 8 : x + (width - secondWidth) / 2;
-            g.text(font, lines[0], firstX, firstY, colors.onSurfaceMuted());
-            g.text(font, lines[1], secondX, firstY + font.lineHeight, finalTextColor);
+            g.text(font, lines[0], firstX, firstY, colors.onSurfaceMuted(), false);
+            g.text(font, lines[1], secondX, firstY + font.lineHeight, finalTextColor, false);
         } else {
             int tw = font.width(comp);
             int ty = y + (height - font.lineHeight) / 2;
             int tx = alignLeft ? x + (activeIndicator ? 9 : 7) : x + (width - tw) / 2;
-            g.text(font, comp, tx, ty, finalTextColor);
+            g.text(font, comp, tx, ty, finalTextColor, false);
         }
     }
 

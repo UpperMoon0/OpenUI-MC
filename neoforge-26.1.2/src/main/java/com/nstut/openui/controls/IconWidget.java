@@ -98,7 +98,7 @@ public class IconWidget extends UIComponent {
                 if (glyph != null && font != null) {
                     int color = glyphColor != null ? glyphColor : theme().colors().primary();
                     int tw = font.width(glyph);
-                    g.text(font, glyph, x + (width - tw) / 2, y + (height - font.lineHeight) / 2, color);
+                    g.text(font, glyph, x + (width - tw) / 2, y + (height - font.lineHeight) / 2, color, false);
                 }
             }
             case CUSTOM -> {

@@ -70,6 +70,10 @@ public abstract class UIComponent {
         if (child.parent != null) child.parent.removeChild(child);
         children.add(child);
         child.parent = this;
+        // Children may be materialized during layout (for example by a
+        // VirtualList). Give them the current font immediately so their first
+        // measurement matches every subsequent layout pass.
+        child.setMeasureFont(measureFont);
         if (runtime != null) child.mount(runtime);
         invalidateBuild();
     }
@@ -93,6 +97,7 @@ public abstract class UIComponent {
         old.unmount();
         old.parent = null;
         child.parent = this;
+        child.setMeasureFont(measureFont);
         if (runtime != null) child.mount(runtime);
         invalidateBuild();
     }
@@ -299,6 +304,10 @@ public abstract class UIComponent {
         return tooltip(text != null ? Component.literal(text) : null);
     }
 
+    /**
+     * Attaches a hover tooltip shown by the runtime while the pointer rests on
+     * this component (or a descendant without its own tooltip). Null clears it.
+     */
     public UIComponent tooltip(Component text) {
         this.tooltip = text;
         return this;
