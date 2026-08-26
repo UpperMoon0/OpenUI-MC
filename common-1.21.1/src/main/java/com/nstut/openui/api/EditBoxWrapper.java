@@ -1,10 +1,15 @@
 package com.nstut.openui.api;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.nstut.openui.runtime.NativeWidgetOwner;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FormattedCharSequence;
 
 public class EditBoxWrapper extends UIComponent implements NativeWidgetOwner {
 
@@ -133,6 +138,46 @@ public class EditBoxWrapper extends UIComponent implements NativeWidgetOwner {
         }
         // The native widget remains registered for input routing. Rendering it
         // here keeps its text and cursor above the component's styled surface.
-        editBox.render(g, mx, my, pt);
+        // Vanilla EditBox draws through the shadow-defaulting drawString
+        // overloads, so route it through a delegate that disables text shadows
+        // to keep input text consistent with the theme's shadowless text style.
+        editBox.render(new NoShadowGraphics(g), mx, my, pt);
+    }
+
+    private static final class NoShadowGraphics extends GuiGraphics {
+        private final GuiGraphics delegate;
+
+        NoShadowGraphics(GuiGraphics delegate) {
+            super(Minecraft.getInstance(), Minecraft.getInstance().renderBuffers().bufferSource());
+            this.delegate = delegate;
+        }
+
+        @Override
+        public PoseStack pose() { return delegate.pose(); }
+
+        @Override
+        public int drawString(Font font, String text, int x, int y, int color) {
+            return delegate.drawString(font, text, x, y, color, false);
+        }
+
+        @Override
+        public int drawString(Font font, FormattedCharSequence text, int x, int y, int color) {
+            return delegate.drawString(font, text, x, y, color, false);
+        }
+
+        @Override
+        public int drawString(Font font, Component text, int x, int y, int color) {
+            return delegate.drawString(font, text, x, y, color, false);
+        }
+
+        @Override
+        public void fill(RenderType renderType, int minX, int minY, int maxX, int maxY, int color) {
+            delegate.fill(renderType, minX, minY, maxX, maxY, color);
+        }
+
+        @Override
+        public void blitSprite(ResourceLocation sprite, int x, int y, int width, int height) {
+            delegate.blitSprite(sprite, x, y, width, height);
+        }
     }
 }
