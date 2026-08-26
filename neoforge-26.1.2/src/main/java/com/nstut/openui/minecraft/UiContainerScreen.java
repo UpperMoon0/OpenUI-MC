@@ -40,6 +40,14 @@ public abstract class UiContainerScreen<T extends AbstractContainerMenu> extends
     }
 
     @Override
+    protected boolean hasClickedOutside(double mx, double my, int xo, int yo) {
+        return mx < (double)xo
+                || my < (double)yo
+                || mx >= (double)(xo + containerWidth())
+                || my >= (double)(yo + containerHeight());
+    }
+
+    @Override
     protected void init() {
         super.init();
         updateContainerBounds();
