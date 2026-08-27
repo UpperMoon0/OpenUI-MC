@@ -14,13 +14,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
           cache: gradle
       - run: chmod +x gradlew
-      - run: ./gradlew :common:test :common-1.20.1:test :common-1.21.1:test
+      - run: ./gradlew checkLegacySourceParity :common:test :common-1.20.1:test :common-1.21.1:test
 
   build:
     runs-on: ubuntu-latest
@@ -52,7 +52,7 @@ jobs:
             project: neoforge-26.1.2
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
