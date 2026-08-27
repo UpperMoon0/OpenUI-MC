@@ -1,5 +1,7 @@
 package com.nstut.openui.api;
 
+import com.nstut.openui.layout.Constraints;
+import com.nstut.openui.layout.Size;
 import com.nstut.openui.theme.TextStyle;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -147,6 +149,28 @@ public class TextWidget extends UIComponent {
             rawWidth = comp.getString().length() * 6;
         }
         return Math.round(rawWidth * scale);
+    }
+
+    /**
+     * Measures with the incoming width constraint applied, so wrapped text reports its
+     * multi-line height on the first layout pass. {@link #preferredHeight(Font)} can only
+     * use this widget's assigned {@code width}, which is still zero during measurement —
+     * without this hint, a freshly built wrapped text is allocated a single line of
+     * vertical space and overflows its parent once rendered.
+     */
+    @Override
+    public Size measure(Constraints constraints, Font font) {
+        Size size = super.measure(constraints, font);
+        if (!wrap || font == null || hasRequestedHeight() || size.width() <= 0) {
+            return size;
+        }
+        int previousWidth = width;
+        this.width = size.width();
+        try {
+            return new Size(size.width(), super.measure(constraints, font).height());
+        } finally {
+            this.width = previousWidth;
+        }
     }
 
     @Override

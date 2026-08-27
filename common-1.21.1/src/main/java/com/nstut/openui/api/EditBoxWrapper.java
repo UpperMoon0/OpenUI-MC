@@ -1,16 +1,22 @@
 package com.nstut.openui.api;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.nstut.openui.runtime.NativeWidgetOwner;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FormattedCharSequence;
 
 public class EditBoxWrapper extends UIComponent implements NativeWidgetOwner {
 
     private final EditBox editBox;
     private final int textColor;
     private final int bgColor;
+    private NoShadowGraphics noShadowGraphics;
     private String placeholder = "";
     private int radius = UiTheme.RADIUS_SM;
 
@@ -133,6 +139,68 @@ public class EditBoxWrapper extends UIComponent implements NativeWidgetOwner {
         }
         // The native widget remains registered for input routing. Rendering it
         // here keeps its text and cursor above the component's styled surface.
-        editBox.render(g, mx, my, pt);
+        // Vanilla EditBox draws through the shadow-defaulting drawString
+        // overloads, so route it through a delegate that disables text shadows
+        // to keep input text consistent with the theme's shadowless text style.
+        if (noShadowGraphics == null) {
+            noShadowGraphics = new NoShadowGraphics();
+        }
+        noShadowGraphics.wrap(g);
+        editBox.render(noShadowGraphics, mx, my, pt);
+    }
+
+    private static final class NoShadowGraphics extends GuiGraphics {
+        private GuiGraphics delegate;
+
+        NoShadowGraphics() {
+            super(Minecraft.getInstance(), Minecraft.getInstance() != null && Minecraft.getInstance().renderBuffers() != null
+                    ? Minecraft.getInstance().renderBuffers().bufferSource() : null);
+        }
+
+        void wrap(GuiGraphics delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public PoseStack pose() { return delegate != null ? delegate.pose() : super.pose(); }
+
+        @Override
+        public int drawString(Font font, String text, int x, int y, int color) {
+            return delegate != null
+                    ? delegate.drawString(font, text, x, y, color, false)
+                    : super.drawString(font, text, x, y, color, false);
+        }
+
+        @Override
+        public int drawString(Font font, FormattedCharSequence text, int x, int y, int color) {
+            return delegate != null
+                    ? delegate.drawString(font, text, x, y, color, false)
+                    : super.drawString(font, text, x, y, color, false);
+        }
+
+        @Override
+        public int drawString(Font font, Component text, int x, int y, int color) {
+            return delegate != null
+                    ? delegate.drawString(font, text, x, y, color, false)
+                    : super.drawString(font, text, x, y, color, false);
+        }
+
+        @Override
+        public void fill(RenderType renderType, int minX, int minY, int maxX, int maxY, int color) {
+            if (delegate != null) {
+                delegate.fill(renderType, minX, minY, maxX, maxY, color);
+            } else {
+                super.fill(renderType, minX, minY, maxX, maxY, color);
+            }
+        }
+
+        @Override
+        public void blitSprite(ResourceLocation sprite, int x, int y, int width, int height) {
+            if (delegate != null) {
+                delegate.blitSprite(sprite, x, y, width, height);
+            } else {
+                super.blitSprite(sprite, x, y, width, height);
+            }
+        }
     }
 }

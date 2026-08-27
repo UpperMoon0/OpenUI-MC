@@ -17,21 +17,46 @@ public abstract class UiContainerScreen<T extends AbstractContainerMenu> extends
     private UiRuntime uiRuntime;
 
     protected UiContainerScreen(T menu, Inventory inventory, Component title) {
-        super(menu, inventory, title);
+        this(menu, inventory, title, 176, 166);
+    }
+
+    protected UiContainerScreen(T menu, Inventory inventory, Component title, int imageWidth, int imageHeight) {
+        super(menu, inventory, title, imageWidth, imageHeight);
     }
 
     protected abstract UIComponent buildUI();
     public final UiRuntime uiRuntime() { return uiRuntime; }
 
+    /** Container width used for bounds and viewport; overridable for dynamically sized screens. */
+    protected int containerWidth() { return getImageWidth(); }
+
+    /** Container height used for bounds and viewport; overridable for dynamically sized screens. */
+    protected int containerHeight() { return getImageHeight(); }
+
+    /** Recomputes container origin after vanilla init; override to customize centering. */
+    protected void updateContainerBounds() {
+        leftPos = (width - containerWidth()) / 2;
+        topPos = (height - containerHeight()) / 2;
+    }
+
+    @Override
+    protected boolean hasClickedOutside(double mx, double my, int xo, int yo) {
+        return mx < (double)xo
+                || my < (double)yo
+                || mx >= (double)(xo + containerWidth())
+                || my >= (double)(yo + containerHeight());
+    }
+
     @Override
     protected void init() {
         super.init();
+        updateContainerBounds();
         if (uiRuntime != null) uiRuntime.close();
         uiRuntime = new UiRuntime(font, new NativeWidgetHost() {
             @Override public void add(AbstractWidget widget) { UiContainerScreen.this.addWidget(widget); }
             @Override public void remove(AbstractWidget widget) { UiContainerScreen.this.removeWidget(widget); }
         });
-        uiRuntime.setViewport(leftPos, topPos, imageWidth, imageHeight);
+        uiRuntime.setViewport(leftPos, topPos, containerWidth(), containerHeight());
         uiRuntime.setRoot(buildUI());
     }
 
@@ -40,7 +65,6 @@ public abstract class UiContainerScreen<T extends AbstractContainerMenu> extends
     @Override
     public void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         super.extractContents(graphics, mouseX, mouseY, partialTick);
-        renderBackgroundLayer(graphics, partialTick, mouseX, mouseY);
     }
 
     /**
@@ -55,6 +79,9 @@ public abstract class UiContainerScreen<T extends AbstractContainerMenu> extends
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        // 26.1 extracts container slots inside super.extractRenderState().
+        // Draw custom chrome first so vanilla item models remain above slot backgrounds.
+        renderBackgroundLayer(graphics, partialTick, mouseX, mouseY);
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         if (uiRuntime != null) uiRuntime.render(graphics, mouseX, mouseY, partialTick);
         renderForegroundLayer(graphics, partialTick, mouseX, mouseY);
@@ -64,7 +91,13 @@ public abstract class UiContainerScreen<T extends AbstractContainerMenu> extends
     @Override public boolean mouseScrolled(double x, double y, double deltaX, double deltaY) { return uiRuntime != null && uiRuntime.mouseScrolled(x, y, deltaY) || super.mouseScrolled(x, y, deltaX, deltaY); }
     @Override public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) { return uiRuntime != null && uiRuntime.mouseDragged(event.x(), event.y(), event.button(), dx, dy) || super.mouseDragged(event, dx, dy); }
     @Override public boolean mouseReleased(MouseButtonEvent event) { return uiRuntime != null && uiRuntime.mouseReleased(event.x(), event.y(), event.button()) || super.mouseReleased(event); }
-    @Override public boolean keyPressed(KeyEvent event) { return uiRuntime != null && uiRuntime.keyPressed(event.key(), event.scancode(), event.modifiers()) || super.keyPressed(event); }
+    @Override public boolean keyPressed(KeyEvent event) {
+        if (uiRuntime != null && uiRuntime.keyPressed(event.key(), event.scancode(), event.modifiers())) return true;
+        // OpenUI container screens deliberately close only with Escape. Consume the
+        // inventory binding after focused controls have had a chance to type it.
+        if (minecraft != null && minecraft.options.keyInventory.matches(event)) return true;
+        return super.keyPressed(event);
+    }
     @Override public boolean keyReleased(KeyEvent event) { return uiRuntime != null && uiRuntime.keyReleased(event.key(), event.scancode(), event.modifiers()) || super.keyReleased(event); }
     @Override public boolean charTyped(CharacterEvent event) { return uiRuntime != null && uiRuntime.charTyped((char) event.codepoint(), 0) || super.charTyped(event); }
 

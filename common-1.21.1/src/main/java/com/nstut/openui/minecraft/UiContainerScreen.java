@@ -60,7 +60,11 @@ public abstract class UiContainerScreen<T extends AbstractContainerMenu> extends
     @Override public boolean mouseScrolled(double x, double y, double deltaX, double deltaY) { return uiRuntime != null && uiRuntime.mouseScrolled(x, y, deltaY) || super.mouseScrolled(x, y, deltaX, deltaY); }
     @Override public boolean mouseDragged(double x, double y, int button, double dx, double dy) { return uiRuntime != null && uiRuntime.mouseDragged(x, y, button, dx, dy) || super.mouseDragged(x, y, button, dx, dy); }
     @Override public boolean mouseReleased(double x, double y, int button) { return uiRuntime != null && uiRuntime.mouseReleased(x, y, button) || super.mouseReleased(x, y, button); }
-    @Override public boolean keyPressed(int key, int scanCode, int modifiers) { return uiRuntime != null && uiRuntime.keyPressed(key, scanCode, modifiers) || super.keyPressed(key, scanCode, modifiers); }
+    @Override public boolean keyPressed(int key, int scanCode, int modifiers) {
+        if (uiRuntime != null && uiRuntime.keyPressed(key, scanCode, modifiers)) return true;
+        if (minecraft != null && minecraft.options.keyInventory.matches(key, scanCode)) return true;
+        return super.keyPressed(key, scanCode, modifiers);
+    }
     @Override public boolean keyReleased(int key, int scanCode, int modifiers) { return uiRuntime != null && uiRuntime.keyReleased(key, scanCode, modifiers) || super.keyReleased(key, scanCode, modifiers); }
     @Override public boolean charTyped(char character, int modifiers) { return uiRuntime != null && uiRuntime.charTyped(character, modifiers) || super.charTyped(character, modifiers); }
 
