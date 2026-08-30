@@ -53,10 +53,8 @@ public final class VirtualGrid<T> extends UIComponent {
     public void resetScroll() { if (scrollOffset != 0) { scrollOffset = 0; invalidateLayout(); } }
 
     @Override protected void onMount() {
+        subscription = items.subscribe(this::updateSnapshot);
         updateSnapshot(items.get());
-        subscription = items.subscribe(values -> {
-            updateSnapshot(values);
-        });
     }
 
     @Override protected void onUnmount() {

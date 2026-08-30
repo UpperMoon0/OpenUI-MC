@@ -13,11 +13,16 @@ import com.nstut.openui.theme.Theme;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
 
+import java.util.List;
 import java.util.Objects;
 
 public class Toast extends UIComponent {
     public enum Type { INFO, SUCCESS, WARNING, ERROR }
+
+    private static final int MIN_WIDTH = 170;
+    private static final int MAX_WIDTH = 280;
 
     private final Type type;
     private final Component title;
@@ -29,6 +34,7 @@ public class Toast extends UIComponent {
     private Runnable actionCallback;
     private ButtonWidget actionButton;
     private ButtonWidget closeButton;
+    private List<FormattedCharSequence> wrappedMessage;
     private long createdNanos = -1;
     private float progress = 1.0F;
     private boolean closed = false;
@@ -87,14 +93,15 @@ public class Toast extends UIComponent {
 
     @Override
     public int preferredWidth(Font font) {
-        if (font == null) return 170;
+        if (font == null) return MIN_WIDTH;
         int tw = Math.max(font.width(title), font.width(message));
         int extra = (actionButton != null ? actionButton.preferredWidth(font) + 8 : 0) + 36;
-        return Math.max(170, tw + extra);
+        return Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, tw + extra));
     }
 
     @Override
     public int preferredHeight(Font font) {
+        // Single-line lower bound; layout() grows this when the message wraps.
         return font != null ? font.lineHeight * 2 + 18 : 34;
     }
 
@@ -102,7 +109,18 @@ public class Toast extends UIComponent {
     public void layout(int lx, int ly, int availableWidth, int availableHeight) {
         Font f = measureFont();
         int w = preferredWidth(f);
-        int h = preferredHeight(f);
+        // Clamp to the viewport so long messages cannot push the toast off-screen.
+        if (f != null && availableWidth > 0) {
+            w = Math.min(w, Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, availableWidth - 20)));
+        }
+        int h;
+        if (f != null) {
+            wrappedMessage = f.split(message, Math.max(1, w - 28));
+            h = f.lineHeight * (wrappedMessage.size() + 1) + 18;
+        } else {
+            wrappedMessage = List.of();
+            h = preferredHeight(null);
+        }
 
         // Stack multiple active toasts vertically
         int stackIndex = 0;
@@ -161,9 +179,18 @@ public class Toast extends UIComponent {
         // Status indicator pill
         UiRender.roundedRect(g, drawX + 3, y + 4, 3, height - 8, 1, accentCol);
 
-        // Title and Message
+        // Title and wrapped Message
         g.text(font, title, drawX + 12, y + 5, colors.onSurface(), false);
-        g.text(font, message, drawX + 12, y + 6 + font.lineHeight, colors.onSurfaceMuted(), false);
+        int messageY = y + 6 + font.lineHeight;
+        List<FormattedCharSequence> lines = wrappedMessage != null ? wrappedMessage : List.of();
+        if (lines.isEmpty()) {
+            g.text(font, message, drawX + 12, messageY, colors.onSurfaceMuted(), false);
+        } else {
+            for (FormattedCharSequence line : lines) {
+                g.text(font, line, drawX + 12, messageY, colors.onSurfaceMuted(), false);
+                messageY += font.lineHeight;
+            }
+        }
 
         // Progress bar at bottom
         if (progress > 0.0F) {

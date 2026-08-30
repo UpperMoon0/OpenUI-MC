@@ -60,6 +60,27 @@ public final class OverlayManager implements AutoCloseable {
         return entries.stream().anyMatch(entry -> entry.blocksInput && entry.open);
     }
 
+    /** Topmost open overlay that blocks input, or null when none exists. */
+    public UIComponent topBlockingComponent() {
+        for (int i = entries.size() - 1; i >= 0; i--) {
+            Entry entry = entries.get(i);
+            if (entry.blocksInput && entry.open) return entry.component;
+        }
+        return null;
+    }
+
+    /** True when the component is an open overlay or lives inside one. */
+    public boolean containsComponent(UIComponent component) {
+        List<Entry> snapshot = List.copyOf(entries);
+        for (Entry entry : snapshot) {
+            if (!entry.open) continue;
+            for (UIComponent cursor = component; cursor != null; cursor = cursor.parent()) {
+                if (cursor == entry.component) return true;
+            }
+        }
+        return false;
+    }
+
     public int size() { return entries.size(); }
     public List<UIComponent> components() { return entries.stream().map(Entry::component).toList(); }
 

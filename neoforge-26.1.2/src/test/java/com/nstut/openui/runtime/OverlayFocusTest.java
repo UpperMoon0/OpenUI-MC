@@ -147,4 +147,53 @@ class OverlayFocusTest {
         assertTrue(screenClicked.get(), "Screen button click should have been dispatched");
         assertEquals(0, runtime.overlays().size());
     }
+
+    private UIComponent keyCapture(AtomicBoolean keyPressed, AtomicBoolean charTyped) {
+        return new UIComponent() {
+            @Override public int preferredWidth(Font font) { return 100; }
+            @Override public int preferredHeight(Font font) { return 60; }
+            @Override public void layout(int lx, int ly, int w, int h) { setBounds(lx, ly, w, h); }
+            @Override public void render(GuiGraphicsExtractor g, Font f, int mx, int my, float pt) {}
+            @Override public boolean keyPressed(int key, int scanCode, int modifiers) { keyPressed.set(true); return true; }
+            @Override public boolean charTyped(char character, int modifiers) { charTyped.set(true); return true; }
+        };
+    }
+
+    @Test
+    void unfocusedKeyEventsFallBackToRootForShortcuts() {
+        UiRuntime runtime = new UiRuntime(new Font(null), dummyHost);
+        AtomicBoolean rootKey = new AtomicBoolean(false);
+        AtomicBoolean rootChar = new AtomicBoolean(false);
+        runtime.setRoot(keyCapture(rootKey, rootChar));
+
+        assertTrue(runtime.keyPressed(82, 0, 0), "Unfocused keys should reach the root for screen shortcuts");
+        assertTrue(rootKey.get());
+    }
+
+    @Test
+    void charTypedDoesNotFallBackToRootWithoutFocus() {
+        UiRuntime runtime = new UiRuntime(new Font(null), dummyHost);
+        AtomicBoolean rootKey = new AtomicBoolean(false);
+        AtomicBoolean rootChar = new AtomicBoolean(false);
+        runtime.setRoot(keyCapture(rootKey, rootChar));
+
+        assertFalse(runtime.charTyped('a', 0));
+        assertFalse(rootChar.get(), "Typed characters are text input and must not reach an unfocused root");
+    }
+
+    @Test
+    void blockingOverlayScopesUnfocusedKeysToOverlay() {
+        UiRuntime runtime = new UiRuntime(new Font(null), dummyHost);
+        AtomicBoolean rootKey = new AtomicBoolean(false);
+        AtomicBoolean rootChar = new AtomicBoolean(false);
+        runtime.setRoot(keyCapture(rootKey, rootChar));
+
+        AtomicBoolean overlayKey = new AtomicBoolean(false);
+        AtomicBoolean overlayChar = new AtomicBoolean(false);
+        runtime.overlays().show(OverlayLayer.MODAL, keyCapture(overlayKey, overlayChar), true);
+
+        assertTrue(runtime.keyPressed(82, 0, 0));
+        assertTrue(overlayKey.get(), "Blocking overlay owns the keyboard scope");
+        assertFalse(rootKey.get(), "Underlying root shortcuts must not fire behind a blocking overlay");
+    }
 }

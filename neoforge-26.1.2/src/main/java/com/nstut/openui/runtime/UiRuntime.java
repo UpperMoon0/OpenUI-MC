@@ -250,7 +250,7 @@ public final class UiRuntime implements AutoCloseable {
     public boolean keyPressed(int key, int scanCode, int modifiers) {
         if (key == 256 && overlays.closeTopDismissable()) return true;
         if (key == 258) return (modifiers & 1) != 0 ? focus.focusPrevious() : focus.focusNext();
-        UIComponent target = focus.focused() != null ? focus.focused() : root;
+        UIComponent target = keyTarget();
         if (target == null) return false;
         KeyboardEvent event = new KeyboardEvent(EventType.KEY_DOWN, target, key, scanCode, modifiers, '\0');
         dispatch(event);
@@ -259,7 +259,7 @@ public final class UiRuntime implements AutoCloseable {
     }
 
     public boolean keyReleased(int key, int scanCode, int modifiers) {
-        UIComponent target = focus.focused() != null ? focus.focused() : root;
+        UIComponent target = keyTarget();
         if (target == null) return false;
         KeyboardEvent event = new KeyboardEvent(EventType.KEY_UP, target, key, scanCode, modifiers, '\0');
         dispatch(event);
@@ -268,12 +268,31 @@ public final class UiRuntime implements AutoCloseable {
     }
 
     public boolean charTyped(char character, int modifiers) {
-        UIComponent target = focus.focused() != null ? focus.focused() : root;
+        // Typed characters are text input: only a focused text-owning component
+        // receives them. Screen-level shortcuts should use KEY_DOWN instead.
+        UIComponent target = focus.focused();
         if (target == null) return false;
         KeyboardEvent event = new KeyboardEvent(EventType.CHAR_TYPED, target, 0, 0, modifiers, character);
         dispatch(event);
         return !event.isDefaultPrevented() && target.charTyped(character, modifiers)
                 || event.isDefaultPrevented() || event.isPropagationStopped();
+    }
+
+    /**
+     * Resolves the component that owns the keyboard. Unfocused keys fall back
+     * to the root for screen-level shortcuts, but while a blocking overlay is
+     * open the keyboard scope stays inside that overlay: an unfocused overlay
+     * component is targeted instead of the underlying root, so hidden global
+     * shortcuts cannot fire behind a dialog.
+     */
+    private UIComponent keyTarget() {
+        UIComponent focused = focus.focused();
+        UIComponent blocking = overlays.topBlockingComponent();
+        if (blocking != null) {
+            if (focused != null && overlays.containsComponent(focused)) return focused;
+            return blocking;
+        }
+        return focused != null ? focused : root;
     }
 
     public void dispatch(UiEvent event) {

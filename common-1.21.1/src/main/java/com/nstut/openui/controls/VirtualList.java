@@ -42,8 +42,8 @@ public class VirtualList<T> extends UIComponent {
     public int activeCellCount() { return active.size(); }
 
     @Override protected void onMount() {
-        updateSnapshot(items.get());
         subscription = items.subscribe(this::updateSnapshot);
+        updateSnapshot(items.get());
     }
     @Override protected void onUnmount() { subscription.close(); subscription = Subscription.EMPTY; }
     @Override public int preferredWidth(Font font) { return 100; }
