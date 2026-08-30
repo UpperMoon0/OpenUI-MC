@@ -3,6 +3,7 @@ name: Build and Release OpenUI MC
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -10,6 +11,36 @@ permissions:
   contents: read
 
 jobs:
+  release-gate:
+    name: Check release trigger
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Check for version bump
+        id: check
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          should_release=false
+          if [[ "$EVENT_NAME" == "workflow_dispatch" || "$REF" == refs/tags/v* ]]; then
+            should_release=true
+          elif [[ "$EVENT_NAME" == "push" && "$REF" == "refs/heads/main" ]]; then
+            current="$(sed -n 's/^mod_version[[:space:]]*=[[:space:]]*//p' gradle.properties | head -n1 | tr -d '\r' | xargs)"
+            previous="$(git show HEAD^:gradle.properties 2>/dev/null | sed -n 's/^mod_version[[:space:]]*=[[:space:]]*//p' | head -n1 | tr -d '\r' | xargs || true)"
+            if [[ -n "$current" && "$current" != "$previous" ]]; then
+              should_release=true
+            fi
+          fi
+          echo "should_release=$should_release" >> "$GITHUB_OUTPUT"
+          echo "Release trigger: $should_release"
+
   test-common:
     runs-on: ubuntu-latest
     steps:
@@ -184,8 +215,8 @@ jobs:
 
   publish-curseforge:
     name: Publish ${{ matrix.platform }} ${{ matrix.version }} to CurseForge
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    needs: [test-common, consumer-binary-smoke, build]
+    if: needs.release-gate.outputs.should_release == 'true'
+    needs: [release-gate, test-common, consumer-binary-smoke, build]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -319,8 +350,8 @@ jobs:
 
   publish-github-release:
     name: Publish GitHub Release
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    needs: [test-common, build]
+    if: needs.release-gate.outputs.should_release == 'true'
+    needs: [release-gate, test-common, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
