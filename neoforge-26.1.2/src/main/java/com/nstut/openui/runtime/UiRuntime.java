@@ -62,6 +62,10 @@ public final class UiRuntime implements AutoCloseable {
     public NativeWidgetManager nativeWidgets() { return nativeWidgets; }
     public AnimationManager animations() { return animations; }
     public OverlayManager overlays() { return overlays; }
+    public boolean hasTextInputFocus() {
+        UIComponent focused = focus.focused();
+        return focused != null && focused.acceptsTextInput();
+    }
     public Theme theme() { return theme; }
     public void theme(Theme theme) {
         Theme next = Objects.requireNonNull(theme);
@@ -246,7 +250,7 @@ public final class UiRuntime implements AutoCloseable {
     public boolean keyPressed(int key, int scanCode, int modifiers) {
         if (key == 256 && overlays.closeTopDismissable()) return true;
         if (key == 258) return (modifiers & 1) != 0 ? focus.focusPrevious() : focus.focusNext();
-        UIComponent target = focus.focused();
+        UIComponent target = focus.focused() != null ? focus.focused() : root;
         if (target == null) return false;
         KeyboardEvent event = new KeyboardEvent(EventType.KEY_DOWN, target, key, scanCode, modifiers, '\0');
         dispatch(event);
@@ -255,7 +259,7 @@ public final class UiRuntime implements AutoCloseable {
     }
 
     public boolean keyReleased(int key, int scanCode, int modifiers) {
-        UIComponent target = focus.focused();
+        UIComponent target = focus.focused() != null ? focus.focused() : root;
         if (target == null) return false;
         KeyboardEvent event = new KeyboardEvent(EventType.KEY_UP, target, key, scanCode, modifiers, '\0');
         dispatch(event);
@@ -264,7 +268,7 @@ public final class UiRuntime implements AutoCloseable {
     }
 
     public boolean charTyped(char character, int modifiers) {
-        UIComponent target = focus.focused();
+        UIComponent target = focus.focused() != null ? focus.focused() : root;
         if (target == null) return false;
         KeyboardEvent event = new KeyboardEvent(EventType.CHAR_TYPED, target, 0, 0, modifiers, character);
         dispatch(event);

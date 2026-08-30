@@ -98,9 +98,9 @@ public abstract class UiContainerScreen<T extends AbstractContainerMenu> extends
     @Override public boolean mouseReleased(MouseButtonEvent event) { return uiRuntime != null && uiRuntime.mouseReleased(event.x(), event.y(), event.button()) || super.mouseReleased(event); }
     @Override public boolean keyPressed(KeyEvent event) {
         if (uiRuntime != null && uiRuntime.keyPressed(event.key(), event.scancode(), event.modifiers())) return true;
-        // OpenUI container screens deliberately close only with Escape. Consume the
-        // inventory binding after focused controls have had a chance to type it.
-        if (minecraft != null && minecraft.options.keyInventory.matches(event)) return true;
+        if (minecraft != null && minecraft.options.keyInventory.matches(event)) {
+            if (uiRuntime != null && (uiRuntime.hasTextInputFocus() || uiRuntime.overlays().hasBlockingOverlay())) return true;
+        }
         return super.keyPressed(event);
     }
     @Override public boolean keyReleased(KeyEvent event) { return uiRuntime != null && uiRuntime.keyReleased(event.key(), event.scancode(), event.modifiers()) || super.keyReleased(event); }

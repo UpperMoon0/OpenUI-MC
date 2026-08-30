@@ -92,6 +92,9 @@ public class EditBoxWrapper extends UIComponent implements NativeWidgetOwner {
     }
 
     @Override
+    public boolean acceptsTextInput() { return true; }
+
+    @Override
     public boolean charTyped(char character, int modifiers) {
         return editBox.charTyped(character, modifiers);
     }

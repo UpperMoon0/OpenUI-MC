@@ -6,6 +6,11 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      release:
+        description: Publish a release from main
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -27,14 +32,32 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           REF: ${{ github.ref }}
           BEFORE: ${{ github.event.before }}
+          MANUAL_RELEASE: ${{ inputs.release || false }}
         run: |
           set -euo pipefail
           should_release=false
-          if [[ "$EVENT_NAME" == "workflow_dispatch" || "$REF" == refs/tags/v* ]]; then
+          current="$(sed -n 's/^mod_version[[:space:]]*=[[:space:]]*//p' gradle.properties | head -n1 | tr -d '\r' | xargs)"
+          if [[ -z "$current" ]]; then
+            echo "Failed to read mod_version" >&2
+            exit 1
+          fi
+          expected="v${current}"
+          if [[ "$REF" == refs/tags/* && "${REF#refs/tags/}" != "$expected" ]]; then
+            echo "Tag ${REF#refs/tags/} does not match mod_version $current" >&2
+            exit 1
+          fi
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            if [[ "$REF" == "refs/heads/main" && "$MANUAL_RELEASE" == "true" ]]; then
+              should_release=true
+            fi
+          elif [[ "$REF" == refs/tags/* ]]; then
             should_release=true
           elif [[ "$EVENT_NAME" == "push" && "$REF" == "refs/heads/main" ]]; then
-            current="$(sed -n 's/^mod_version[[:space:]]*=[[:space:]]*//p' gradle.properties | head -n1 | tr -d '\r' | xargs)"
-            previous="$(git show "$BEFORE":gradle.properties 2>/dev/null | sed -n 's/^mod_version[[:space:]]*=[[:space:]]*//p' | head -n1 | tr -d '\r' | xargs || true)"
+            if ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+              echo "Cannot resolve previous push commit $BEFORE" >&2
+              exit 1
+            fi
+            previous="$(git show "$BEFORE":gradle.properties | sed -n 's/^mod_version[[:space:]]*=[[:space:]]*//p' | head -n1 | tr -d '\r' | xargs)"
             if [[ -n "$current" && "$current" != "$previous" ]]; then
               should_release=true
             fi
@@ -352,7 +375,7 @@ jobs:
   publish-github-release:
     name: Publish GitHub Release
     if: needs.release-gate.outputs.should_release == 'true'
-    needs: [release-gate, test-common, build]
+    needs: [release-gate, test-common, consumer-binary-smoke, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
