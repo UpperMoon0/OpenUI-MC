@@ -91,13 +91,46 @@ jobs:
       - name: Add CC:Tweaked API shim for optional linkage
         shell: bash
         run: |
-          mkdir -p simply-speakers/fabric-1.20.1/run/live-join/client/mods
-          mkdir -p simply-speakers/fabric-1.20.1/run/live-join/server/mods
-          curl --fail --location --retry 3 \
-            -o /tmp/cc-tweaked.jar \
-            https://maven.squiddev.cc/cc/tweaked/cc-tweaked-1.20.1-fabric-api/1.120.2/cc-tweaked-1.20.1-fabric-api-1.120.2.jar
-          cp /tmp/cc-tweaked.jar simply-speakers/fabric-1.20.1/run/live-join/client/mods/
-          cp /tmp/cc-tweaked.jar simply-speakers/fabric-1.20.1/run/live-join/server/mods/
+          # Simply Speakers has an optional ComputerCraft integration.  Its
+          # entrypoint references the CC ABI even when the real mod is absent,
+          # so provide only the ABI classes needed for class loading.  Giving
+          # the shim a different mod id keeps FabricLoader.isModLoaded("computercraft")
+          # false and avoids initializing the full ComputerCraft mod (which is
+          # not part of this compatibility fixture).
+          shim_root=/tmp/openui-cc-api-shim
+          rm -rf "$shim_root"
+          mkdir -p "$shim_root/src/dan200/computercraft/api/peripheral" \
+            "$shim_root/classes"
+          cat > "$shim_root/src/dan200/computercraft/api/peripheral/IPeripheral.java" <<'EOF'
+          package dan200.computercraft.api.peripheral;
+          public interface IPeripheral {}
+          EOF
+          cat > "$shim_root/src/dan200/computercraft/api/peripheral/IPeripheralProvider.java" <<'EOF'
+          package dan200.computercraft.api.peripheral;
+          public interface IPeripheralProvider {}
+          EOF
+          cat > "$shim_root/src/dan200/computercraft/api/peripheral/PeripheralLookup.java" <<'EOF'
+          package dan200.computercraft.api.peripheral;
+          import java.util.function.BiFunction;
+          public final class PeripheralLookup {
+            private static final PeripheralLookup INSTANCE = new PeripheralLookup();
+            private PeripheralLookup() {}
+            public static PeripheralLookup get() { return INSTANCE; }
+            public void registerForBlockEntity(BiFunction<?, ?, ?> provider, Object blockEntityType) {}
+          }
+          EOF
+          javac -d "$shim_root/classes" $(find "$shim_root/src" -name '*.java')
+          cat > "$shim_root/fabric.mod.json" <<'EOF'
+          {"schemaVersion":1,"id":"openui_cc_api_shim","version":"1.0.0","name":"OpenUI CC API shim","environment":"*","depends":{"fabricloader":">=0.14","minecraft":"1.20.1"}}
+          EOF
+          jar --create --file "$shim_root/openui-cc-api-shim.jar" \
+            -C "$shim_root/classes" . -C "$shim_root" fabric.mod.json
+          mkdir -p simply-speakers/fabric-1.20.1/run/live-join/client/mods \
+            simply-speakers/fabric-1.20.1/run/live-join/server/mods
+          cp "$shim_root/openui-cc-api-shim.jar" \
+            simply-speakers/fabric-1.20.1/run/live-join/client/mods/
+          cp "$shim_root/openui-cc-api-shim.jar" \
+            simply-speakers/fabric-1.20.1/run/live-join/server/mods/
       - name: Boot precompiled consumer with OpenUI 0.0.8
         working-directory: simply-speakers
         run: python3 tools/live_join_test.py --target fabric-1.20.1
