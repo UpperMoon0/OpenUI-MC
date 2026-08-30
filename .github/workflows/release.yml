@@ -22,6 +22,57 @@ jobs:
       - run: chmod +x gradlew
       - run: ./gradlew checkLegacySourceParity :common-1.20.1:test :common-1.21.1:test
 
+  consumer-binary-smoke:
+    name: Simply Speakers 0.0.7 binary compatibility
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout OpenUI 0.0.8 candidate
+        uses: actions/checkout@v4
+        with:
+          path: openui-candidate
+      - name: Checkout OpenUI 0.0.7 baseline
+        uses: actions/checkout@v4
+        with:
+          repository: UpperMoon0/OpenUI-MC
+          ref: 82a5dd2f0e6c6027f20ca2acf049858f7f96f597
+          path: openui-baseline
+      - name: Checkout precompiled consumer source
+        uses: actions/checkout@v4
+        with:
+          repository: UpperMoon0/Simply-Speakers
+          ref: 9a9681671e783bfd6e80594c3e23a76fb7132efb
+          path: simply-speakers
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - name: Install virtual display
+        run: sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends xvfb
+      - name: Make Gradle wrappers executable
+        run: chmod +x openui-baseline/gradlew openui-candidate/gradlew simply-speakers/gradlew
+      - name: Compile consumer against OpenUI 0.0.7
+        shell: bash
+        run: |
+          ./openui-baseline/gradlew -p openui-baseline \
+            :common-1.20.1:publishToMavenLocal \
+            :fabric-1.20.1:publishToMavenLocal --no-daemon
+          ./simply-speakers/gradlew -p simply-speakers \
+            :fabric-1.20.1:classes --no-daemon
+      - name: Install OpenUI 0.0.8 without recompiling consumer
+        shell: bash
+        run: |
+          ./openui-candidate/gradlew -p openui-candidate \
+            :common-1.20.1:publishToMavenLocal \
+            :fabric-1.20.1:publishToMavenLocal --no-daemon
+          sed -i 's/^openui_version[[:space:]]*=.*/openui_version = 0.0.8/' simply-speakers/gradle.properties
+          sed -i '/"-Dorg.gradle.jvmargs=-Xmx2048m",/a\        "-x", ":common-1.20.1:compileJava", "-x", ":fabric-1.20.1:compileJava",' \
+            simply-speakers/tools/live_join_test.py
+      - name: Boot precompiled consumer with OpenUI 0.0.8
+        working-directory: simply-speakers
+        run: python3 tools/live_join_test.py --target fabric-1.20.1
+
   build:
     runs-on: ubuntu-latest
     strategy:
@@ -72,7 +123,7 @@ jobs:
   publish-curseforge:
     name: Publish ${{ matrix.platform }} ${{ matrix.version }} to CurseForge
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    needs: [test-common, build]
+    needs: [test-common, consumer-binary-smoke, build]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
