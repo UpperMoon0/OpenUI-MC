@@ -5,6 +5,7 @@ import com.nstut.openui.api.UIComponent;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.Iterator;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -52,7 +53,8 @@ public final class FocusManager {
         FocusTrap top = traps.peek();
         if (top == null || top.trapRoot() != trapRoot) {
             // An out-of-order close: drop its frame without touching current focus.
-            traps.removeIf(trap -> trap.trapRoot() == trapRoot);
+            FocusTrap removed = removeTrap(trapRoot);
+            if (removed != null) rewirePreviousFocus(removed);
             return;
         }
         traps.pop();
@@ -76,6 +78,30 @@ public final class FocusManager {
             if (!focusable.isEmpty()) restored = focusable.get(0);
         }
         setFocusedInternal(restored);
+    }
+
+    private FocusTrap removeTrap(UIComponent trapRoot) {
+        for (Iterator<FocusTrap> it = traps.iterator(); it.hasNext(); ) {
+            FocusTrap trap = it.next();
+            if (trap.trapRoot() == trapRoot) {
+                it.remove();
+                return trap;
+            }
+        }
+        return null;
+    }
+
+    /** Keeps outer frames pointing at a recoverable focus when a nested trap closes first. */
+    private void rewirePreviousFocus(FocusTrap removed) {
+        List<FocusTrap> frames = new ArrayList<>(traps);
+        for (int i = 0; i < frames.size(); i++) {
+            FocusTrap trap = frames.get(i);
+            if (belongsToTree(trap.previousFocus(), removed.trapRoot())) {
+                frames.set(i, new FocusTrap(trap.trapRoot(), removed.previousFocus()));
+            }
+        }
+        traps.clear();
+        for (int i = frames.size() - 1; i >= 0; i--) traps.push(frames.get(i));
     }
 
     public boolean isTrapped() { return !traps.isEmpty(); }

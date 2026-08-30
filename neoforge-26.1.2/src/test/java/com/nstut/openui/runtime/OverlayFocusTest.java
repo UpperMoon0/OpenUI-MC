@@ -191,6 +191,9 @@ class OverlayFocusTest {
 
         focus.untrapFocus(modalA);
         assertSame(btnB, focus.focused(), "Focus must stay inside the remaining top trap");
+
+        focus.untrapFocus(modalB);
+        assertSame(rootBtn, focus.focused(), "Original root focus is restored after out-of-order nesting closes");
     }
 
     @Test
