@@ -97,10 +97,13 @@ public abstract class UiContainerScreen<T extends AbstractContainerMenu> extends
     @Override public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) { return uiRuntime != null && uiRuntime.mouseDragged(event.x(), event.y(), event.button(), dx, dy) || super.mouseDragged(event, dx, dy); }
     @Override public boolean mouseReleased(MouseButtonEvent event) { return uiRuntime != null && uiRuntime.mouseReleased(event.x(), event.y(), event.button()) || super.mouseReleased(event); }
     @Override public boolean keyPressed(KeyEvent event) {
+        boolean inventoryKey = minecraft != null && minecraft.options.keyInventory.matches(event);
+        ContainerKeyPolicy.Route route = ContainerKeyPolicy.route(inventoryKey,
+                uiRuntime != null && uiRuntime.hasTextInputFocus(),
+                uiRuntime != null && uiRuntime.overlays().hasBlockingOverlay());
+        if (route == ContainerKeyPolicy.Route.VANILLA) return super.keyPressed(event);
         if (uiRuntime != null && uiRuntime.keyPressed(event.key(), event.scancode(), event.modifiers())) return true;
-        if (minecraft != null && minecraft.options.keyInventory.matches(event)) {
-            if (uiRuntime != null && (uiRuntime.hasTextInputFocus() || uiRuntime.overlays().hasBlockingOverlay())) return true;
-        }
+        if (route == ContainerKeyPolicy.Route.OPEN_UI) return true;
         return super.keyPressed(event);
     }
     @Override public boolean keyReleased(KeyEvent event) { return uiRuntime != null && uiRuntime.keyReleased(event.key(), event.scancode(), event.modifiers()) || super.keyReleased(event); }
