@@ -274,10 +274,17 @@ public final class UiRuntime implements AutoCloseable {
         UIComponent focused = focus.focused();
         UIComponent blocking = overlays.topBlockingComponent();
         if (blocking != null) {
-            if (focused != null && overlays.containsComponent(focused)) return focused;
+            if (focused != null && isInside(focused, blocking)) return focused;
             return blocking;
         }
         return focused != null ? focused : root;
+    }
+
+    private static boolean isInside(UIComponent component, UIComponent ancestor) {
+        for (UIComponent cursor = component; cursor != null; cursor = cursor.parent()) {
+            if (cursor == ancestor) return true;
+        }
+        return false;
     }
 
     public void dispatch(UiEvent event) {

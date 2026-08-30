@@ -165,7 +165,7 @@ public class Toast extends UIComponent {
 
         closeButton.layout(tx + w - 16, ty + 4, 12, 12);
         if (actionButton != null) {
-            int abw = actionButton.preferredWidth(f);
+            int abw = Math.min(actionButton.preferredWidth(f), Math.max(1, w - 24));
             actionButton.layout(tx + w - 20 - abw, ty + h - 18, abw, 14);
         }
     }
@@ -238,7 +238,7 @@ public class Toast extends UIComponent {
         closeButton.render(g, font, mx, my, pt);
 
         if (actionButton != null) {
-            int abw = actionButton.preferredWidth(font);
+            int abw = Math.min(actionButton.preferredWidth(font), Math.max(1, width - 24));
             actionButton.layout(drawX + width - 20 - abw, y + height - 18, abw, 14);
             actionButton.render(g, font, mx, my, pt);
         }

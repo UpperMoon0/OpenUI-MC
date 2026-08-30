@@ -6,15 +6,16 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
-import java.util.Objects;
 import java.util.function.Supplier;
 
 public final class FocusManager {
+    /** One pushed focus scope: the trap root plus the focus to restore when it closes. */
+    private record FocusTrap(UIComponent trapRoot, UIComponent previousFocus) {}
+
     private UIComponent root;
     private Supplier<List<UIComponent>> overlayRoots = List::of;
     private UIComponent focused;
-    private final Deque<UIComponent> focusHistory = new ArrayDeque<>();
-    private final Deque<UIComponent> trapRoots = new ArrayDeque<>();
+    private final Deque<FocusTrap> traps = new ArrayDeque<>();
 
     void setRoot(UIComponent root) {
         this.root = root;
@@ -31,60 +32,66 @@ public final class FocusManager {
 
     public boolean requestFocus(UIComponent component) {
         if (component == null || !component.isFocusable() || !belongsToActiveTree(component)) return false;
-        if (!trapRoots.isEmpty() && !belongsToTree(component, trapRoots.peek())) return false;
+        FocusTrap top = traps.peek();
+        if (top != null && !belongsToTree(component, top.trapRoot())) return false;
         setFocusedInternal(component);
         return true;
     }
 
     public void clearFocus() { setFocusedInternal(null); }
 
-    public void pushFocus() {
-        if (focused != null) {
-            focusHistory.push(focused);
-        }
-    }
-
-    public void restoreFocus() {
-        while (!focusHistory.isEmpty()) {
-            UIComponent prev = focusHistory.pop();
-            if (prev != null && prev.isVisible() && prev.isFocusable() && belongsToActiveTree(prev)) {
-                setFocusedInternal(prev);
-                return;
-            }
-        }
-        clearFocus();
-    }
-
     public void trapFocus(UIComponent trapRoot) {
-        if (trapRoot != null) {
-            pushFocus();
-            trapRoots.push(trapRoot);
-            List<UIComponent> focusable = new ArrayList<>();
-            collect(trapRoot, focusable);
-            if (!focusable.isEmpty()) {
-                setFocusedInternal(focusable.get(0));
-            } else {
-                setFocusedInternal(null);
-            }
-        }
+        if (trapRoot == null) return;
+        traps.push(new FocusTrap(trapRoot, focused));
+        List<UIComponent> focusable = new ArrayList<>();
+        collect(trapRoot, focusable);
+        setFocusedInternal(focusable.isEmpty() ? null : focusable.get(0));
     }
 
     public void untrapFocus(UIComponent trapRoot) {
-        if (trapRoots.remove(trapRoot)) {
-            restoreFocus();
+        FocusTrap top = traps.peek();
+        if (top == null || top.trapRoot() != trapRoot) {
+            // An out-of-order close: drop its frame without touching current focus.
+            traps.removeIf(trap -> trap.trapRoot() == trapRoot);
+            return;
         }
+        traps.pop();
+        FocusTrap parent = traps.peek();
+        UIComponent restored = null;
+        if (focused != null && focused.isVisible() && focused.isFocusable()
+                && (parent != null ? belongsToTree(focused, parent.trapRoot()) : belongsToActiveTree(focused))) {
+            // Current focus already lives inside the remaining scope; keep it.
+            restored = focused;
+        }
+        if (restored == null) {
+            UIComponent previous = top.previousFocus();
+            if (previous != null && previous.isVisible() && previous.isFocusable() && belongsToActiveTree(previous)
+                    && (parent == null || belongsToTree(previous, parent.trapRoot()))) {
+                restored = previous;
+            }
+        }
+        if (restored == null && parent != null) {
+            List<UIComponent> focusable = new ArrayList<>();
+            collect(parent.trapRoot(), focusable);
+            if (!focusable.isEmpty()) restored = focusable.get(0);
+        }
+        setFocusedInternal(restored);
     }
 
-    public boolean isTrapped() { return !trapRoots.isEmpty(); }
-    public UIComponent currentTrapRoot() { return trapRoots.peek(); }
+    public boolean isTrapped() { return !traps.isEmpty(); }
+    public UIComponent currentTrapRoot() {
+        FocusTrap top = traps.peek();
+        return top != null ? top.trapRoot() : null;
+    }
 
     public boolean focusNext() { return move(1); }
     public boolean focusPrevious() { return move(-1); }
 
     private boolean move(int direction) {
         List<UIComponent> focusable = new ArrayList<>();
-        if (!trapRoots.isEmpty()) {
-            collect(trapRoots.peek(), focusable);
+        FocusTrap top = traps.peek();
+        if (top != null) {
+            collect(top.trapRoot(), focusable);
         } else {
             collect(root, focusable);
             for (UIComponent overlayRoot : overlayRoots.get()) {

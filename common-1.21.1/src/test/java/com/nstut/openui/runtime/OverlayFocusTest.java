@@ -159,6 +159,90 @@ class OverlayFocusTest {
         };
     }
 
+    private UIComponent focusableCapture(AtomicBoolean keyPressed, AtomicBoolean charTyped) {
+        return new UIComponent() {
+            @Override public int preferredWidth(Font font) { return 100; }
+            @Override public int preferredHeight(Font font) { return 60; }
+            @Override public void layout(int lx, int ly, int w, int h) { setBounds(lx, ly, w, h); }
+            @Override public void render(GuiGraphics g, Font f, int mx, int my, float pt) {}
+            @Override public boolean isFocusable() { return true; }
+            @Override public boolean keyPressed(int key, int scanCode, int modifiers) { keyPressed.set(true); return true; }
+            @Override public boolean charTyped(char character, int modifiers) { charTyped.set(true); return true; }
+        };
+    }
+
+    @Test
+    void closingOutOfOrderTrapKeepsFocusInsideTopTrap() {
+        FocusManager focus = new FocusManager();
+        ButtonWidget rootBtn = Ui.button("Root", () -> {});
+        focus.setRoot(Ui.column(rootBtn));
+        focus.focusNext();
+        assertSame(rootBtn, focus.focused());
+
+        ButtonWidget btnA = Ui.button("A", () -> {});
+        UIComponent modalA = Ui.column(btnA);
+        focus.trapFocus(modalA);
+        assertSame(btnA, focus.focused());
+
+        ButtonWidget btnB = Ui.button("B", () -> {});
+        UIComponent modalB = Ui.column(btnB);
+        focus.trapFocus(modalB);
+        assertSame(btnB, focus.focused());
+
+        focus.untrapFocus(modalA);
+        assertSame(btnB, focus.focused(), "Focus must stay inside the remaining top trap");
+    }
+
+    @Test
+    void charTypedDoesNotReachRootAfterOutOfOrderTrapClose() {
+        UiRuntime runtime = new UiRuntime(new Font(null, false), dummyHost);
+        AtomicBoolean rootKey = new AtomicBoolean(false);
+        AtomicBoolean rootChar = new AtomicBoolean(false);
+        UIComponent rootCapture = focusableCapture(rootKey, rootChar);
+        runtime.setRoot(rootCapture);
+        assertTrue(runtime.focus().requestFocus(rootCapture));
+
+        AtomicBoolean modalAChar = new AtomicBoolean(false);
+        AtomicBoolean modalBChar = new AtomicBoolean(false);
+        OverlayHandle modalA = runtime.overlays().show(OverlayLayer.MODAL,
+                focusableCapture(new AtomicBoolean(), modalAChar), true);
+        runtime.overlays().show(OverlayLayer.MODAL, focusableCapture(new AtomicBoolean(), modalBChar), true);
+
+        modalA.close();
+
+        assertTrue(runtime.charTyped('a', 0), "The still-open modal receives typed characters");
+        assertTrue(modalBChar.get());
+        assertFalse(rootChar.get(), "Typed characters must not reach the screen behind the still-open modal");
+        runtime.keyPressed(82, 0, 0);
+        assertFalse(rootKey.get(), "Keys must not reach the screen behind the still-open modal");
+    }
+
+    @Test
+    void blockingModalOpenKeepsKeysAwayFromLowerOverlay() {
+        UiRuntime runtime = new UiRuntime(new Font(null, false), dummyHost);
+        AtomicBoolean rootKey = new AtomicBoolean(false);
+        AtomicBoolean rootChar = new AtomicBoolean(false);
+        runtime.setRoot(focusableCapture(rootKey, rootChar));
+
+        AtomicBoolean dropdownKey = new AtomicBoolean(false);
+        AtomicBoolean dropdownChar = new AtomicBoolean(false);
+        runtime.overlays().show(OverlayLayer.DROPDOWN, focusableCapture(dropdownKey, dropdownChar), false);
+
+        AtomicBoolean modalKey = new AtomicBoolean(false);
+        AtomicBoolean modalChar = new AtomicBoolean(false);
+        runtime.overlays().show(OverlayLayer.MODAL, focusableCapture(modalKey, modalChar), true);
+
+        assertTrue(runtime.keyPressed(82, 0, 0));
+        assertTrue(modalKey.get(), "The blocking modal owns the keyboard");
+        assertFalse(dropdownKey.get(), "Keys must not reach the lower overlay behind a blocking modal");
+        assertFalse(rootKey.get());
+
+        assertTrue(runtime.charTyped('a', 0));
+        assertTrue(modalChar.get());
+        assertFalse(dropdownChar.get());
+        assertFalse(rootChar.get());
+    }
+
     @Test
     void unfocusedKeyEventsFallBackToRootForShortcuts() {
         UiRuntime runtime = new UiRuntime(new Font(null, false), dummyHost);
