@@ -88,6 +88,16 @@ jobs:
           sed -i 's/^openui_version[[:space:]]*=.*/openui_version = 0.0.8/' simply-speakers/gradle.properties
           sed -i '/"-Dorg.gradle.jvmargs=-Xmx2048m",/a\        "-x", ":common-1.20.1:compileJava", "-x", ":fabric-1.20.1:compileJava",' \
             simply-speakers/tools/live_join_test.py
+      - name: Add CC:Tweaked runtime required by consumer
+        shell: bash
+        run: |
+          mkdir -p simply-speakers/fabric-1.20.1/run/live-join/client/mods
+          mkdir -p simply-speakers/fabric-1.20.1/run/live-join/server/mods
+          curl --fail --location --retry 3 \
+            -o /tmp/cc-tweaked.jar \
+            https://maven.squiddev.cc/cc/tweaked/cc-tweaked-1.20.1-fabric/1.120.2/cc-tweaked-1.20.1-fabric-1.120.2.jar
+          cp /tmp/cc-tweaked.jar simply-speakers/fabric-1.20.1/run/live-join/client/mods/
+          cp /tmp/cc-tweaked.jar simply-speakers/fabric-1.20.1/run/live-join/server/mods/
       - name: Boot precompiled consumer with OpenUI 0.0.8
         working-directory: simply-speakers
         run: python3 tools/live_join_test.py --target fabric-1.20.1
