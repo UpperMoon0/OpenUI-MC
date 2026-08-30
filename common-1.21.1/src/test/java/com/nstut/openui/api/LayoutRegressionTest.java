@@ -1,5 +1,6 @@
 package com.nstut.openui.api;
 
+import com.nstut.openui.controls.ScrollView;
 import com.nstut.openui.controls.SignalSwitcher;
 import com.nstut.openui.state.Signal;
 import com.nstut.openui.state.Signals;
@@ -158,5 +159,30 @@ class LayoutRegressionTest {
 
         assertEquals(18, spacer.getHeight());
         assertEquals(72, flexible.getHeight());
+    }
+
+    @Test
+    void flexSignalSwitcherWithScrollViewKeepsPageInsideViewport() {
+        VStack page = new VStack().gap(8);
+        UIComponent header = new FixedBox(100, 30);
+        UIComponent footer = new FixedBox(100, 20);
+        Signal<String> route = Signals.of("IMPORT");
+
+        ScrollView scroll = Ui.scroll(new FixedBox(100, 500));
+        UIComponent switcher = Ui.switcher(route)
+                .when("IMPORT", () -> scroll)
+                .flex();
+
+        page.addChild(header);
+        page.addChild(switcher);
+        page.addChild(footer);
+        page.layout(0, 0, 300, 200);
+
+        assertEquals(30, header.getHeight());
+        assertEquals(20, footer.getHeight());
+        int viewport = 200 - 30 - 20 - 2 * 8;
+        assertEquals(viewport, switcher.getHeight());
+        assertEquals(viewport, scroll.getHeight());
+        assertEquals(500, scroll.content().getHeight());
     }
 }
