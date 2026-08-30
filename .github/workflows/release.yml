@@ -323,6 +323,8 @@ jobs:
             '[$minecraftVersion, $loaderName, $javaVersionName, "Client"]')"
 
           available_versions="$(curl --fail-with-body --silent --show-error \
+            --retry 4 \
+            --retry-max-time 90 \
             --header "X-Api-Token: ${CURSEFORGE_API_TOKEN}" \
             'https://minecraft.curseforge.com/api/game/versions')"
           while IFS= read -r version_name; do
@@ -354,6 +356,8 @@ jobs:
           response_file="$(mktemp)"
           trap 'rm -f "$response_file"' EXIT
           http_status="$(curl --silent --show-error \
+            --retry 4 \
+            --retry-max-time 90 \
             --output "$response_file" \
             --write-out '%{http_code}' \
             --request POST \
