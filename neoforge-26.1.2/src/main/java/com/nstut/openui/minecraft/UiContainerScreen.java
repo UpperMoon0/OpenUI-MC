@@ -65,6 +65,8 @@ public abstract class UiContainerScreen<T extends AbstractContainerMenu> extends
     @Override
     public void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         super.extractContents(graphics, mouseX, mouseY, partialTick);
+        if (uiRuntime != null) uiRuntime.render(graphics, mouseX, mouseY, partialTick);
+        renderForegroundLayer(graphics, partialTick, mouseX, mouseY);
     }
 
     /**
@@ -79,15 +81,14 @@ public abstract class UiContainerScreen<T extends AbstractContainerMenu> extends
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        // Keep vanilla's extraction order while placing OpenUI between item rendering and tooltips.
         renderBackgroundLayer(graphics, partialTick, mouseX, mouseY);
-        extractContents(graphics, mouseX, mouseY, partialTick);
-        extractCarriedItem(graphics, mouseX, mouseY);
-        extractSnapbackItem(graphics);
-        if (uiRuntime != null) uiRuntime.render(graphics, mouseX, mouseY, partialTick);
-        renderForegroundLayer(graphics, partialTick, mouseX, mouseY);
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+    }
+
+    @Override
+    protected void extractTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         if (uiRuntime == null || !uiRuntime.overlays().hasModal()) {
-            extractTooltip(graphics, mouseX, mouseY);
+            super.extractTooltip(graphics, mouseX, mouseY);
         }
     }
 

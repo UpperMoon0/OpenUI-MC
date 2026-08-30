@@ -84,9 +84,11 @@ public class Popover extends UIComponent {
         int desiredPopoverW = matchAnchorWidth ? anchorWidth : content.preferredWidth(font) + 12;
         int popoverW = Math.min(Math.max(12, desiredPopoverW), Math.max(12, availableWidth - 8));
         int contentW = Math.max(0, popoverW - 12);
-        Size contentSize = content.measure(Constraints.loose(contentW, Math.max(0, availableHeight - 8)), font);
+        int maxPopoverH = Math.max(0, availableHeight - 8);
+        int maxContentH = Math.max(0, maxPopoverH - 12);
+        Size contentSize = content.measure(Constraints.loose(contentW, maxContentH), font);
         int contentH = contentSize.height();
-        int popoverH = contentH + 12;
+        int popoverH = Math.min(maxPopoverH, contentH + 12);
 
         int ax = anchor.getX();
         int ay = anchor.getY();

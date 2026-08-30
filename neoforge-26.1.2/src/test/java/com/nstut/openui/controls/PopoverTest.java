@@ -26,4 +26,19 @@ class PopoverTest {
         assertEquals(anchor.getWidth(), popover.getWidth());
         assertEquals(anchor.getWidth() - 12, results.getWidth());
     }
+
+    @Test
+    void oversizedContentReservesViewportMarginsAndPopoverPadding() {
+        UIComponent anchor = new SizedBox(80, 18);
+        anchor.layout(20, 20, 80, 18);
+        Card oversized = new Card();
+        oversized.width(80).height(500);
+        Popover popover = Ui.popover(anchor, oversized);
+
+        popover.layoutTree(new Font(null), 0, 0, 200, 120);
+
+        assertEquals(112, popover.getHeight());
+        assertEquals(100, oversized.getHeight());
+        assertEquals(4, popover.getY());
+    }
 }

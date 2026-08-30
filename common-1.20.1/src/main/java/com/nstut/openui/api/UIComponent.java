@@ -112,9 +112,9 @@ public abstract class UIComponent {
     public UIComponent width(int value) { requestedWidth = Math.max(0, value); invalidateLayout(); return this; }
     public UIComponent height(int value) { requestedHeight = Math.max(0, value); invalidateLayout(); return this; }
 
-    protected final boolean hasRequestedWidth() { return requestedWidth >= 0; }
+    boolean hasRequestedWidth() { return requestedWidth >= 0; }
 
-    protected final boolean hasRequestedHeight() { return requestedHeight >= 0; }
+    boolean hasRequestedHeight() { return requestedHeight >= 0; }
     public UIComponent minWidth(int value) { minWidth = Math.max(0, value); invalidateLayout(); return this; }
     public UIComponent maxWidth(int value) { maxWidth = Math.max(minWidth, value); invalidateLayout(); return this; }
     public UIComponent minHeight(int value) { minHeight = Math.max(0, value); invalidateLayout(); return this; }

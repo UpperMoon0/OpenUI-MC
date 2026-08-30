@@ -41,19 +41,24 @@ public class Card extends UIComponent {
     }
     @Override public int preferredHeight(Font font) {
         int pad=customPadding>=0?customPadding:theme().cardTheme().padding();
-        int total=0; for(UIComponent child:children) total+=child.preferredHeight(font);
+        int innerWidth=Math.max(0,width-pad*2);
+        int total=0;
+        for(UIComponent child:children) {
+            total+=width>0
+                    ? child.measure(Constraints.loose(innerWidth,Constraints.INFINITY),font).height()
+                    : child.preferredHeight(font);
+        }
         return total+pad*2;
     }
     @Override public Size measure(Constraints constraints, Font font) {
-        Size base = super.measure(constraints, font);
-        if (hasRequestedHeight()) return base;
-        int pad=customPadding>=0?customPadding:theme().cardTheme().padding();
-        int innerWidth=Math.max(0,base.width()-pad*2);
-        int total=0;
-        for(UIComponent child:children) {
-            total+=child.measure(Constraints.loose(innerWidth,constraints.maxHeight()),font).height();
+        Size initial=super.measure(constraints,font);
+        int previousWidth=width;
+        width=initial.width();
+        try {
+            return super.measure(constraints,font);
+        } finally {
+            width=previousWidth;
         }
-        return constraints.constrain(new Size(base.width(),total+pad*2));
     }
     @Override public void layout(int x,int y,int availableWidth,int availableHeight) {
         setBounds(x,y,availableWidth,availableHeight);
