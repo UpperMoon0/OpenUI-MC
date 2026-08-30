@@ -53,11 +53,8 @@ public final class VirtualGrid<T> extends UIComponent {
     public void resetScroll() { if (scrollOffset != 0) { scrollOffset = 0; invalidateLayout(); } }
 
     @Override protected void onMount() {
-        subscription = items.subscribe(values -> {
-            snapshot = List.copyOf(values);
-            clampScroll();
-            invalidateBuild();
-        });
+        subscription = items.subscribe(this::updateSnapshot);
+        updateSnapshot(items.get());
     }
 
     @Override protected void onUnmount() {
@@ -67,6 +64,12 @@ public final class VirtualGrid<T> extends UIComponent {
 
     @Override public int preferredWidth(Font font) { return minCellWidth; }
     @Override public int preferredHeight(Font font) { return Math.max(cellHeight, 80); }
+
+    private void updateSnapshot(List<T> values) {
+        snapshot = List.copyOf(values);
+        clampScroll();
+        invalidateBuild();
+    }
 
     private int columnsForWidth(int width) {
         return Math.max(1, (Math.max(1, width) + gap) / (minCellWidth + gap));

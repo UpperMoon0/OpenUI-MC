@@ -42,9 +42,25 @@ public class VStack extends UIComponent {
     public int preferredHeight(Font font) {
         int total = 0;
         List<UIComponent> vc = visibleChildren();
-        for (UIComponent c : vc) total += c.preferredHeight(font);
+        for (UIComponent c : vc) {
+            total += width > 0
+                    ? c.measure(Constraints.loose(width, Constraints.INFINITY), font).height()
+                    : c.preferredHeight(font);
+        }
         if (!vc.isEmpty()) total += gap * (vc.size() - 1);
         return total;
+    }
+
+    @Override
+    public Size measure(Constraints constraints, Font font) {
+        Size initial = super.measure(constraints, font);
+        int previousWidth = width;
+        width = initial.width();
+        try {
+            return super.measure(constraints, font);
+        } finally {
+            width = previousWidth;
+        }
     }
 
     @Override

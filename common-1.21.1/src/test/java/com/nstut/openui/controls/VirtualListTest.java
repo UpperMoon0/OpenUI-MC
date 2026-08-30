@@ -5,7 +5,10 @@ import com.nstut.openui.api.TextWidget;
 import com.nstut.openui.api.Ui;
 import com.nstut.openui.state.Signal;
 import com.nstut.openui.state.Signals;
+import com.nstut.openui.runtime.NativeWidgetHost;
+import com.nstut.openui.runtime.UiRuntime;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.components.AbstractWidget;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -15,6 +18,24 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.*;
 
 class VirtualListTest {
+
+    private final NativeWidgetHost dummyHost = new NativeWidgetHost() {
+        @Override public void add(AbstractWidget widget) { }
+        @Override public void remove(AbstractWidget widget) { }
+    };
+
+    @Test
+    void mountReplaysSignalChangesPublishedAfterConstruction() {
+        Signal<List<String>> items = Signals.of(List.of());
+        VirtualList<String> list = Ui.list(items, Ui::text).itemHeight(20);
+        items.set(List.of("Copper", "Iron"));
+
+        UiRuntime runtime = new UiRuntime(new Font(null, false), dummyHost);
+        runtime.setRoot(list);
+        list.layoutTree(new Font(null, false), 0, 0, 200, 100);
+
+        assertEquals(2, list.activeCellCount());
+    }
 
     @Test
     void materializedRowsUseTheRealFontOnTheirFirstLayout() {

@@ -3,6 +3,8 @@ package com.nstut.openui.controls;
 import com.nstut.openui.animation.Easing;
 import com.nstut.openui.api.UIComponent;
 import com.nstut.openui.api.UiRender;
+import com.nstut.openui.layout.Constraints;
+import com.nstut.openui.layout.Size;
 import com.nstut.openui.theme.ColorScheme;
 import com.nstut.openui.theme.Theme;
 import net.minecraft.client.gui.Font;
@@ -39,8 +41,24 @@ public class Card extends UIComponent {
     }
     @Override public int preferredHeight(Font font) {
         int pad=customPadding>=0?customPadding:theme().cardTheme().padding();
-        int total=0; for(UIComponent child:children) total+=child.preferredHeight(font);
+        int innerWidth=Math.max(0,width-pad*2);
+        int total=0;
+        for(UIComponent child:children) {
+            total+=width>0
+                    ? child.measure(Constraints.loose(innerWidth,Constraints.INFINITY),font).height()
+                    : child.preferredHeight(font);
+        }
         return total+pad*2;
+    }
+    @Override public Size measure(Constraints constraints, Font font) {
+        Size initial=super.measure(constraints,font);
+        int previousWidth=width;
+        width=initial.width();
+        try {
+            return super.measure(constraints,font);
+        } finally {
+            width=previousWidth;
+        }
     }
     @Override public void layout(int x,int y,int availableWidth,int availableHeight) {
         setBounds(x,y,availableWidth,availableHeight);

@@ -2,6 +2,8 @@ package com.nstut.openui.controls;
 
 import com.nstut.openui.api.UIComponent;
 import com.nstut.openui.api.UiRender;
+import com.nstut.openui.layout.Constraints;
+import com.nstut.openui.layout.Size;
 import com.nstut.openui.overlay.OverlayHandle;
 import com.nstut.openui.overlay.OverlayLayer;
 import com.nstut.openui.theme.ColorScheme;
@@ -18,6 +20,7 @@ public class Popover extends UIComponent {
     private final UIComponent content;
     private Placement placement = Placement.AUTO;
     private int offset = 4;
+    private boolean matchAnchorWidth;
     private OverlayHandle handle;
 
     public Popover(UIComponent anchor, UIComponent content) {
@@ -34,6 +37,12 @@ public class Popover extends UIComponent {
 
     public Popover offset(int offset) {
         this.offset = offset;
+        invalidateLayout();
+        return this;
+    }
+
+    public Popover matchAnchorWidth() {
+        this.matchAnchorWidth = true;
         invalidateLayout();
         return this;
     }
@@ -71,10 +80,18 @@ public class Popover extends UIComponent {
     @Override
     public void layout(int lx, int ly, int availableWidth, int availableHeight) {
         Font font = measureFont();
-        int contentW = content.preferredWidth(font);
-        int contentH = content.preferredHeight(font);
-        int popoverW = contentW + 12;
-        int popoverH = contentH + 12;
+        int anchorWidth = anchor.getWidth();
+        // A popover shown before its anchor has been laid out would collapse to
+        // the minimum width; fall back to the anchor's preferred width.
+        if (anchorWidth <= 0 && font != null) anchorWidth = anchor.preferredWidth(font);
+        int desiredPopoverW = matchAnchorWidth ? anchorWidth : content.preferredWidth(font) + 12;
+        int popoverW = Math.min(Math.max(12, desiredPopoverW), Math.max(12, availableWidth - 8));
+        int contentW = Math.max(0, popoverW - 12);
+        int maxPopoverH = Math.max(0, availableHeight - 8);
+        int maxContentH = Math.max(0, maxPopoverH - 12);
+        Size contentSize = content.measure(Constraints.loose(contentW, maxContentH), font);
+        int contentH = contentSize.height();
+        int popoverH = Math.min(maxPopoverH, contentH + 12);
 
         int ax = anchor.getX();
         int ay = anchor.getY();

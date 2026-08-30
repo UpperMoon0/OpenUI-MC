@@ -54,6 +54,9 @@ public abstract class UiContainerScreen<T extends AbstractContainerMenu> extends
         super.render(graphics, mouseX, mouseY, partialTick);
         if (uiRuntime != null) uiRuntime.render(graphics, mouseX, mouseY, partialTick);
         renderForegroundLayer(graphics, partialTick, mouseX, mouseY);
+        if (uiRuntime == null || !uiRuntime.overlays().suppressesUnderlyingTooltips(mouseX, mouseY)) {
+            renderTooltip(graphics, mouseX, mouseY);
+        }
     }
 
     @Override public boolean mouseClicked(double x, double y, int button) { return uiRuntime != null && uiRuntime.mouseClicked(x, y, button) || super.mouseClicked(x, y, button); }
@@ -61,8 +64,13 @@ public abstract class UiContainerScreen<T extends AbstractContainerMenu> extends
     @Override public boolean mouseDragged(double x, double y, int button, double dx, double dy) { return uiRuntime != null && uiRuntime.mouseDragged(x, y, button, dx, dy) || super.mouseDragged(x, y, button, dx, dy); }
     @Override public boolean mouseReleased(double x, double y, int button) { return uiRuntime != null && uiRuntime.mouseReleased(x, y, button) || super.mouseReleased(x, y, button); }
     @Override public boolean keyPressed(int key, int scanCode, int modifiers) {
+        boolean inventoryKey = minecraft != null && minecraft.options.keyInventory.matches(key, scanCode);
+        ContainerKeyPolicy.Route route = ContainerKeyPolicy.route(inventoryKey,
+                uiRuntime != null && uiRuntime.hasTextInputFocus(),
+                uiRuntime != null && uiRuntime.overlays().hasBlockingOverlay());
+        if (route == ContainerKeyPolicy.Route.VANILLA) return super.keyPressed(key, scanCode, modifiers);
         if (uiRuntime != null && uiRuntime.keyPressed(key, scanCode, modifiers)) return true;
-        if (minecraft != null && minecraft.options.keyInventory.matches(key, scanCode)) return true;
+        if (route == ContainerKeyPolicy.Route.OPEN_UI) return true;
         return super.keyPressed(key, scanCode, modifiers);
     }
     @Override public boolean keyReleased(int key, int scanCode, int modifiers) { return uiRuntime != null && uiRuntime.keyReleased(key, scanCode, modifiers) || super.keyReleased(key, scanCode, modifiers); }

@@ -60,6 +60,46 @@ public final class OverlayManager implements AutoCloseable {
         return entries.stream().anyMatch(entry -> entry.blocksInput && entry.open);
     }
 
+    /** Topmost open overlay that blocks input, or null when none exists. */
+    public UIComponent topBlockingComponent() {
+        for (int i = entries.size() - 1; i >= 0; i--) {
+            Entry entry = entries.get(i);
+            if (entry.blocksInput && entry.open) return entry.component;
+        }
+        return null;
+    }
+
+    /** True when the component is an open overlay or lives inside one. */
+    public boolean containsComponent(UIComponent component) {
+        List<Entry> snapshot = List.copyOf(entries);
+        for (Entry entry : snapshot) {
+            if (!entry.open) continue;
+            for (UIComponent cursor = component; cursor != null; cursor = cursor.parent()) {
+                if (cursor == entry.component) return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * True when the pointer is currently interacting with an OpenUI overlay,
+     * in which case underlying tooltips (e.g. vanilla slot tooltips) would
+     * render through the overlay and should be suppressed. Tooltips themselves
+     * are excluded so the runtime tooltip never suppresses itself. Blocking
+     * overlays suppress across their entire blocked area, not just where the
+     * modal card itself holds the pointer.
+     */
+    public boolean suppressesUnderlyingTooltips(int mouseX, int mouseY) {
+        List<Entry> snapshot = List.copyOf(entries);
+        for (int i = snapshot.size() - 1; i >= 0; i--) {
+            Entry entry = snapshot.get(i);
+            if (!entry.open || entry.layer == OverlayLayer.TOOLTIP) continue;
+            if (entry.blocksInput) return true;
+            if (entry.component.hitTest(mouseX, mouseY) != null) return true;
+        }
+        return false;
+    }
+
     public int size() { return entries.size(); }
     public List<UIComponent> components() { return entries.stream().map(Entry::component).toList(); }
 

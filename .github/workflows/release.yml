@@ -3,13 +3,68 @@ name: Build and Release OpenUI MC
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      release:
+        description: Publish a release from main
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
+  release-gate:
+    name: Check release trigger
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check for version bump
+        id: check
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          BEFORE: ${{ github.event.before }}
+          MANUAL_RELEASE: ${{ inputs.release || false }}
+        run: |
+          set -euo pipefail
+          should_release=false
+          current="$(sed -n 's/^mod_version[[:space:]]*=[[:space:]]*//p' gradle.properties | head -n1 | tr -d '\r' | xargs)"
+          if [[ -z "$current" ]]; then
+            echo "Failed to read mod_version" >&2
+            exit 1
+          fi
+          expected="v${current}"
+          if [[ "$REF" == refs/tags/* && "${REF#refs/tags/}" != "$expected" ]]; then
+            echo "Tag ${REF#refs/tags/} does not match mod_version $current" >&2
+            exit 1
+          fi
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            if [[ "$REF" == "refs/heads/main" && "$MANUAL_RELEASE" == "true" ]]; then
+              should_release=true
+            fi
+          elif [[ "$REF" == refs/tags/* ]]; then
+            should_release=true
+          elif [[ "$EVENT_NAME" == "push" && "$REF" == "refs/heads/main" ]]; then
+            if ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+              echo "Cannot resolve previous push commit $BEFORE" >&2
+              exit 1
+            fi
+            previous="$(git show "$BEFORE":gradle.properties | sed -n 's/^mod_version[[:space:]]*=[[:space:]]*//p' | head -n1 | tr -d '\r' | xargs)"
+            if [[ -n "$current" && "$current" != "$previous" ]]; then
+              should_release=true
+            fi
+          fi
+          echo "should_release=$should_release" >> "$GITHUB_OUTPUT"
+          echo "Release trigger: $should_release"
+
   test-common:
     runs-on: ubuntu-latest
     steps:
@@ -21,6 +76,119 @@ jobs:
           cache: gradle
       - run: chmod +x gradlew
       - run: ./gradlew checkLegacySourceParity :common-1.20.1:test :common-1.21.1:test
+
+  consumer-binary-smoke:
+    name: Simply Speakers 0.0.7 binary compatibility
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout OpenUI 0.0.8 candidate
+        uses: actions/checkout@v4
+        with:
+          path: openui-candidate
+      - name: Checkout OpenUI 0.0.7 baseline
+        uses: actions/checkout@v4
+        with:
+          repository: UpperMoon0/OpenUI-MC
+          ref: 82a5dd2f0e6c6027f20ca2acf049858f7f96f597
+          path: openui-baseline
+      - name: Checkout precompiled consumer source
+        uses: actions/checkout@v4
+        with:
+          repository: UpperMoon0/Simply-Speakers
+          ref: 9a9681671e783bfd6e80594c3e23a76fb7132efb
+          path: simply-speakers
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - name: Install virtual display
+        run: sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends xvfb
+      - name: Make Gradle wrappers executable
+        run: chmod +x openui-baseline/gradlew openui-candidate/gradlew simply-speakers/gradlew
+      - name: Limit compatibility fixture to Fabric 1.20.1
+        shell: bash
+        run: |
+          for settings in openui-baseline/settings.gradle openui-candidate/settings.gradle; do
+            sed -i \
+              -e "/include 'forge-1.20.1'/d" \
+              -e "/include 'common-1.21.1'/d" \
+              -e "/include 'fabric-1.21.1'/d" \
+              -e "/include 'neoforge-1.21.1'/d" \
+              -e "/include 'neoforge-26.1.2'/d" \
+              "$settings"
+          done
+          sed -i \
+            -e "/include 'forge-1.20.1'/d" \
+            -e "/include 'common-1.21.1'/d" \
+            -e "/include 'fabric-1.21.1'/d" \
+            -e "/include 'neoforge-1.21.1'/d" \
+            -e "/include 'neoforge-26.1.2'/d" \
+            simply-speakers/settings.gradle
+      - name: Compile consumer against OpenUI 0.0.7
+        shell: bash
+        run: |
+          ./openui-baseline/gradlew -p openui-baseline \
+            :common-1.20.1:publishToMavenLocal \
+            :fabric-1.20.1:publishToMavenLocal --no-daemon
+          ./simply-speakers/gradlew -p simply-speakers \
+            :fabric-1.20.1:classes --no-daemon
+      - name: Install OpenUI 0.0.8 without recompiling consumer
+        shell: bash
+        run: |
+          ./openui-candidate/gradlew -p openui-candidate \
+            :common-1.20.1:publishToMavenLocal \
+            :fabric-1.20.1:publishToMavenLocal --no-daemon
+          sed -i 's/^openui_version[[:space:]]*=.*/openui_version = 0.0.8/' simply-speakers/gradle.properties
+          sed -i '/"-Dorg.gradle.jvmargs=-Xmx2048m",/a\        "-x", ":common-1.20.1:compileJava", "-x", ":fabric-1.20.1:compileJava",' \
+            simply-speakers/tools/live_join_test.py
+      - name: Add CC:Tweaked API shim for optional linkage
+        shell: bash
+        run: |
+          # Simply Speakers has an optional ComputerCraft integration.  Its
+          # entrypoint references the CC ABI even when the real mod is absent,
+          # so provide only the ABI classes needed for class loading.  Giving
+          # the shim a different mod id keeps FabricLoader.isModLoaded("computercraft")
+          # false and avoids initializing the full ComputerCraft mod (which is
+          # not part of this compatibility fixture).
+          shim_root=/tmp/openui-cc-api-shim
+          rm -rf "$shim_root"
+          mkdir -p "$shim_root/src/dan200/computercraft/api/peripheral" \
+            "$shim_root/classes"
+          cat > "$shim_root/src/dan200/computercraft/api/peripheral/IPeripheral.java" <<'EOF'
+          package dan200.computercraft.api.peripheral;
+          public interface IPeripheral {}
+          EOF
+          cat > "$shim_root/src/dan200/computercraft/api/peripheral/IPeripheralProvider.java" <<'EOF'
+          package dan200.computercraft.api.peripheral;
+          public interface IPeripheralProvider {}
+          EOF
+          cat > "$shim_root/src/dan200/computercraft/api/peripheral/PeripheralLookup.java" <<'EOF'
+          package dan200.computercraft.api.peripheral;
+          import java.util.function.BiFunction;
+          public final class PeripheralLookup {
+            private static final PeripheralLookup INSTANCE = new PeripheralLookup();
+            private PeripheralLookup() {}
+            public static PeripheralLookup get() { return INSTANCE; }
+            public void registerForBlockEntity(BiFunction<?, ?, ?> provider, Object blockEntityType) {}
+          }
+          EOF
+          javac --release 17 -d "$shim_root/classes" $(find "$shim_root/src" -name '*.java')
+          cat > "$shim_root/fabric.mod.json" <<'EOF'
+          {"schemaVersion":1,"id":"openui_cc_api_shim","version":"1.0.0","name":"OpenUI CC API shim","environment":"*","depends":{"fabricloader":">=0.14","minecraft":"1.20.1"}}
+          EOF
+          jar --create --file "$shim_root/openui-cc-api-shim.jar" \
+            -C "$shim_root/classes" . -C "$shim_root" fabric.mod.json
+          mkdir -p simply-speakers/fabric-1.20.1/run/live-join/client/mods \
+            simply-speakers/fabric-1.20.1/run/live-join/server/mods
+          cp "$shim_root/openui-cc-api-shim.jar" \
+            simply-speakers/fabric-1.20.1/run/live-join/client/mods/
+          cp "$shim_root/openui-cc-api-shim.jar" \
+            simply-speakers/fabric-1.20.1/run/live-join/server/mods/
+      - name: Boot precompiled consumer with OpenUI 0.0.8
+        working-directory: simply-speakers
+        run: python3 tools/live_join_test.py --target fabric-1.20.1
 
   build:
     runs-on: ubuntu-latest
@@ -71,8 +239,8 @@ jobs:
 
   publish-curseforge:
     name: Publish ${{ matrix.platform }} ${{ matrix.version }} to CurseForge
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    needs: [test-common, build]
+    if: needs.release-gate.outputs.should_release == 'true'
+    needs: [release-gate, test-common, consumer-binary-smoke, build]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -206,8 +374,8 @@ jobs:
 
   publish-github-release:
     name: Publish GitHub Release
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    needs: [test-common, build]
+    if: needs.release-gate.outputs.should_release == 'true'
+    needs: [release-gate, test-common, consumer-binary-smoke, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write

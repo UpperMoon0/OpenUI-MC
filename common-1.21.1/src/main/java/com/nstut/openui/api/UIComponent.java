@@ -243,6 +243,8 @@ public abstract class UIComponent {
     public boolean mouseDragged(double mx, double my, int button, double dragX, double dragY) { return false; }
     public boolean mouseReleased(double mx, double my, int button) { return false; }
     public boolean keyPressed(int key, int scanCode, int modifiers) { return false; }
+    /** Returns whether this component owns text input and should suppress screen shortcuts while focused. */
+    public boolean acceptsTextInput() { return false; }
     public boolean keyReleased(int key, int scanCode, int modifiers) { return false; }
     public boolean charTyped(char character, int modifiers) { return false; }
 
