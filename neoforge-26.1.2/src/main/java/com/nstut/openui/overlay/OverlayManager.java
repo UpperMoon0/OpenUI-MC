@@ -85,13 +85,16 @@ public final class OverlayManager implements AutoCloseable {
      * True when the pointer is currently interacting with an OpenUI overlay,
      * in which case underlying tooltips (e.g. vanilla slot tooltips) would
      * render through the overlay and should be suppressed. Tooltips themselves
-     * are excluded so the runtime tooltip never suppresses itself.
+     * are excluded so the runtime tooltip never suppresses itself. Blocking
+     * overlays suppress across their entire blocked area, not just where the
+     * modal card itself holds the pointer.
      */
     public boolean suppressesUnderlyingTooltips(int mouseX, int mouseY) {
         List<Entry> snapshot = List.copyOf(entries);
         for (int i = snapshot.size() - 1; i >= 0; i--) {
             Entry entry = snapshot.get(i);
             if (!entry.open || entry.layer == OverlayLayer.TOOLTIP) continue;
+            if (entry.blocksInput) return true;
             if (entry.component.hitTest(mouseX, mouseY) != null) return true;
         }
         return false;

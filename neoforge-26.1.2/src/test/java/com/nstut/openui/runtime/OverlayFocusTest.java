@@ -196,4 +196,36 @@ class OverlayFocusTest {
         assertTrue(overlayKey.get(), "Blocking overlay owns the keyboard scope");
         assertFalse(rootKey.get(), "Underlying root shortcuts must not fire behind a blocking overlay");
     }
+    private UIComponent card(int bx, int by, int w, int h) {
+        return new UIComponent() {
+            @Override public int preferredWidth(Font font) { return w; }
+            @Override public int preferredHeight(Font font) { return h; }
+            @Override public void layout(int lx, int ly, int aw, int ah) { setBounds(bx, by, w, h); }
+            @Override public void render(GuiGraphicsExtractor g, Font f, int mx, int my, float pt) {}
+        };
+    }
+
+    @Test
+    void blockingOverlaySuppressesUnderlyingTooltipsAcrossBlockedArea() {
+        UiRuntime runtime = new UiRuntime(new Font(null), dummyHost);
+        runtime.overlays().show(OverlayLayer.MODAL, card(50, 50, 120, 80), true);
+        runtime.overlays().layout(new Font(null), 0, 0, 300, 200);
+
+        assertTrue(runtime.overlays().suppressesUnderlyingTooltips(10, 10),
+                "A blocking overlay suppresses underlying tooltips across the whole blocked area");
+        assertTrue(runtime.overlays().suppressesUnderlyingTooltips(60, 60),
+                "Pointer over the modal card also suppresses underlying tooltips");
+    }
+
+    @Test
+    void nonBlockingOverlaySuppressesTooltipsOnlyWhereItHolds() {
+        UiRuntime runtime = new UiRuntime(new Font(null), dummyHost);
+        runtime.overlays().show(OverlayLayer.DROPDOWN, card(150, 50, 80, 60), false);
+        runtime.overlays().layout(new Font(null), 0, 0, 300, 200);
+
+        assertFalse(runtime.overlays().suppressesUnderlyingTooltips(10, 10),
+                "A non-blocking overlay must not suppress tooltips outside its bounds");
+        assertTrue(runtime.overlays().suppressesUnderlyingTooltips(160, 60),
+                "A non-blocking overlay suppresses tooltips underneath itself");
+    }
 }
