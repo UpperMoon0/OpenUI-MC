@@ -325,6 +325,8 @@ jobs:
           available_versions="$(curl --fail-with-body --silent --show-error \
             --retry 4 \
             --retry-max-time 90 \
+            --connect-timeout 15 \
+            --max-time 45 \
             --header "X-Api-Token: ${CURSEFORGE_API_TOKEN}" \
             'https://minecraft.curseforge.com/api/game/versions')"
           while IFS= read -r version_name; do
@@ -358,6 +360,8 @@ jobs:
           http_status="$(curl --silent --show-error \
             --retry 4 \
             --retry-max-time 90 \
+            --connect-timeout 15 \
+            --max-time 45 \
             --output "$response_file" \
             --write-out '%{http_code}' \
             --request POST \
