@@ -52,6 +52,16 @@ jobs:
         run: sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends xvfb
       - name: Make Gradle wrappers executable
         run: chmod +x openui-baseline/gradlew openui-candidate/gradlew simply-speakers/gradlew
+      - name: Limit consumer fixture to Fabric 1.20.1
+        shell: bash
+        run: |
+          sed -i \
+            -e "/include 'forge-1.20.1'/d" \
+            -e "/include 'common-1.21.1'/d" \
+            -e "/include 'fabric-1.21.1'/d" \
+            -e "/include 'neoforge-1.21.1'/d" \
+            -e "/include 'neoforge-26.1.2'/d" \
+            simply-speakers/settings.gradle
       - name: Compile consumer against OpenUI 0.0.7
         shell: bash
         run: |
