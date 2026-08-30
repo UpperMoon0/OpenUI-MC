@@ -48,6 +48,20 @@ public class VStack extends UIComponent {
     }
 
     @Override
+    public Size measure(Constraints constraints, Font font) {
+        Size base = super.measure(constraints, font);
+        if (hasRequestedHeight()) return base;
+
+        int total = 0;
+        List<UIComponent> vc = visibleChildren();
+        for (UIComponent child : vc) {
+            total += child.measure(Constraints.loose(base.width(), constraints.maxHeight()), font).height();
+        }
+        if (!vc.isEmpty()) total += gap * (vc.size() - 1);
+        return constraints.constrain(new Size(base.width(), total));
+    }
+
+    @Override
     public void layout(int x, int y, int availableWidth, int availableHeight) {
         setBounds(x, y, availableWidth, availableHeight);
         List<UIComponent> vc = visibleChildren();

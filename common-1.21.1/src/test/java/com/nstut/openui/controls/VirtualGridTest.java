@@ -125,6 +125,20 @@ class VirtualGridTest {
     };
 
     @Test
+    void mountReplaysSignalChangesPublishedAfterConstruction() {
+        Signal<List<DummyItem>> items = Signals.of(List.of());
+        VirtualGrid<DummyItem> grid = Ui.virtualGrid(items, SimpleCard::new);
+        items.set(List.of(new DummyItem("1", "Copper")));
+
+        UiRuntime runtime = new UiRuntime(new Font(null, false), DUMMY_HOST);
+        grid.mount(runtime);
+        grid.layout(0, 0, 200, 100);
+
+        assertEquals(1, grid.activeCellCount());
+        grid.unmount();
+    }
+
+    @Test
     void testSignalReplacingItemListClampsScroll() {
         List<DummyItem> list = new ArrayList<>();
         for (int i = 0; i < 20; i++) list.add(new DummyItem(String.valueOf(i), "Item " + i));

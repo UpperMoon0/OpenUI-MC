@@ -42,11 +42,18 @@ public class VirtualList<T> extends UIComponent {
     public int activeCellCount() { return active.size(); }
 
     @Override protected void onMount() {
-        subscription = items.subscribe(values -> { snapshot = List.copyOf(values); clampScroll(); invalidateBuild(); });
+        updateSnapshot(items.get());
+        subscription = items.subscribe(this::updateSnapshot);
     }
     @Override protected void onUnmount() { subscription.close(); subscription = Subscription.EMPTY; }
     @Override public int preferredWidth(Font font) { return 100; }
     @Override public int preferredHeight(Font font) { return 80; }
+
+    private void updateSnapshot(List<T> values) {
+        snapshot = List.copyOf(values);
+        clampScroll();
+        invalidateBuild();
+    }
 
     @Override
     public void layout(int x, int y, int availableWidth, int availableHeight) {

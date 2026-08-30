@@ -79,12 +79,16 @@ public abstract class UiContainerScreen<T extends AbstractContainerMenu> extends
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        // 26.1 extracts container slots inside super.extractRenderState().
-        // Draw custom chrome first so vanilla item models remain above slot backgrounds.
+        // Keep vanilla's extraction order while placing OpenUI between item rendering and tooltips.
         renderBackgroundLayer(graphics, partialTick, mouseX, mouseY);
-        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        extractContents(graphics, mouseX, mouseY, partialTick);
+        extractCarriedItem(graphics, mouseX, mouseY);
+        extractSnapbackItem(graphics);
         if (uiRuntime != null) uiRuntime.render(graphics, mouseX, mouseY, partialTick);
         renderForegroundLayer(graphics, partialTick, mouseX, mouseY);
+        if (uiRuntime == null || !uiRuntime.overlays().hasModal()) {
+            extractTooltip(graphics, mouseX, mouseY);
+        }
     }
 
     @Override public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) { return uiRuntime != null && uiRuntime.mouseClicked(event.x(), event.y(), event.button()) || super.mouseClicked(event, doubleClick); }

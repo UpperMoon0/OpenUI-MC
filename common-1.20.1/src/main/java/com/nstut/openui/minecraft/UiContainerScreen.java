@@ -54,6 +54,9 @@ public abstract class UiContainerScreen<T extends AbstractContainerMenu> extends
         super.render(graphics, mouseX, mouseY, partialTick);
         if (uiRuntime != null) uiRuntime.render(graphics, mouseX, mouseY, partialTick);
         renderForegroundLayer(graphics, partialTick, mouseX, mouseY);
+        if (uiRuntime == null || !uiRuntime.overlays().hasModal()) {
+            renderTooltip(graphics, mouseX, mouseY);
+        }
     }
 
     @Override public boolean mouseClicked(double x, double y, int button) { return uiRuntime != null && uiRuntime.mouseClicked(x, y, button) || super.mouseClicked(x, y, button); }

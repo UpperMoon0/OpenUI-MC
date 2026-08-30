@@ -71,6 +71,37 @@ class DialogCallbackTest {
     }
 
     @Test
+    void wrappedDialogButtonsStayInsideCardAndReceiveRuntimeClicks() {
+        Font font = new Font(null);
+        UiRuntime runtime = new UiRuntime(font, dummyHost);
+        runtime.setViewport(0, 0, 300, 220);
+        runtime.setRoot(com.nstut.openui.api.Ui.text("Screen"));
+        AtomicInteger confirmCount = new AtomicInteger();
+
+        Dialog.confirm(
+                runtime.overlays(),
+                "Delete listing?",
+                "This deliberately long confirmation message wraps across several lines so the dialog must measure its constrained content before positioning the action buttons.",
+                confirmCount::incrementAndGet,
+                () -> { }
+        );
+
+        runtime.overlays().layout(font, 0, 0, 300, 220);
+        Dialog.DialogContainer container = assertInstanceOf(
+                Dialog.DialogContainer.class, runtime.overlays().components().get(0));
+        Card card = assertInstanceOf(Card.class, container.getContent());
+        List<ButtonWidget> buttons = findAllButtons(container);
+        ButtonWidget confirmBtn = buttons.get(1);
+
+        assertTrue(confirmBtn.getY() + confirmBtn.getHeight() <= card.getY() + card.getHeight(),
+                "Wrapped content must not push actions outside the card");
+        assertTrue(runtime.mouseClicked(confirmBtn.getX() + 2, confirmBtn.getY() + 2, 0),
+                "Runtime hit testing should route the click to the visible action");
+        assertEquals(1, confirmCount.get());
+        assertEquals(0, runtime.overlays().size());
+    }
+
+    @Test
     void cancelButtonClickFiresCancelOnlyOnce() {
         Font font = new Font(null);
         UiRuntime runtime = new UiRuntime(font, dummyHost);
