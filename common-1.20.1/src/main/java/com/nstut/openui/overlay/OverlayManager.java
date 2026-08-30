@@ -81,6 +81,22 @@ public final class OverlayManager implements AutoCloseable {
         return false;
     }
 
+    /**
+     * True when the pointer is currently interacting with an OpenUI overlay,
+     * in which case underlying tooltips (e.g. vanilla slot tooltips) would
+     * render through the overlay and should be suppressed. Tooltips themselves
+     * are excluded so the runtime tooltip never suppresses itself.
+     */
+    public boolean suppressesUnderlyingTooltips(int mouseX, int mouseY) {
+        List<Entry> snapshot = List.copyOf(entries);
+        for (int i = snapshot.size() - 1; i >= 0; i--) {
+            Entry entry = snapshot.get(i);
+            if (!entry.open || entry.layer == OverlayLayer.TOOLTIP) continue;
+            if (entry.component.hitTest(mouseX, mouseY) != null) return true;
+        }
+        return false;
+    }
+
     public int size() { return entries.size(); }
     public List<UIComponent> components() { return entries.stream().map(Entry::component).toList(); }
 

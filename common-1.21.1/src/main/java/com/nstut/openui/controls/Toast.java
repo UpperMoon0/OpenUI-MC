@@ -23,6 +23,7 @@ public class Toast extends UIComponent {
 
     private static final int MIN_WIDTH = 170;
     private static final int MAX_WIDTH = 280;
+    private static final int MAX_VISIBLE_TOASTS = 4;
 
     private final Type type;
     private final Component title;
@@ -86,6 +87,20 @@ public class Toast extends UIComponent {
 
     public static OverlayHandle show(OverlayManager overlays, Toast toast) {
         if (overlays == null || toast == null) return null;
+        // Keep the newest toasts visible; dismiss the oldest beyond the cap so
+        // a burst of notifications cannot stack off the bottom of the screen.
+        int openToasts = 0;
+        for (UIComponent c : overlays.components()) {
+            if (c instanceof Toast t && !t.closed) openToasts++;
+        }
+        if (openToasts >= MAX_VISIBLE_TOASTS) {
+            for (UIComponent c : overlays.components()) {
+                if (c instanceof Toast t && !t.closed) {
+                    t.dismiss();
+                    break;
+                }
+            }
+        }
         OverlayHandle handle = overlays.show(OverlayLayer.TOAST, toast, false, false, false, toast::dismiss);
         toast.handle = handle;
         return handle;

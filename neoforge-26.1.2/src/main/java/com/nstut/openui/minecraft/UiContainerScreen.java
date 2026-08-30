@@ -87,7 +87,7 @@ public abstract class UiContainerScreen<T extends AbstractContainerMenu> extends
 
     @Override
     protected void extractTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
-        if (uiRuntime == null || !uiRuntime.overlays().hasModal()) {
+        if (uiRuntime == null || !uiRuntime.overlays().suppressesUnderlyingTooltips(mouseX, mouseY)) {
             super.extractTooltip(graphics, mouseX, mouseY);
         }
     }

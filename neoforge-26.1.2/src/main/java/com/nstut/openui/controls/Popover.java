@@ -81,6 +81,9 @@ public class Popover extends UIComponent {
     public void layout(int lx, int ly, int availableWidth, int availableHeight) {
         Font font = measureFont();
         int anchorWidth = anchor.getWidth();
+        // A popover shown before its anchor has been laid out would collapse to
+        // the minimum width; fall back to the anchor's preferred width.
+        if (anchorWidth <= 0 && font != null) anchorWidth = anchor.preferredWidth(font);
         int desiredPopoverW = matchAnchorWidth ? anchorWidth : content.preferredWidth(font) + 12;
         int popoverW = Math.min(Math.max(12, desiredPopoverW), Math.max(12, availableWidth - 8));
         int contentW = Math.max(0, popoverW - 12);
