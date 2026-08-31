@@ -180,7 +180,8 @@ public final class OverlayManager implements AutoCloseable {
             if (layer == OverlayLayer.MODAL || blocksInput) {
                 runtime.focus().untrapFocus(component);
             }
-            component.dispose();
+            // Overlay components are caller-owned and may be shown again.
+            component.unmount();
             if (onClose != null) onClose.run();
             runtime.requestOverlayLayout();
         }
