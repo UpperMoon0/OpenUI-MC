@@ -13,18 +13,37 @@ plugins {
 
 rootProject.name = 'openui-mc'
 
+def allProjects = [
+        'common-1.20.1', 'fabric-1.20.1', 'forge-1.20.1',
+        'common-1.21.1', 'fabric-1.21.1', 'neoforge-1.21.1',
+        'neoforge-26.1.2'
+] as Set
 def requestedTasks = gradle.startParameter.taskNames
-def onlyNeoForge2612 = !requestedTasks.isEmpty() && requestedTasks.every {
-    it == 'neoforge-26.1.2' || it.startsWith(':neoforge-26.1.2:')
+def targetedProjects = requestedTasks
+        .findAll { it.startsWith(':') }
+        .collect { it.split(':')[1] }
+        .findAll { it in allProjects } as Set
+def needsWholeWorkspace = requestedTasks.isEmpty() || requestedTasks.any {
+    !it.startsWith(':') || it in ['buildAll', 'testAllVersions']
 }
 
-if (!onlyNeoForge2612) {
-    include 'common-1.20.1'
-    include 'fabric-1.20.1'
-    include 'forge-1.20.1'
-    include 'common-1.21.1'
-    include 'fabric-1.21.1'
-    include 'neoforge-1.21.1'
+def selected = [] as Set
+if (needsWholeWorkspace || targetedProjects.isEmpty()) {
+    selected.addAll(allProjects)
+} else {
+    targetedProjects.each { projectName ->
+        switch (projectName) {
+            case 'fabric-1.20.1':
+            case 'forge-1.20.1':
+                selected.addAll(['common-1.20.1', projectName])
+                break
+            case 'fabric-1.21.1':
+            case 'neoforge-1.21.1':
+                selected.addAll(['common-1.21.1', projectName])
+                break
+            default:
+                selected.add(projectName)
+        }
+    }
 }
-
-include 'neoforge-26.1.2'
+selected.each { include it }
