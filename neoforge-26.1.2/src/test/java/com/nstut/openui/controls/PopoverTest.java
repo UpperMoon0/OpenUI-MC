@@ -56,7 +56,7 @@ class PopoverTest {
 
     @Test
     void samePopoverRemountsWithLatestReactiveRowsAfterClose() {
-        Signal<List<String>> items = Signals.of(List.of("Iron"));
+        Signal<List<String>> items = Signals.of(List.of("Iron", "Copper"));
         UIComponent anchor = new SizedBox(180, 18);
         VirtualList<String> results = Ui.list(items, Ui::text).itemHeight(20);
         Popover popover = Ui.popover(anchor, results).matchAnchorWidth();
@@ -64,7 +64,7 @@ class PopoverTest {
 
         OverlayHandle first = popover.show(runtime.overlays());
         runtime.overlays().layout(new Font(null), 0, 0, 320, 200);
-        assertEquals(1, results.activeCellCount());
+        assertEquals(2, results.activeCellCount());
 
         items.set(List.of());
         first.close();
