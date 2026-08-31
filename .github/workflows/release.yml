@@ -82,7 +82,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
-      - name: Checkout OpenUI 0.0.8 candidate
+      - name: Checkout OpenUI 0.0.9 candidate
         uses: actions/checkout@v4
         with:
           path: openui-candidate
@@ -134,13 +134,13 @@ jobs:
             :fabric-1.20.1:publishToMavenLocal --no-daemon
           ./simply-speakers/gradlew -p simply-speakers \
             :fabric-1.20.1:classes --no-daemon
-      - name: Install OpenUI 0.0.8 without recompiling consumer
+      - name: Install OpenUI 0.0.9 without recompiling consumer
         shell: bash
         run: |
           ./openui-candidate/gradlew -p openui-candidate \
             :common-1.20.1:publishToMavenLocal \
             :fabric-1.20.1:publishToMavenLocal --no-daemon
-          sed -i 's/^openui_version[[:space:]]*=.*/openui_version = 0.0.8/' simply-speakers/gradle.properties
+          sed -i 's/^openui_version[[:space:]]*=.*/openui_version = 0.0.9/' simply-speakers/gradle.properties
           sed -i '/"-Dorg.gradle.jvmargs=-Xmx2048m",/a\        "-x", ":common-1.20.1:compileJava", "-x", ":fabric-1.20.1:compileJava",' \
             simply-speakers/tools/live_join_test.py
       - name: Add CC:Tweaked API shim for optional linkage
@@ -186,7 +186,7 @@ jobs:
             simply-speakers/fabric-1.20.1/run/live-join/client/mods/
           cp "$shim_root/openui-cc-api-shim.jar" \
             simply-speakers/fabric-1.20.1/run/live-join/server/mods/
-      - name: Boot precompiled consumer with OpenUI 0.0.8
+      - name: Boot precompiled consumer with OpenUI 0.0.9
         working-directory: simply-speakers
         run: python3 tools/live_join_test.py --target fabric-1.20.1
 
