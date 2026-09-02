@@ -1,0 +1,105 @@
+package com.nstut.openui.api;
+
+import com.nstut.openui.declarative.DeclarativeChild;
+import com.nstut.openui.declarative.KeyedReconciler;
+import com.nstut.openui.declarative.NodeIdentity;
+import com.nstut.openui.declarative.ReconcilePlan;
+import com.nstut.openui.runtime.FrameScheduler;
+import com.nstut.openui.state.UiScope;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Supplier;
+
+/**
+ * Backward-compatible bridge from reactive component functions to the retained
+ * UIComponent tree. Signal reads performed by the builder are tracked by a
+ * scoped effect; updates are coalesced until the next measurement/layout pass.
+ */
+public final class DeclarativeHost extends ScopedUIComponent {
+    private final Supplier<? extends List<DeclarativeChild<UIComponent>>> builder;
+    private final FrameScheduler scheduler = new FrameScheduler();
+    private List<DeclarativeChild<UIComponent>> descriptions = List.of();
+    private List<DeclarativeChild<UIComponent>> pending = List.of();
+
+    public DeclarativeHost(Supplier<? extends List<DeclarativeChild<UIComponent>>> builder) {
+        this.builder = Objects.requireNonNull(builder, "builder");
+    }
+
+    @Override
+    protected void onScopedMount(UiScope scope) {
+        scope.effect(() -> {
+            List<DeclarativeChild<UIComponent>> next = builder.get();
+            pending = next == null ? List.of() : List.copyOf(next);
+            scheduler.schedule(this, this::applyPending);
+            invalidateBuild();
+        });
+    }
+
+    private void ensureBuilt() {
+        scheduler.flush();
+    }
+
+    private void applyPending() {
+        List<DeclarativeChild<UIComponent>> nextDescriptions = pending;
+        List<NodeIdentity> oldIds = descriptions.stream().map(DeclarativeChild::identity).toList();
+        List<NodeIdentity> newIds = nextDescriptions.stream().map(DeclarativeChild::identity).toList();
+        ReconcilePlan plan = KeyedReconciler.plan(oldIds, newIds);
+        List<UIComponent> oldChildren = List.copyOf(children);
+        List<UIComponent> nextChildren = new ArrayList<>(nextDescriptions.size());
+
+        for (int i = 0; i < nextDescriptions.size(); i++) {
+            DeclarativeChild<UIComponent> description = nextDescriptions.get(i);
+            int oldIndex = plan.oldIndex(i);
+            UIComponent component;
+            if (oldIndex >= 0) {
+                component = oldChildren.get(oldIndex);
+                description.apply(component);
+            } else {
+                component = description.create();
+                addChild(component);
+            }
+            nextChildren.add(component);
+        }
+
+        for (int oldIndex : plan.removedOldIndices()) {
+            removeChild(oldChildren.get(oldIndex));
+        }
+
+        children.clear();
+        children.addAll(nextChildren);
+        descriptions = nextDescriptions;
+        invalidateLayout();
+    }
+
+    @Override
+    public int preferredWidth(Font font) {
+        ensureBuilt();
+        int result = 0;
+        for (UIComponent child : children) result = Math.max(result, child.preferredWidth(font));
+        return result;
+    }
+
+    @Override
+    public int preferredHeight(Font font) {
+        ensureBuilt();
+        int result = 0;
+        for (UIComponent child : children) result = Math.max(result, child.preferredHeight(font));
+        return result;
+    }
+
+    @Override
+    public void layout(int x, int y, int availableWidth, int availableHeight) {
+        ensureBuilt();
+        setBounds(x, y, availableWidth, availableHeight);
+        for (UIComponent child : children) child.layout(x, y, availableWidth, availableHeight);
+    }
+
+    @Override
+    public void render(GuiGraphics g, Font font, int mx, int my, float pt) {
+        renderChildren(g, font, mx, my, pt);
+    }
+}
