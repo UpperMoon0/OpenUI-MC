@@ -1,6 +1,9 @@
 package com.nstut.openui.api;
 
+import com.nstut.openui.context.ContextKey;
 import com.nstut.openui.state.UiScope;
+
+import java.util.Optional;
 
 /**
  * Additive lifecycle-scoped base class for components that want automatic
@@ -48,5 +51,13 @@ public abstract class ScopedUIComponent extends UIComponent {
         UiScope current = scope;
         if (current == null) throw new IllegalStateException("Component is not mounted");
         return current;
+    }
+
+    protected final <T> Optional<T> findContext(ContextKey<T> key) {
+        return Contexts.find(this, key);
+    }
+
+    protected final <T> T context(ContextKey<T> key) {
+        return Contexts.require(this, key);
     }
 }
