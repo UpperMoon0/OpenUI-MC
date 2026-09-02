@@ -9,16 +9,16 @@ Legacy code continues to use `UIComponent`, `Ui.*`, `UiScreen`, `UiContainerScre
 ```text
 signals/context
     ↓
-DeclarativeHost builder
+Ui.component(scope -> ...)
     ↓
-DeclarativeChild descriptions
+DeclarativeChild description tree
     ↓
-KeyedReconciler
+DeclarativeTree + KeyedReconciler
     ↓
-existing retained UIComponent children
+existing retained UIComponent tree
 ```
 
-The retained tree is still the rendering/input/layout authority. Declarative code only manages identity and updates inside its host subtree.
+The retained tree remains the rendering/input/layout authority. Declarative code owns identity and updates only inside declaratively-described subtrees. A declarative leaf may therefore wrap an existing retained component that manages its own children.
 
 ## Lifecycle scopes
 
@@ -36,7 +36,7 @@ final class StatusPanel extends ScopedUIComponent {
 }
 ```
 
-Every mount receives a fresh `UiScope`. Resources are disposed once, in reverse ownership order, after `onScopedUnmount`. Existing `UIComponent.onMount/onUnmount` semantics are unchanged for legacy subclasses.
+Every mount receives a fresh `UiScope`. Resources are disposed once, in reverse ownership order. Keyed ownership with `scope.own(key, factory)` is useful for work created from rerunnable declarative builds because the same resource is reused for the lifetime of the mount.
 
 ## Context providers
 
@@ -45,51 +45,58 @@ Context keys are identity-based and typed.
 ```java
 static final ContextKey<MyClient> CLIENT = ContextKey.create("client");
 
-UIComponent tree = Contexts.provide(CLIENT, client, screenContent);
+UIComponent tree = Ui.provide(CLIENT, client, screenContent);
 ```
 
-Inside `ScopedUIComponent`:
+Inside a scoped component:
 
 ```java
 MyClient client = context(CLIENT);
 Optional<MyClient> optional = findContext(CLIENT);
 ```
 
-The nearest ancestor provider wins. Existing theme inheritance remains independent for compatibility.
+Inside a functional builder:
+
+```java
+Ui.component(scope -> {
+    MyClient client = scope.context(CLIENT);
+    return List.of(/* descriptions */);
+});
+```
+
+The nearest ancestor provider wins. Provider values are reactive: declarative builders that read a context value are rebuilt when that provider changes. Retained consumers still receive layout invalidation as a compatibility fallback.
 
 ## Functional declarative components
 
-`DeclarativeHost` tracks signals read by its builder through a scoped effect. A dependency change schedules one coalesced rebuild before the next measurement/layout pass.
+Use `Ui.component(...)` for a rerunnable component builder. The builder receives a `UiBuildScope` containing remembered state, context lookup and scoped async composition.
 
 ```java
 Signal<Boolean> advanced = Signals.of(false);
 
-UIComponent host = new DeclarativeHost(() -> List.of(
-    new DeclarativeChild<>(
-        "title",
-        "title",
-        () -> Ui.text("Settings"),
-        component -> component.setVisible(true)
-    ),
-    new DeclarativeChild<>(
+UIComponent host = Ui.component(scope -> List.of(
+    Ui.node("title", "title", () -> Ui.text("Settings")),
+    Ui.node(
         "advanced-panel",
         "advanced",
-        () -> buildAdvancedPanel(),
-        component -> component.setVisible(advanced.get())
+        () -> Ui.column(),
+        component -> component.setVisible(advanced.get()),
+        Ui.node("body", "body", () -> Ui.text("Advanced settings"))
     )
 ));
 ```
 
-A `DeclarativeChild` contains a logical type, optional key, factory and update function. The factory runs only when the retained child cannot be reused.
+`DeclarativeChild` is immutable and contains a logical type, optional key, retained-node factory, update callback and child descriptions. The factory runs only when reconciliation cannot reuse an existing retained node.
 
 ### Reconciliation rules
 
-- same type + same key: reuse retained instance;
+- same type + same key: reuse the retained instance;
 - keyed reorder: preserve retained identity/state;
-- same key + different type: replace;
-- removed node: unmount through normal retained lifecycle;
+- same key + different type: detach the old subtree before attaching the replacement;
+- removed nodes: deterministic unmount/scope cleanup;
 - unkeyed children: positional matching;
-- duplicate sibling keys: fail fast with a diagnostic.
+- duplicate sibling keys: fail fast;
+- externally mutating a declaratively-owned direct child list fails closed with a diagnostic;
+- declarative leaves can embed legacy retained components and leave their internal subtree untouched.
 
 This is intentionally much smaller than React Fiber. OpenUI does not implement a DOM, hydration or server rendering.
 
@@ -97,7 +104,7 @@ This is intentionally much smaller than React Fiber. OpenUI does not implement a
 
 `FrameScheduler` provides deterministic, insertion-ordered task coalescing. Keyed tasks with the same key execute once per flush. Work scheduled by work already being flushed is processed in a subsequent pass. A configurable pass limit catches runaway update loops.
 
-`DeclarativeHost` uses this scheduler internally so multiple reactive invalidations collapse into one retained-tree reconciliation.
+Mounted declarative hosts share a scheduler per `UiRuntime`, so multiple signal/context invalidations in one frame coalesce before retained reconciliation/layout. Overlay-only layout and legacy direct invalidation retain their existing paths.
 
 ## Styles
 
@@ -105,48 +112,77 @@ This is intentionally much smaller than React Fiber. OpenUI does not implement a
 
 ```java
 StateStyle style = new StateStyle(
-    Style.builder().padding(6).background(0xCC101010).radius(4).build(),
+    Style.builder()
+        .padding(6)
+        .background(0xCC101010)
+        .radius(4)
+        .minWidth(120)
+        .typography(TextStyle.BODY)
+        .build(),
     Style.builder().background(0xDD202020).build(),
     Style.builder().border(1, 0xFFFFFFFF).build(),
     Style.EMPTY,
-    Style.EMPTY
+    Style.builder().padding(0).noBorder().build()
 );
 
-UIComponent styled = new StyledBox(style, content);
+UIComponent styled = Ui.styled(style, content);
 ```
 
-`StyledBox` is additive, so existing fluent layout/control APIs remain unchanged.
+Styles support margin/padding, background/border/radius, exact/min/max dimensions, typography intent, state variants and explicit reset values such as zero padding or no border. `StyledBox` applies the size constraints during measurement/layout while existing fluent component APIs remain unchanged.
 
 ## Stable drawing SPI
 
 Reusable component libraries should target `UiDrawContext` where possible. `UiCanvas` implements this interface on every supported Minecraft generation.
 
-The stable surface includes fills, rounded surfaces/outlines, shadows, text and clipping. `UiCanvas.rawGraphics()` remains available for version-specific rendering that cannot be expressed through the SPI.
+The stable surface covers:
+
+- text/components;
+- fills, rounded rectangles, borders, surfaces and shadows;
+- namespaced texture regions through `UiTexture`;
+- item rendering;
+- tooltip rendering;
+- clipping;
+- push/translate/scale/pop transforms.
+
+`UiCanvas.rawGraphics()` remains the explicit low-level escape hatch when a component needs version-specific `GuiGraphics`/`GuiGraphicsExtractor` behavior.
 
 ## Semantics and navigation
 
 Attach renderer-independent accessibility metadata with `SemanticComponent` and `Semantics`.
 
 ```java
-UIComponent buy = new SemanticComponent(
+UIComponent buy = Ui.semantic(
     Semantics.button().label("Buy item").disabled(false).build(),
     Ui.button("Buy", this::buy)
 );
 ```
 
-`SemanticNarration.describe(...)` converts role/state/value metadata into concise narration text. `FocusManager.focusDirection(...)` uses `SpatialNavigation` to move focus spatially while respecting active focus traps and overlays, providing the framework hook needed by arrow-key or controller adapters.
+`SemanticNarration.describe(...)` converts role/state/value metadata into concise narration text. `describeNearest(...)` resolves the nearest semantic wrapper for a retained/focused leaf and `describeTree(...)` exposes visible semantic descriptions in retained-tree order. `FocusManager.focusedNarration()` connects focused UI to that semantic layer.
 
-## Profiling
+`FocusManager.focusDirection(...)` uses `SpatialNavigation` for directional keyboard/controller movement while respecting active focus traps and overlays. Existing Tab traversal remains unchanged.
 
-`UiProfiler` records build, reconciliation, layout, paint and event timing plus update causes. Profiling is opt-in and clears data when disabled.
+## Profiling / Devtools 2.0 foundation
 
-Every `DeclarativeHost` exposes `profiler()` so inspector/devtools integrations can enable it and inspect snapshots without changing application code.
+`UiProfiler` records build, reconciliation, layout, paint and event timing plus update causes. It also keeps a bounded chronological trace and exposes default-safe slow-sample warnings.
+
+Every `DeclarativeHost` exposes `profiler()`. Event dispatch through the host is traced with capture/target/bubble phase information, and update counts represent declarative rebuilds rather than every render sample. Instrumentation is disabled by default and clears when disabled.
 
 ## Scoped async work
 
 `ScopedAsync.submit(...)` owns a `CompletableFuture` through a `UiScope`. Unmount closes/cancels the task and suppresses stale result delivery.
 
-The caller supplies separate background and delivery executors; Minecraft client state should only be mutated from the delivery executor configured for the client thread.
+For rerunnable builders, use a key so repeated builds do not duplicate work:
+
+```java
+ReadableSignal<AsyncValue<User>> user = scope.async(
+    "user:" + userId,
+    () -> client.loadUser(userId),
+    backgroundExecutor,
+    minecraftClientExecutor
+);
+```
+
+Changing the key intentionally creates distinct scope-owned work/state. `AsyncValue` and `AsyncComponent` remain compatible facades for loading/error/success UI.
 
 ## Maven dependency
 
@@ -168,10 +204,18 @@ dependencies {
 }
 ```
 
-GitHub Packages requires GitHub credentials for dependency download. Composite builds remain useful for OpenUI contributors but are no longer the only publication path.
+Published modules include runtime and sources artifacts plus Gradle/POM metadata. Composite builds remain useful for OpenUI contributors but are no longer the only dependency path.
 
-## API stability
+## API compatibility gates
 
-The annotations `@PublicApi`, `@Experimental`, `@Internal` and `@Since` document compatibility intent without moving existing classes between packages. Existing package names are grandfathered to avoid binary breakage.
+The annotations `@PublicApi`, `@Experimental`, `@Internal` and `@Since` document compatibility intent without moving existing public classes between packages.
 
-The existing precompiled Simply Speakers compatibility fixture remains the strongest binary regression gate, alongside multi-version builds/tests and legacy source-parity checks.
+CI protects the compatibility contract with:
+
+- legacy 1.20.1/1.21.1 source-parity checks;
+- unit tests;
+- all supported loader/Minecraft builds;
+- a public JVM binary API comparison against the released 0.0.7 Fabric baseline;
+- the precompiled Simply Speakers downstream boot fixture.
+
+The binary API check emits a compatibility report into the GitHub Actions summary and fails when a released public class/member disappears or changes JVM descriptor.

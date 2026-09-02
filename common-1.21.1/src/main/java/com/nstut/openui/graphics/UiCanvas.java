@@ -2,6 +2,7 @@ package com.nstut.openui.graphics;
 
 import com.nstut.openui.api.ClipStack;
 import com.nstut.openui.api.UiRender;
+import com.nstut.openui.controls.Tooltip;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -63,17 +64,23 @@ public final class UiCanvas implements UiDrawContext {
         graphics.blit(location, x, y, u, v, width, height);
     }
 
-    public void pushClip(int x, int y, int width, int height) { ClipStack.push(graphics, x, y, width, height); }
-    public void popClip() { ClipStack.pop(graphics); }
-    public void pushTransform() { graphics.pose().pushPose(); }
-    public void translate(float dx, float dy) { graphics.pose().translate(dx, dy, 0); }
-    public void scale(float sx, float sy) { graphics.pose().scale(sx, sy, 1.0F); }
-    public void popTransform() { graphics.pose().popPose(); }
-
     public void renderItem(ItemStack stack, int x, int y) {
         if (stack != null && !stack.isEmpty()) {
             graphics.renderItem(stack, x, y);
             graphics.renderItemDecorations(font, stack, x, y);
         }
     }
+
+    public void tooltip(Component text, int mouseX, int mouseY, int boundsX, int boundsY, int boundsWidth, int boundsHeight) {
+        if (font != null && text != null) {
+            Tooltip.drawHover(graphics, font, text, mouseX, mouseY, boundsX, boundsY, boundsWidth, boundsHeight);
+        }
+    }
+
+    public void pushClip(int x, int y, int width, int height) { ClipStack.push(graphics, x, y, width, height); }
+    public void popClip() { ClipStack.pop(graphics); }
+    public void pushTransform() { graphics.pose().pushPose(); }
+    public void translate(float dx, float dy) { graphics.pose().translate(dx, dy, 0); }
+    public void scale(float sx, float sy) { graphics.pose().scale(sx, sy, 1.0F); }
+    public void popTransform() { graphics.pose().popPose(); }
 }

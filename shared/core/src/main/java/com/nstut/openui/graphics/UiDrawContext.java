@@ -46,6 +46,7 @@ public interface UiDrawContext {
     void text(String text, int x, int y, int color, boolean shadow);
     void texture(UiTexture texture, int x, int y, int u, int v, int width, int height);
     void renderItem(ItemStack stack, int x, int y);
+    void tooltip(Component text, int mouseX, int mouseY, int boundsX, int boundsY, int boundsWidth, int boundsHeight);
     void pushClip(int x, int y, int width, int height);
     void popClip();
     void pushTransform();
