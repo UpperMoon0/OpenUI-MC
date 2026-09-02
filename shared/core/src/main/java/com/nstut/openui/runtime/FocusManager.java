@@ -76,24 +76,24 @@ public final class FocusManager {
             if (removed != null) rewirePreviousFocus(removed);
             return;
         }
+
         traps.pop();
         FocusTrap parent = traps.peek();
-        UIComponent restored = null;
-        if (focused != null && focused.isVisible() && focused.isFocusable()
-                && (parent != null ? belongsToTree(focused, parent.trapRoot()) : belongsToActiveTree(focused))) {
-            restored = focused;
-        }
-        if (restored == null) {
-            UIComponent previous = top.previousFocus();
-            if (previous != null && previous.isVisible() && previous.isFocusable() && belongsToActiveTree(previous)
-                    && (parent == null || belongsToTree(previous, parent.trapRoot()))) restored = previous;
-        }
+        UIComponent restored = validRestoreTarget(top.previousFocus(), parent) ? top.previousFocus() : null;
         if (restored == null && parent != null) {
             List<UIComponent> focusable = new ArrayList<>();
             collect(parent.trapRoot(), focusable);
             if (!focusable.isEmpty()) restored = focusable.get(0);
         }
         setFocusedInternal(restored);
+    }
+
+    private boolean validRestoreTarget(UIComponent component, FocusTrap parent) {
+        return component != null
+                && component.isVisible()
+                && component.isFocusable()
+                && belongsToActiveTree(component)
+                && (parent == null || belongsToTree(component, parent.trapRoot()));
     }
 
     private FocusTrap removeTrap(UIComponent trapRoot) {
