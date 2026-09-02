@@ -5,6 +5,7 @@ import com.nstut.openui.api.UiRender;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.Objects;
@@ -53,6 +54,13 @@ public final class UiCanvas implements UiDrawContext {
     public void text(String text, int x, int y, int color, boolean shadow) {
         if (font == null || text == null) return;
         graphics.drawString(font, text, x, y, color, shadow);
+    }
+
+    public void texture(UiTexture texture, int x, int y, int u, int v, int width, int height) {
+        Objects.requireNonNull(texture, "texture");
+        ResourceLocation location = ResourceLocation.tryParse(texture.id());
+        if (location == null) throw new IllegalArgumentException("Invalid texture id: " + texture.id());
+        graphics.blit(location, x, y, u, v, width, height);
     }
 
     public void pushClip(int x, int y, int width, int height) { ClipStack.push(graphics, x, y, width, height); }

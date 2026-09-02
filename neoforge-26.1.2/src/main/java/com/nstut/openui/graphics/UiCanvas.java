@@ -2,9 +2,11 @@ package com.nstut.openui.graphics;
 
 import com.nstut.openui.api.ClipStack;
 import com.nstut.openui.api.UiRender;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.Objects;
@@ -37,6 +39,13 @@ public final class UiCanvas implements UiDrawContext {
     }
     public void text(String text, int x, int y, int color, boolean shadow) {
         if (font != null && text != null) graphics.text(font, text, x, y, color, shadow);
+    }
+
+    public void texture(UiTexture texture, int x, int y, int u, int v, int width, int height) {
+        Objects.requireNonNull(texture, "texture");
+        Identifier location = Identifier.tryParse(texture.id());
+        if (location == null) throw new IllegalArgumentException("Invalid texture id: " + texture.id());
+        graphics.blit(RenderPipelines.GUI_TEXTURED, location, x, y, u, v, width, height, 256, 256);
     }
 
     public void pushClip(int x, int y, int width, int height) { ClipStack.push(graphics, x, y, width, height); }

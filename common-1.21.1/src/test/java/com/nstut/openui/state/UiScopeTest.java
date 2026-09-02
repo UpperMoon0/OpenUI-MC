@@ -22,6 +22,27 @@ class UiScopeTest {
     }
 
     @Test
+    void keyedOwnershipReusesOneResourceAcrossRebuilds() {
+        UiScope scope = new UiScope();
+        AtomicInteger created = new AtomicInteger();
+        AtomicInteger closed = new AtomicInteger();
+
+        AutoCloseable first = scope.own("request", () -> {
+            created.incrementAndGet();
+            return closed::incrementAndGet;
+        });
+        AutoCloseable second = scope.own("request", () -> {
+            created.incrementAndGet();
+            return closed::incrementAndGet;
+        });
+
+        assertSame(first, second);
+        assertEquals(1, created.get());
+        scope.close();
+        assertEquals(1, closed.get());
+    }
+
+    @Test
     void effectStopsWhenScopeCloses() {
         Signal<Integer> value = Signals.of(1);
         AtomicInteger observed = new AtomicInteger();
@@ -68,5 +89,6 @@ class UiScopeTest {
         scope.close();
         assertThrows(IllegalStateException.class, () -> scope.remember("x", 1));
         assertThrows(IllegalStateException.class, () -> scope.own(() -> { }));
+        assertThrows(IllegalStateException.class, () -> scope.own("x", () -> () -> { }));
     }
 }

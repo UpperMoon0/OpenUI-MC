@@ -29,22 +29,36 @@ public final class StyledBox extends UIComponent {
 
     @Override public int preferredWidth(Font font) {
         Style s = resolved();
-        return child.preferredWidth(font) + s.margin().left() + s.margin().right() + s.padding().left() + s.padding().right();
+        int intrinsicSurface = child.preferredWidth(font) + s.padding().left() + s.padding().right();
+        int surface = resolveAxis(intrinsicSurface, s.width(), s.minWidth(), s.maxWidth(), Integer.MAX_VALUE);
+        return safeAdd(surface, s.margin().left() + s.margin().right());
     }
+
     @Override public int preferredHeight(Font font) {
         Style s = resolved();
-        return child.preferredHeight(font) + s.margin().top() + s.margin().bottom() + s.padding().top() + s.padding().bottom();
+        int intrinsicSurface = child.preferredHeight(font) + s.padding().top() + s.padding().bottom();
+        int surface = resolveAxis(intrinsicSurface, s.height(), s.minHeight(), s.maxHeight(), Integer.MAX_VALUE);
+        return safeAdd(surface, s.margin().top() + s.margin().bottom());
     }
 
     @Override
     public void layout(int x, int y, int availableWidth, int availableHeight) {
-        setBounds(x, y, availableWidth, availableHeight);
         Style s = resolved();
-        int left = s.margin().left() + s.padding().left();
-        int top = s.margin().top() + s.padding().top();
-        int right = s.margin().right() + s.padding().right();
-        int bottom = s.margin().bottom() + s.padding().bottom();
-        child.layout(x + left, y + top, Math.max(0, availableWidth - left - right), Math.max(0, availableHeight - top - bottom));
+        int horizontalMargin = s.margin().left() + s.margin().right();
+        int verticalMargin = s.margin().top() + s.margin().bottom();
+        int maxSurfaceWidth = Math.max(0, availableWidth - horizontalMargin);
+        int maxSurfaceHeight = Math.max(0, availableHeight - verticalMargin);
+        int surfaceWidth = resolveAxis(maxSurfaceWidth, s.width(), s.minWidth(), s.maxWidth(), maxSurfaceWidth);
+        int surfaceHeight = resolveAxis(maxSurfaceHeight, s.height(), s.minHeight(), s.maxHeight(), maxSurfaceHeight);
+        int outerWidth = Math.min(availableWidth, safeAdd(surfaceWidth, horizontalMargin));
+        int outerHeight = Math.min(availableHeight, safeAdd(surfaceHeight, verticalMargin));
+        setBounds(x, y, outerWidth, outerHeight);
+
+        int childX = x + s.margin().left() + s.padding().left();
+        int childY = y + s.margin().top() + s.padding().top();
+        int childWidth = Math.max(0, surfaceWidth - s.padding().left() - s.padding().right());
+        int childHeight = Math.max(0, surfaceHeight - s.padding().top() - s.padding().bottom());
+        child.layout(childX, childY, childWidth, childHeight);
     }
 
     @Override
@@ -56,8 +70,24 @@ public final class StyledBox extends UIComponent {
         int sh = Math.max(0, height - s.margin().top() - s.margin().bottom());
         UiCanvas canvas = new UiCanvas(g, font);
         int fill = s.background() == null ? 0 : s.background();
-        if (s.borderColor() != null) canvas.roundedOutline(sx, sy, sw, sh, s.radius(), fill, s.borderColor());
-        else if (s.background() != null) canvas.roundedRect(sx, sy, sw, sh, s.radius(), fill);
+        if (s.borderColor() != null && s.borderWidth() > 0) {
+            canvas.roundedOutline(sx, sy, sw, sh, s.radius(), s.borderWidth(), fill, s.borderColor());
+        } else if (s.background() != null) {
+            canvas.roundedRect(sx, sy, sw, sh, s.radius(), fill);
+        }
         child.render(g, font, mx, my, pt);
+    }
+
+    private static int resolveAxis(int intrinsic, Integer exact, Integer min, Integer max, int available) {
+        long value = exact != null ? exact : intrinsic;
+        if (min != null) value = Math.max(value, min);
+        if (max != null) value = Math.min(value, max);
+        value = Math.max(0L, value);
+        if (available != Integer.MAX_VALUE) value = Math.min(value, Math.max(0, available));
+        return (int) Math.min(Integer.MAX_VALUE, value);
+    }
+
+    private static int safeAdd(int left, int right) {
+        return (int) Math.min(Integer.MAX_VALUE, (long) left + right);
     }
 }

@@ -2,6 +2,7 @@ package com.nstut.openui.runtime;
 
 import com.nstut.openui.api.UIComponent;
 import com.nstut.openui.input.SpatialNavigation;
+import com.nstut.openui.semantics.SemanticNarration;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -28,6 +29,9 @@ public final class FocusManager {
     }
 
     public UIComponent focused() { return focused; }
+
+    /** Narration for the nearest semantic ancestor of the current focus target. */
+    public String focusedNarration() { return SemanticNarration.describeNearest(focused); }
 
     public boolean requestFocus(UIComponent component) {
         if (component == null || !component.isFocusable() || !belongsToActiveTree(component)) return false;

@@ -2,75 +2,113 @@ package com.nstut.openui.api;
 
 import com.nstut.openui.debug.UiProfiler;
 import com.nstut.openui.declarative.DeclarativeChild;
-import com.nstut.openui.declarative.KeyedReconciler;
-import com.nstut.openui.declarative.NodeIdentity;
-import com.nstut.openui.declarative.ReconcilePlan;
+import com.nstut.openui.declarative.DeclarativeTree;
+import com.nstut.openui.input.EventPhase;
+import com.nstut.openui.input.UiEvent;
 import com.nstut.openui.runtime.FrameScheduler;
+import com.nstut.openui.runtime.UiRuntime;
 import com.nstut.openui.state.UiScope;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.WeakHashMap;
 import java.util.function.Supplier;
 
 /** Reactive functional-component bridge backed by retained UIComponent nodes. */
 public final class DeclarativeHost extends ScopedUIComponent {
-    private final Supplier<? extends List<DeclarativeChild<UIComponent>>> builder;
-    private final FrameScheduler scheduler = new FrameScheduler();
+    @FunctionalInterface
+    public interface Builder {
+        List<DeclarativeChild<UIComponent>> build(UiBuildScope scope);
+    }
+
+    private static final Map<UiRuntime, FrameScheduler> RUNTIME_SCHEDULERS =
+            Collections.synchronizedMap(new WeakHashMap<>());
+
+    private static final DeclarativeTree.Adapter<UIComponent> RETAINED_ADAPTER = new DeclarativeTree.Adapter<>() {
+        @Override public void attach(UIComponent parent, UIComponent child) { parent.addChild(child); }
+        @Override public void detach(UIComponent parent, UIComponent child) { parent.removeChild(child); }
+        @Override public List<UIComponent> children(UIComponent parent) { return parent.children(); }
+        @Override public void reorder(UIComponent parent, List<UIComponent> orderedChildren) {
+            parent.children.clear();
+            parent.children.addAll(orderedChildren);
+        }
+    };
+
+    private final Builder builder;
+    private final FrameScheduler detachedScheduler = new FrameScheduler();
+    private final DeclarativeTree<UIComponent> tree = new DeclarativeTree<>(RETAINED_ADAPTER);
     private final UiProfiler profiler = new UiProfiler();
-    private List<DeclarativeChild<UIComponent>> descriptions = List.of();
     private List<DeclarativeChild<UIComponent>> pending = List.of();
 
-    public DeclarativeHost(Supplier<? extends List<DeclarativeChild<UIComponent>>> builder) {
+    public DeclarativeHost(Builder builder) {
         this.builder = Objects.requireNonNull(builder, "builder");
+    }
+
+    /** Backward-compatible no-argument builder form. */
+    public DeclarativeHost(Supplier<? extends List<DeclarativeChild<UIComponent>>> builder) {
+        this(scope -> Objects.requireNonNull(builder, "builder").get());
     }
 
     public UiProfiler profiler() { return profiler; }
 
     @Override
     protected void onScopedMount(UiScope scope) {
+        UiBuildScope currentBuildScope = new UiBuildScope(scope, this);
         scope.effect(() -> {
             long started = profiler.begin();
-            List<DeclarativeChild<UIComponent>> next = builder.get();
+            List<DeclarativeChild<UIComponent>> next = builder.build(currentBuildScope);
             pending = next == null ? List.of() : List.copyOf(next);
-            profiler.record(this, UiProfiler.Phase.BUILD, started, "reactive dependency changed");
-            scheduler.schedule(this, this::applyPending);
+            profiler.record(this, UiProfiler.Phase.BUILD, started, "signal/context dependency changed");
+            schedulePending();
             invalidateBuild();
         });
     }
 
-    private void ensureBuilt() { scheduler.flush(); }
+    private void schedulePending() {
+        UiRuntime currentRuntime = runtime();
+        if (currentRuntime == null) {
+            detachedScheduler.schedule(this, this::applyPending);
+            return;
+        }
+        schedulerFor(currentRuntime).schedule(this, () -> {
+            if (runtime() == currentRuntime) applyPending();
+        });
+    }
+
+    private void ensureBuilt() {
+        UiRuntime currentRuntime = runtime();
+        if (currentRuntime == null) detachedScheduler.flush();
+        else schedulerFor(currentRuntime).flush();
+    }
+
+    private static FrameScheduler schedulerFor(UiRuntime runtime) {
+        synchronized (RUNTIME_SCHEDULERS) {
+            return RUNTIME_SCHEDULERS.computeIfAbsent(runtime, ignored -> new FrameScheduler());
+        }
+    }
 
     private void applyPending() {
+        if (runtime() == null) return;
         long started = profiler.begin();
-        List<DeclarativeChild<UIComponent>> nextDescriptions = pending;
-        List<NodeIdentity> oldIds = descriptions.stream().map(DeclarativeChild::identity).toList();
-        List<NodeIdentity> newIds = nextDescriptions.stream().map(DeclarativeChild::identity).toList();
-        ReconcilePlan plan = KeyedReconciler.plan(oldIds, newIds);
-        List<UIComponent> oldChildren = List.copyOf(children);
-        List<UIComponent> nextChildren = new ArrayList<>(nextDescriptions.size());
-
-        for (int i = 0; i < nextDescriptions.size(); i++) {
-            DeclarativeChild<UIComponent> description = nextDescriptions.get(i);
-            int oldIndex = plan.oldIndex(i);
-            UIComponent component;
-            if (oldIndex >= 0) {
-                component = oldChildren.get(oldIndex);
-                description.apply(component);
-            } else {
-                component = description.create();
-                addChild(component);
-            }
-            nextChildren.add(component);
-        }
-        for (int oldIndex : plan.removedOldIndices()) removeChild(oldChildren.get(oldIndex));
-        children.clear();
-        children.addAll(nextChildren);
-        descriptions = nextDescriptions;
+        tree.reconcile(this, pending);
+        markBuilt();
         profiler.record(this, UiProfiler.Phase.RECONCILE, started, "description tree changed");
         invalidateLayout();
+    }
+
+    @Override
+    public void dispatchEvent(UiEvent event, EventPhase phase) {
+        long started = profiler.begin();
+        try {
+            super.dispatchEvent(event, phase);
+        } finally {
+            Object owner = event.target() != null ? event.target() : this;
+            profiler.record(owner, UiProfiler.Phase.EVENT, started, event.type() + "/" + phase);
+        }
     }
 
     @Override public int preferredWidth(Font font) {

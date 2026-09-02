@@ -5,6 +5,7 @@ import com.nstut.openui.input.SpatialNavigation;
 import com.nstut.openui.runtime.FrameScheduler;
 import com.nstut.openui.style.StateStyle;
 import com.nstut.openui.style.Style;
+import com.nstut.openui.theme.TextStyle;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -24,6 +25,18 @@ class ModernFrameworkFoundationTest {
         scheduler.schedule("other", () -> calls.add("other"));
         scheduler.flush();
         assertEquals(List.of("immediate", "first", "other"), calls);
+    }
+
+    @Test
+    void schedulerProcessesWorkQueuedDuringFlushInNextPass() {
+        FrameScheduler scheduler = new FrameScheduler();
+        List<String> calls = new ArrayList<>();
+        scheduler.schedule("a", () -> {
+            calls.add("a");
+            scheduler.schedule("b", () -> calls.add("b"));
+        });
+        scheduler.flush();
+        assertEquals(List.of("a", "b"), calls);
     }
 
     @Test
@@ -58,6 +71,28 @@ class ModernFrameworkFoundationTest {
         Style resolved = states.resolve(true, false, false, false);
         assertEquals(0xFF202020, resolved.background());
         assertEquals(Style.Insets.all(2), resolved.padding());
+    }
+
+    @Test
+    void styleVariantsCanExplicitlyResetInheritedValues() {
+        Style base = Style.builder()
+                .padding(6)
+                .radius(8)
+                .background(0xFF101010)
+                .typography(TextStyle.BODY)
+                .build();
+        Style hover = Style.builder()
+                .padding(0)
+                .radius(0)
+                .noBackground()
+                .typography(TextStyle.TITLE)
+                .build();
+        Style resolved = base.merge(hover);
+
+        assertEquals(Style.Insets.ZERO, resolved.padding());
+        assertEquals(0, resolved.radius());
+        assertNull(resolved.background());
+        assertEquals(TextStyle.TITLE, resolved.typography());
     }
 
     @Test

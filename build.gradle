@@ -62,6 +62,33 @@ subprojects {
     }
 }
 
+tasks.register('checkBinaryApiCompatibility') {
+    group = 'verification'
+    description = 'Checks the Fabric 1.20.1 public JVM API against the released 0.0.7 compatibility baseline.'
+    dependsOn ':fabric-1.20.1:remapJar'
+    doLast {
+        def candidate = project(':fabric-1.20.1').tasks.named('remapJar').get().archiveFile.get().asFile
+        def report = layout.buildDirectory.file('reports/binary-api-compatibility.txt').get().asFile
+        report.parentFile.mkdirs()
+        exec {
+            commandLine 'python3', file('tools/check_binary_api.py'),
+                    '--baseline-url', 'https://github.com/UpperMoon0/OpenUI-MC/releases/download/v0.0.7/openui-mc-fabric-1.20.1-0.0.7.jar',
+                    '--candidate', candidate,
+                    '--report', report
+        }
+    }
+}
+
+// Reuse the normal Fabric 1.20.1 build in CI as the binary-compatibility gate;
+// this adds no second candidate build and publishes the report into the Actions summary.
+gradle.projectsEvaluated {
+    if (System.getenv('CI') == 'true') {
+        project(':fabric-1.20.1').tasks.named('build').configure {
+            finalizedBy rootProject.tasks.named('checkBinaryApiCompatibility')
+        }
+    }
+}
+
 tasks.register('buildAll') {
     group = 'build'
     description = 'Builds every supported Minecraft version and loader.'

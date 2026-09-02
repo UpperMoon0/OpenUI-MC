@@ -19,6 +19,7 @@ import java.util.function.Supplier;
 public final class UiScope implements AutoCloseable {
     private final Deque<AutoCloseable> resources = new ArrayDeque<>();
     private final Map<String, Signal<?>> remembered = new HashMap<>();
+    private final Map<String, AutoCloseable> keyedResources = new HashMap<>();
     private boolean closed;
 
     /** Owns a resource and closes it when this scope closes. */
@@ -27,6 +28,22 @@ public final class UiScope implements AutoCloseable {
         ensureOpen();
         resources.push(resource);
         return resource;
+    }
+
+    /**
+     * Creates one owned resource for the supplied key and reuses it for the
+     * lifetime of this mount. This is useful from rerunnable declarative builds.
+     */
+    @SuppressWarnings("unchecked")
+    public <T extends AutoCloseable> T own(String key, Supplier<? extends T> factory) {
+        ensureOpen();
+        Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(factory, "factory");
+        AutoCloseable existing = keyedResources.get(key);
+        if (existing != null) return (T) existing;
+        T created = Objects.requireNonNull(factory.get(), "Owned resource factory returned null");
+        keyedResources.put(key, created);
+        return own(created);
     }
 
     /** Creates and owns a dependency-tracked effect. */
@@ -45,7 +62,7 @@ public final class UiScope implements AutoCloseable {
 
     /**
      * Returns mount-scoped remembered state. Repeated calls with the same key
-     * and compatible type return the same signal for the lifetime of this scope.
+     * return the same signal for the lifetime of this scope.
      */
     @SuppressWarnings("unchecked")
     public <T> Signal<T> remember(String key, Supplier<? extends T> initialValue) {
@@ -72,6 +89,7 @@ public final class UiScope implements AutoCloseable {
         if (closed) return;
         closed = true;
         remembered.clear();
+        keyedResources.clear();
         RuntimeException failure = null;
         while (!resources.isEmpty()) {
             try {

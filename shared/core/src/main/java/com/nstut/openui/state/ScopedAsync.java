@@ -17,14 +17,13 @@ public final class ScopedAsync<T> implements AutoCloseable {
         this.future = future;
     }
 
-    public static <T> ScopedAsync<T> submit(
-            UiScope scope,
+    /** Starts cancellable async work without attaching it to a scope yet. */
+    public static <T> ScopedAsync<T> start(
             Supplier<? extends T> work,
             Executor background,
             Executor delivery,
             Consumer<? super T> success,
             Consumer<? super Throwable> failure) {
-        Objects.requireNonNull(scope, "scope");
         Objects.requireNonNull(work, "work");
         Objects.requireNonNull(background, "background");
         Objects.requireNonNull(delivery, "delivery");
@@ -33,13 +32,41 @@ public final class ScopedAsync<T> implements AutoCloseable {
 
         CompletableFuture<T> future = CompletableFuture.supplyAsync(work::get, background);
         ScopedAsync<T> task = new ScopedAsync<>(future);
-        scope.own(task);
         future.whenCompleteAsync((value, error) -> {
             if (task.closed.get()) return;
             if (error == null) success.accept(value);
             else failure.accept(unwrap(error));
         }, delivery);
         return task;
+    }
+
+    /** Starts work and owns it for the lifetime of the supplied scope. */
+    public static <T> ScopedAsync<T> submit(
+            UiScope scope,
+            Supplier<? extends T> work,
+            Executor background,
+            Executor delivery,
+            Consumer<? super T> success,
+            Consumer<? super Throwable> failure) {
+        Objects.requireNonNull(scope, "scope");
+        return scope.own(start(work, background, delivery, success, failure));
+    }
+
+    /**
+     * Starts at most one task for {@code key} in this mount. Repeated calls from
+     * a declarative rebuild reuse the existing task instead of duplicating work.
+     */
+    public static <T> ScopedAsync<T> submit(
+            UiScope scope,
+            String key,
+            Supplier<? extends T> work,
+            Executor background,
+            Executor delivery,
+            Consumer<? super T> success,
+            Consumer<? super Throwable> failure) {
+        Objects.requireNonNull(scope, "scope");
+        Objects.requireNonNull(key, "key");
+        return scope.own("async:" + key, () -> start(work, background, delivery, success, failure));
     }
 
     public CompletionStage<T> stage() { return future; }
