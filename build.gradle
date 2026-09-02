@@ -67,7 +67,11 @@ tasks.register('checkBinaryApiCompatibility') {
     description = 'Checks the Fabric 1.20.1 public JVM API against the released 0.0.7 compatibility baseline.'
     dependsOn ':fabric-1.20.1:remapJar'
     doLast {
-        def candidate = project(':fabric-1.20.1').tasks.named('remapJar').get().archiveFile.get().asFile
+        def fabric1201 = findProject(':fabric-1.20.1')
+        if (fabric1201 == null) {
+            throw new GradleException('Binary API compatibility requires the fabric-1.20.1 project to be selected.')
+        }
+        def candidate = fabric1201.tasks.named('remapJar').get().archiveFile.get().asFile
         def report = layout.buildDirectory.file('reports/binary-api-compatibility.txt').get().asFile
         report.parentFile.mkdirs()
         exec {
@@ -79,11 +83,13 @@ tasks.register('checkBinaryApiCompatibility') {
     }
 }
 
-// Reuse the normal Fabric 1.20.1 build in CI as the binary-compatibility gate;
-// this adds no second candidate build and publishes the report into the Actions summary.
+// Reuse the normal Fabric 1.20.1 build in CI as the binary-compatibility gate.
+// Targeted builds intentionally omit unrelated projects, so only attach the
+// finalizer when Fabric 1.20.1 is actually part of the selected workspace.
 gradle.projectsEvaluated {
-    if (System.getenv('CI') == 'true') {
-        project(':fabric-1.20.1').tasks.named('build').configure {
+    def fabric1201 = findProject(':fabric-1.20.1')
+    if (System.getenv('CI') == 'true' && fabric1201 != null) {
+        fabric1201.tasks.named('build').configure {
             finalizedBy rootProject.tasks.named('checkBinaryApiCompatibility')
         }
     }
