@@ -46,6 +46,45 @@ class ScopedAsyncTest {
         assertEquals(0, delivered.get());
     }
 
+    @Test
+    void workFailureIsUnwrappedBeforeDelivery() {
+        IllegalStateException expected = new IllegalStateException("boom");
+        AtomicReference<Throwable> delivered = new AtomicReference<>();
+
+        ScopedAsync<Integer> task = ScopedAsync.start(
+                () -> { throw expected; },
+                DIRECT,
+                DIRECT,
+                ignored -> fail("failure must not call success"),
+                delivered::set);
+
+        assertSame(expected, delivered.get());
+        task.close();
+    }
+
+    @Test
+    void closingBeforeQueuedBackgroundWorkPreventsWorkAndCallbacks() {
+        AtomicReference<Runnable> background = new AtomicReference<>();
+        AtomicInteger workCalls = new AtomicInteger();
+        AtomicInteger callbacks = new AtomicInteger();
+        Executor queuedBackground = background::set;
+
+        ScopedAsync<Integer> task = ScopedAsync.start(
+                workCalls::incrementAndGet,
+                queuedBackground,
+                DIRECT,
+                ignored -> callbacks.incrementAndGet(),
+                ignored -> callbacks.incrementAndGet());
+        assertNotNull(background.get());
+
+        task.close();
+        background.get().run();
+
+        assertEquals(0, workCalls.get());
+        assertEquals(0, callbacks.get());
+        assertTrue(task.isClosed());
+    }
+
     private static Consumer<Throwable> unexpectedFailure() {
         return error -> fail("unexpected async failure: " + error);
     }
