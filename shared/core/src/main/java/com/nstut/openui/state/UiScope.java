@@ -3,6 +3,8 @@ package com.nstut.openui.state;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -69,7 +71,8 @@ public final class UiScope implements AutoCloseable {
         ensureOpen();
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(initialValue, "initialValue");
-        return (Signal<T>) remembered.computeIfAbsent(key, ignored -> Signals.of(initialValue.get()));
+        return (Signal<T>) remembered.computeIfAbsent(
+                key, ignored -> Signals.named("state:" + key, initialValue.get()));
     }
 
     public <T> Signal<T> remember(String key, T initialValue) {
@@ -78,6 +81,55 @@ public final class UiScope implements AutoCloseable {
 
     public boolean isClosed() {
         return closed;
+    }
+
+    /** Cheap read-only lifecycle/resource diagnostics for inspector tooling. */
+    public DebugSnapshot debugSnapshot() {
+        int effects = 0;
+        int subscriptions = 0;
+        int asyncTasks = 0;
+        Map<String, Signals.DebugSignal> signals = new LinkedHashMap<>();
+
+        for (Signal<?> signal : remembered.values()) {
+            Signals.DebugSignal debug = Signals.debug(signal);
+            signals.put(debug.id(), debug);
+        }
+        for (AutoCloseable resource : resources) {
+            if (resource instanceof Effect effect) {
+                effects++;
+                for (Signals.DebugSignal dependency : Signals.debugDependencies(effect)) {
+                    signals.put(dependency.id(), dependency);
+                }
+            } else if (resource instanceof Subscription) {
+                subscriptions++;
+            } else if (resource instanceof ScopedAsync<?>) {
+                asyncTasks++;
+            }
+        }
+
+        return new DebugSnapshot(
+                closed,
+                effects,
+                subscriptions,
+                asyncTasks,
+                resources.size(),
+                remembered.size(),
+                keyedResources.size(),
+                List.copyOf(signals.values()));
+    }
+
+    public record DebugSnapshot(
+            boolean closed,
+            int effects,
+            int subscriptions,
+            int asyncTasks,
+            int resources,
+            int rememberedState,
+            int keyedResources,
+            List<Signals.DebugSignal> signals) {
+        public DebugSnapshot {
+            signals = signals == null ? List.of() : List.copyOf(signals);
+        }
     }
 
     private void ensureOpen() {

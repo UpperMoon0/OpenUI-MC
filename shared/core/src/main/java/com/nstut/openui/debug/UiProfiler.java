@@ -96,6 +96,7 @@ public final class UiProfiler {
 
     public enum Phase { BUILD, RECONCILE, LAYOUT, PAINT, EVENT }
 
+    /** lastCause is specifically the most recent declarative BUILD trigger. */
     public record Snapshot(long buildNanos, long reconcileNanos, long layoutNanos,
                            long paintNanos, long eventNanos, long updates, String lastCause) { }
 
@@ -107,13 +108,16 @@ public final class UiProfiler {
         private String lastCause;
         synchronized void record(Phase phase, long nanos, String cause) {
             switch (phase) {
-                case BUILD -> { build += nanos; updates++; }
+                case BUILD -> {
+                    build += nanos;
+                    updates++;
+                    if (cause != null && !cause.isBlank()) lastCause = cause;
+                }
                 case RECONCILE -> reconcile += nanos;
                 case LAYOUT -> layout += nanos;
                 case PAINT -> paint += nanos;
                 case EVENT -> event += nanos;
             }
-            if (cause != null && !cause.isBlank()) lastCause = cause;
         }
         synchronized Snapshot snapshot() {
             return new Snapshot(build, reconcile, layout, paint, event, updates, lastCause);

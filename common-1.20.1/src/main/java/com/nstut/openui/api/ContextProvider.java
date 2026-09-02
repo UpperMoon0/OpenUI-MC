@@ -17,7 +17,7 @@ public final class ContextProvider extends UIComponent {
 
     public <T> ContextProvider(ContextKey<T> key, T value, UIComponent child) {
         this.contextKey = Objects.requireNonNull(key, "key");
-        this.value = Signals.of((Object) Objects.requireNonNull(value, "value"));
+        this.value = Signals.named("context:" + key.debugName(), (Object) Objects.requireNonNull(value, "value"));
         this.child = Objects.requireNonNull(child, "child");
         addChild(child);
     }

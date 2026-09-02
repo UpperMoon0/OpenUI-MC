@@ -28,6 +28,13 @@ def download(url: str, destination: pathlib.Path) -> None:
         shutil.copyfileobj(response, output)
 
 
+def is_generated_class(class_name: str) -> bool:
+    # Architectury injects implementation bridge classes whose names contain
+    # build hashes and source-jar coordinates. They are not source-addressable
+    # consumer APIs and legitimately change between otherwise ABI-compatible jars.
+    return class_name.startswith("architectury_inject_")
+
+
 def class_names(jar: pathlib.Path) -> list[str]:
     with zipfile.ZipFile(jar) as archive:
         result = []
@@ -36,6 +43,8 @@ def class_names(jar: pathlib.Path) -> list[str]:
                 continue
             class_name = name[:-6].replace("/", ".")
             if class_name in {"module-info", "package-info"} or class_name.endswith(".package-info"):
+                continue
+            if is_generated_class(class_name):
                 continue
             result.append(class_name)
         return sorted(set(result))

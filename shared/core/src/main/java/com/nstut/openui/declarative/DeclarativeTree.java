@@ -22,6 +22,7 @@ public final class DeclarativeTree<T> {
 
     private final Adapter<T> adapter;
     private List<MountedNode<T>> roots = List.of();
+    private Diagnostics diagnostics = Diagnostics.EMPTY;
 
     public DeclarativeTree(Adapter<T> adapter) {
         this.adapter = Objects.requireNonNull(adapter, "adapter");
@@ -31,23 +32,32 @@ public final class DeclarativeTree<T> {
     public void reconcile(T root, List<DeclarativeChild<T>> descriptions) {
         Objects.requireNonNull(root, "root");
         List<DeclarativeChild<T>> next = descriptions == null ? List.of() : List.copyOf(descriptions);
-        roots = reconcileChildren(root, roots, next, true);
+        Counter counter = new Counter();
+        roots = reconcileChildren(root, roots, next, true, counter);
+        diagnostics = counter.snapshot();
     }
 
     public List<T> roots() {
         return roots.stream().map(MountedNode::component).toList();
     }
 
+    public Diagnostics diagnostics() {
+        return diagnostics;
+    }
+
     public void reset() {
         roots = List.of();
+        diagnostics = Diagnostics.EMPTY;
     }
 
     private List<MountedNode<T>> reconcileChildren(
             T parent,
             List<MountedNode<T>> oldNodes,
             List<DeclarativeChild<T>> nextDescriptions,
-            boolean ownsDirectChildren) {
+            boolean ownsDirectChildren,
+            Counter counter) {
         if (ownsDirectChildren) verifyOwnership(parent, oldNodes);
+        counter.managed += nextDescriptions.size();
 
         List<NodeIdentity> oldIds = oldNodes.stream().map(node -> node.description().identity()).toList();
         List<NodeIdentity> newIds = nextDescriptions.stream().map(DeclarativeChild::identity).toList();
@@ -58,10 +68,12 @@ public final class DeclarativeTree<T> {
             DeclarativeChild<T> description = nextDescriptions.get(newIndex);
             int oldIndex = plan.oldIndex(newIndex);
             if (oldIndex >= 0) {
+                counter.reused++;
                 T reused = oldNodes.get(oldIndex).component();
                 description.apply(reused);
                 prepared.add(reused);
             } else {
+                counter.created++;
                 T created = description.create();
                 if (!description.children().isEmpty() && !adapter.children(created).isEmpty()) {
                     throw new IllegalStateException(
@@ -73,6 +85,7 @@ public final class DeclarativeTree<T> {
 
         // Replacements/removals unmount before any replacement is attached.
         for (int oldIndex : plan.removedOldIndices()) {
+            counter.removed++;
             adapter.detach(parent, oldNodes.get(oldIndex).component());
         }
 
@@ -87,13 +100,13 @@ public final class DeclarativeTree<T> {
                 MountedNode<T> oldNode = oldNodes.get(oldIndex);
                 boolean ownsChildren = !oldNode.children().isEmpty() || !description.children().isEmpty();
                 childNodes = ownsChildren
-                        ? reconcileChildren(component, oldNode.children(), description.children(), true)
+                        ? reconcileChildren(component, oldNode.children(), description.children(), true, counter)
                         : List.of();
             } else {
                 adapter.attach(parent, component);
                 childNodes = description.children().isEmpty()
                         ? List.of()
-                        : reconcileChildren(component, List.of(), description.children(), true);
+                        : reconcileChildren(component, List.of(), description.children(), true, counter);
             }
 
             nextNodes.add(new MountedNode<>(description, component, childNodes));
@@ -112,6 +125,21 @@ public final class DeclarativeTree<T> {
             throw new IllegalStateException(
                     "Declaratively-owned retained children were mutated outside the reconciler; expected "
                             + expected.size() + " managed children but found " + actual.size());
+        }
+    }
+
+    public record Diagnostics(int created, int reused, int removed, int managedNodes) {
+        public static final Diagnostics EMPTY = new Diagnostics(0, 0, 0, 0);
+    }
+
+    private static final class Counter {
+        private int created;
+        private int reused;
+        private int removed;
+        private int managed;
+
+        private Diagnostics snapshot() {
+            return new Diagnostics(created, reused, removed, managed);
         }
     }
 

@@ -53,6 +53,12 @@ public abstract class ScopedUIComponent extends UIComponent {
         return current;
     }
 
+    /** Read-only lifecycle/resource diagnostics for inspector tooling. */
+    public final Optional<UiScope.DebugSnapshot> scopeDebugSnapshot() {
+        UiScope current = scope;
+        return current == null ? Optional.empty() : Optional.of(current.debugSnapshot());
+    }
+
     protected final <T> Optional<T> findContext(ContextKey<T> key) {
         return Contexts.find(this, key);
     }

@@ -17,6 +17,7 @@ public final class FocusManager {
     private UIComponent root;
     private Supplier<List<UIComponent>> overlayRoots = List::of;
     private UIComponent focused;
+    private final Deque<UIComponent> focusHistory = new ArrayDeque<>();
     private final Deque<FocusTrap> traps = new ArrayDeque<>();
 
     void setRoot(UIComponent root) {
@@ -42,6 +43,23 @@ public final class FocusManager {
     }
 
     public void clearFocus() { setFocusedInternal(null); }
+
+    /** Compatibility API retained from 0.0.7: remembers the current focus for later restoration. */
+    public void pushFocus() {
+        if (focused != null) focusHistory.push(focused);
+    }
+
+    /** Compatibility API retained from 0.0.7 with its original restoration semantics. */
+    public void restoreFocus() {
+        while (!focusHistory.isEmpty()) {
+            UIComponent previous = focusHistory.pop();
+            if (previous.isVisible() && previous.isFocusable() && belongsToActiveTree(previous)) {
+                setFocusedInternal(previous);
+                return;
+            }
+        }
+        clearFocus();
+    }
 
     public void trapFocus(UIComponent trapRoot) {
         if (trapRoot == null) return;

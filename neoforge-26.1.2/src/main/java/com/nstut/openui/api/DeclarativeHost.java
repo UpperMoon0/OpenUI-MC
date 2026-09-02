@@ -7,6 +7,7 @@ import com.nstut.openui.input.EventPhase;
 import com.nstut.openui.input.UiEvent;
 import com.nstut.openui.runtime.FrameScheduler;
 import com.nstut.openui.runtime.UiRuntime;
+import com.nstut.openui.state.Signals;
 import com.nstut.openui.state.UiScope;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -53,15 +54,17 @@ public final class DeclarativeHost extends ScopedUIComponent {
     }
 
     public UiProfiler profiler() { return profiler; }
+    public DeclarativeTree.Diagnostics reconcileDiagnostics() { return tree.diagnostics(); }
 
     @Override
     protected void onScopedMount(UiScope scope) {
         UiBuildScope currentBuildScope = new UiBuildScope(scope, this);
         scope.effect(() -> {
             long started = profiler.begin();
+            String cause = Signals.currentUpdateCause().orElse("initial mount");
             List<DeclarativeChild<UIComponent>> next = builder.build(currentBuildScope);
             pending = next == null ? List.of() : List.copyOf(next);
-            profiler.record(this, UiProfiler.Phase.BUILD, started, "signal/context dependency changed");
+            profiler.record(this, UiProfiler.Phase.BUILD, started, cause);
             schedulePending();
             invalidateBuild();
         });
@@ -95,7 +98,9 @@ public final class DeclarativeHost extends ScopedUIComponent {
         long started = profiler.begin();
         tree.reconcile(this, pending);
         markBuilt();
-        profiler.record(this, UiProfiler.Phase.RECONCILE, started, "description tree changed");
+        DeclarativeTree.Diagnostics d = tree.diagnostics();
+        profiler.record(this, UiProfiler.Phase.RECONCILE, started,
+                "created=" + d.created() + " reused=" + d.reused() + " removed=" + d.removed());
         invalidateLayout();
     }
 
