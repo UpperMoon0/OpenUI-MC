@@ -3,8 +3,12 @@ package com.nstut.openui.api;
 import com.nstut.openui.context.ContextKey;
 import com.nstut.openui.semantics.SemanticNarration;
 import com.nstut.openui.semantics.Semantics;
+import com.nstut.openui.state.AsyncValue;
 import com.nstut.openui.state.Effect;
+import com.nstut.openui.state.ReadableSignal;
+import com.nstut.openui.state.Signal;
 import com.nstut.openui.state.Signals;
+import com.nstut.openui.state.UiScope;
 import com.nstut.openui.style.StateStyle;
 import com.nstut.openui.style.Style;
 import net.minecraft.client.gui.Font;
@@ -12,11 +16,15 @@ import net.minecraft.client.gui.GuiGraphics;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class ModernFrameworkApiTest {
+    private static final Executor DIRECT = Runnable::run;
+
     @Test
     void contextProviderUpdatesReactiveConsumers() {
         ContextKey<String> key = ContextKey.create("service");
@@ -29,6 +37,60 @@ class ModernFrameworkApiTest {
             provider.value(key, "two");
             assertEquals("two", observed.get());
         }
+    }
+
+    @Test
+    void buildScopeSharesRememberedStateAndInheritedContextForOneMount() {
+        ContextKey<String> key = ContextKey.create("service");
+        FixedComponent child = new FixedComponent(10, 5);
+        Ui.provide(key, "inherited", child);
+        UiScope lifecycle = new UiScope();
+        UiBuildScope build = new UiBuildScope(lifecycle, child);
+
+        Signal<Integer> first = build.remember("count", 1);
+        first.set(7);
+        Signal<Integer> second = build.remember("count", 99);
+
+        assertSame(first, second);
+        assertEquals(7, second.get());
+        assertEquals("inherited", build.context(key));
+        assertEquals("inherited", build.findContext(key).orElseThrow());
+        lifecycle.close();
+    }
+
+    @Test
+    void buildScopeAsyncIsKeyedAndPublishesSuccessWithoutDuplicateWork() {
+        UiScope lifecycle = new UiScope();
+        UiBuildScope build = new UiBuildScope(lifecycle, new FixedComponent(1, 1));
+        AtomicInteger workCalls = new AtomicInteger();
+
+        ReadableSignal<AsyncValue<Integer>> first = build.async(
+                "profile", workCalls::incrementAndGet, DIRECT, DIRECT);
+        ReadableSignal<AsyncValue<Integer>> second = build.async(
+                "profile", workCalls::incrementAndGet, DIRECT, DIRECT);
+
+        assertSame(first, second);
+        assertEquals(1, workCalls.get());
+        assertEquals(AsyncValue.Status.SUCCESS, first.get().status());
+        assertEquals(1, first.get().value());
+        lifecycle.close();
+    }
+
+    @Test
+    void buildScopeAsyncPublishesOriginalFailure() {
+        UiScope lifecycle = new UiScope();
+        UiBuildScope build = new UiBuildScope(lifecycle, new FixedComponent(1, 1));
+        IllegalStateException expected = new IllegalStateException("boom");
+
+        ReadableSignal<AsyncValue<Integer>> state = build.async(
+                "failing",
+                () -> { throw expected; },
+                DIRECT,
+                DIRECT);
+
+        assertEquals(AsyncValue.Status.ERROR, state.get().status());
+        assertSame(expected, state.get().error());
+        lifecycle.close();
     }
 
     @Test
