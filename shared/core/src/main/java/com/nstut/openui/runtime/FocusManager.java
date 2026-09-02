@@ -1,6 +1,8 @@
 package com.nstut.openui.runtime;
 
 import com.nstut.openui.api.UIComponent;
+import com.nstut.openui.input.SpatialNavigation;
+import com.nstut.openui.semantics.SemanticNarration;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -10,19 +12,17 @@ import java.util.List;
 import java.util.function.Supplier;
 
 public final class FocusManager {
-    /** One pushed focus scope: the trap root plus the focus to restore when it closes. */
     private record FocusTrap(UIComponent trapRoot, UIComponent previousFocus) {}
 
     private UIComponent root;
     private Supplier<List<UIComponent>> overlayRoots = List::of;
     private UIComponent focused;
+    private final Deque<UIComponent> focusHistory = new ArrayDeque<>();
     private final Deque<FocusTrap> traps = new ArrayDeque<>();
 
     void setRoot(UIComponent root) {
         this.root = root;
-        if (focused != null && !belongsToActiveTree(focused)) {
-            setFocusedInternal(null);
-        }
+        if (focused != null && !belongsToActiveTree(focused)) setFocusedInternal(null);
     }
 
     public void setOverlayRoots(Supplier<List<UIComponent>> overlayRoots) {
@@ -30,6 +30,9 @@ public final class FocusManager {
     }
 
     public UIComponent focused() { return focused; }
+
+    /** Narration for the nearest semantic ancestor of the current focus target. */
+    public String focusedNarration() { return SemanticNarration.describeNearest(focused); }
 
     public boolean requestFocus(UIComponent component) {
         if (component == null || !component.isFocusable() || !belongsToActiveTree(component)) return false;
@@ -40,6 +43,23 @@ public final class FocusManager {
     }
 
     public void clearFocus() { setFocusedInternal(null); }
+
+    /** Compatibility API retained from 0.0.7: remembers the current focus for later restoration. */
+    public void pushFocus() {
+        if (focused != null) focusHistory.push(focused);
+    }
+
+    /** Compatibility API retained from 0.0.7 with its original restoration semantics. */
+    public void restoreFocus() {
+        while (!focusHistory.isEmpty()) {
+            UIComponent previous = focusHistory.pop();
+            if (previous.isVisible() && previous.isFocusable() && belongsToActiveTree(previous)) {
+                setFocusedInternal(previous);
+                return;
+            }
+        }
+        clearFocus();
+    }
 
     public void trapFocus(UIComponent trapRoot) {
         if (trapRoot == null) return;
@@ -52,32 +72,28 @@ public final class FocusManager {
     public void untrapFocus(UIComponent trapRoot) {
         FocusTrap top = traps.peek();
         if (top == null || top.trapRoot() != trapRoot) {
-            // An out-of-order close: drop its frame without touching current focus.
             FocusTrap removed = removeTrap(trapRoot);
             if (removed != null) rewirePreviousFocus(removed);
             return;
         }
+
         traps.pop();
         FocusTrap parent = traps.peek();
-        UIComponent restored = null;
-        if (focused != null && focused.isVisible() && focused.isFocusable()
-                && (parent != null ? belongsToTree(focused, parent.trapRoot()) : belongsToActiveTree(focused))) {
-            // Current focus already lives inside the remaining scope; keep it.
-            restored = focused;
-        }
-        if (restored == null) {
-            UIComponent previous = top.previousFocus();
-            if (previous != null && previous.isVisible() && previous.isFocusable() && belongsToActiveTree(previous)
-                    && (parent == null || belongsToTree(previous, parent.trapRoot()))) {
-                restored = previous;
-            }
-        }
+        UIComponent restored = validRestoreTarget(top.previousFocus(), parent) ? top.previousFocus() : null;
         if (restored == null && parent != null) {
             List<UIComponent> focusable = new ArrayList<>();
             collect(parent.trapRoot(), focusable);
             if (!focusable.isEmpty()) restored = focusable.get(0);
         }
         setFocusedInternal(restored);
+    }
+
+    private boolean validRestoreTarget(UIComponent component, FocusTrap parent) {
+        return component != null
+                && component.isVisible()
+                && component.isFocusable()
+                && belongsToActiveTree(component)
+                && (parent == null || belongsToTree(component, parent.trapRoot()));
     }
 
     private FocusTrap removeTrap(UIComponent trapRoot) {
@@ -91,7 +107,6 @@ public final class FocusManager {
         return null;
     }
 
-    /** Keeps outer frames pointing at a recoverable focus when a nested trap closes first. */
     private void rewirePreviousFocus(FocusTrap removed) {
         List<FocusTrap> frames = new ArrayList<>(traps);
         for (int i = 0; i < frames.size(); i++) {
@@ -113,17 +128,22 @@ public final class FocusManager {
     public boolean focusNext() { return move(1); }
     public boolean focusPrevious() { return move(-1); }
 
-    private boolean move(int direction) {
-        List<UIComponent> focusable = new ArrayList<>();
-        FocusTrap top = traps.peek();
-        if (top != null) {
-            collect(top.trapRoot(), focusable);
-        } else {
-            collect(root, focusable);
-            for (UIComponent overlayRoot : overlayRoots.get()) {
-                collect(overlayRoot, focusable);
-            }
+    /** Moves focus spatially, suitable for arrow keys and controllers. */
+    public boolean focusDirection(SpatialNavigation.Direction direction) {
+        List<UIComponent> focusable = activeFocusable();
+        if (focusable.isEmpty()) return false;
+        UIComponent current = focused;
+        if (current == null || !focusable.contains(current)) {
+            setFocusedInternal(focusable.get(0));
+            return true;
         }
+        SpatialNavigation.Target<UIComponent> currentTarget = target(current);
+        List<SpatialNavigation.Target<UIComponent>> targets = focusable.stream().map(FocusManager::target).toList();
+        return SpatialNavigation.next(currentTarget, targets, direction).map(this::requestFocus).orElse(false);
+    }
+
+    private boolean move(int direction) {
+        List<UIComponent> focusable = activeFocusable();
         if (focusable.isEmpty()) return false;
         int current = focusable.indexOf(focused);
         int next = current < 0
@@ -133,16 +153,27 @@ public final class FocusManager {
         return true;
     }
 
+    private List<UIComponent> activeFocusable() {
+        List<UIComponent> focusable = new ArrayList<>();
+        FocusTrap top = traps.peek();
+        if (top != null) collect(top.trapRoot(), focusable);
+        else {
+            collect(root, focusable);
+            for (UIComponent overlayRoot : overlayRoots.get()) collect(overlayRoot, focusable);
+        }
+        return focusable;
+    }
+
+    private static SpatialNavigation.Target<UIComponent> target(UIComponent component) {
+        return new SpatialNavigation.Target<>(component, component.getX(), component.getY(), component.getWidth(), component.getHeight());
+    }
+
     private void setFocusedInternal(UIComponent next) {
         if (this.focused == next) return;
         UIComponent prev = this.focused;
         this.focused = next;
-        if (prev != null) {
-            prev.onFocusLost();
-        }
-        if (next != null) {
-            next.onFocusGained();
-        }
+        if (prev != null) prev.onFocusLost();
+        if (next != null) next.onFocusGained();
     }
 
     private void collect(UIComponent component, List<UIComponent> output) {
@@ -154,9 +185,7 @@ public final class FocusManager {
     public boolean belongsToActiveTree(UIComponent component) {
         if (component == null) return false;
         if (belongsToTree(component, root)) return true;
-        for (UIComponent overlay : overlayRoots.get()) {
-            if (belongsToTree(component, overlay)) return true;
-        }
+        for (UIComponent overlay : overlayRoots.get()) if (belongsToTree(component, overlay)) return true;
         return false;
     }
 

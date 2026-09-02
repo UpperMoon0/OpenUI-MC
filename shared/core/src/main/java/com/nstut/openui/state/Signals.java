@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -13,11 +14,19 @@ public final class Signals {
     private static final ThreadLocal<ArrayDeque<DependencyCollector>> TRACKERS =
             ThreadLocal.withInitial(ArrayDeque::new);
     private static final ThreadLocal<Batch> BATCH = ThreadLocal.withInitial(Batch::new);
+    private static final ThreadLocal<ReadableSignal<?>> UPDATE_CAUSE = new ThreadLocal<>();
 
     private Signals() { }
 
     public static <T> Signal<T> of(T initialValue) {
-        return new MutableSignal<>(initialValue);
+        return new MutableSignal<>(null, initialValue);
+    }
+
+    /** Creates a signal with a stable debug name for inspector/dependency diagnostics. */
+    public static <T> Signal<T> named(String debugName, T initialValue) {
+        String name = Objects.requireNonNull(debugName, "debugName");
+        if (name.isBlank()) throw new IllegalArgumentException("debugName cannot be blank");
+        return new MutableSignal<>(name, initialValue);
     }
 
     public static <T> Computed<T> computed(Supplier<T> calculation) {
@@ -40,6 +49,44 @@ public final class Signals {
         }
     }
 
+    /** The dependency that caused the currently rerunning effect, when available. */
+    public static Optional<String> currentUpdateCause() {
+        ReadableSignal<?> cause = UPDATE_CAUSE.get();
+        return cause == null ? Optional.empty() : Optional.of(debug(cause).displayName());
+    }
+
+    /** Read-only signal diagnostics; querying them does not subscribe or track a dependency. */
+    public static DebugSignal debug(ReadableSignal<?> signal) {
+        Objects.requireNonNull(signal, "signal");
+        if (signal instanceof MutableSignal<?> mutable) {
+            return new DebugSignal(id(signal), mutable.debugName, "signal", mutable.listeners.size(), List.of());
+        }
+        if (signal instanceof ComputedSignal<?> computed) {
+            return new DebugSignal(
+                    id(signal),
+                    null,
+                    "computed",
+                    computed.listeners.size(),
+                    computed.dependencies.stream().map(Signals::debugLabel).toList());
+        }
+        return new DebugSignal(id(signal), null, signal.getClass().getSimpleName(), -1, List.of());
+    }
+
+    /** Dependencies currently tracked by an OpenUI effect. */
+    public static List<DebugSignal> debugDependencies(Effect effect) {
+        Objects.requireNonNull(effect, "effect");
+        if (!(effect instanceof EffectImpl impl)) return List.of();
+        return impl.dependencies.stream().map(Signals::debug).toList();
+    }
+
+    private static String debugLabel(ReadableSignal<?> signal) {
+        return debug(signal).displayName();
+    }
+
+    private static String id(Object value) {
+        return Integer.toHexString(System.identityHashCode(value));
+    }
+
     private static void track(ReadableSignal<?> signal) {
         ArrayDeque<DependencyCollector> stack = TRACKERS.get();
         if (!stack.isEmpty()) stack.peek().accept(signal);
@@ -49,6 +96,18 @@ public final class Signals {
         Batch batch = BATCH.get();
         if (batch.depth > 0 || batch.flushing) batch.notifications.add(notification);
         else notification.run();
+    }
+
+    public record DebugSignal(String id, String name, String kind, int subscribers, List<String> dependencies) {
+        public DebugSignal {
+            Objects.requireNonNull(id, "id");
+            kind = Objects.requireNonNullElse(kind, "signal");
+            dependencies = dependencies == null ? List.of() : List.copyOf(dependencies);
+        }
+
+        public String displayName() {
+            return name != null && !name.isBlank() ? name : kind + "#" + id;
+        }
     }
 
     private interface DependencyCollector {
@@ -75,11 +134,15 @@ public final class Signals {
     }
 
     private static final class MutableSignal<T> implements Signal<T> {
+        private final String debugName;
         private T value;
         private final List<Consumer<? super T>> listeners = new ArrayList<>();
         private final Runnable publisher = this::publish;
 
-        private MutableSignal(T value) { this.value = value; }
+        private MutableSignal(String debugName, T value) {
+            this.debugName = debugName;
+            this.value = value;
+        }
 
         @Override
         public T get() {
@@ -182,6 +245,7 @@ public final class Signals {
         private final List<Subscription> subscriptions = new ArrayList<>();
         private boolean closed;
         private boolean running;
+        private ReadableSignal<?> nextCause;
         private final Runnable rerun = this::run;
 
         private EffectImpl(Runnable action) { this.action = Objects.requireNonNull(action); }
@@ -194,15 +258,25 @@ public final class Signals {
             subscriptions.clear();
             dependencies.clear();
             ArrayDeque<DependencyCollector> stack = TRACKERS.get();
+            ReadableSignal<?> previousCause = UPDATE_CAUSE.get();
+            ReadableSignal<?> cause = nextCause;
+            nextCause = null;
+            if (cause == null) UPDATE_CAUSE.remove();
+            else UPDATE_CAUSE.set(cause);
             stack.push(this);
             try {
                 action.run();
             } finally {
                 stack.pop();
+                if (previousCause == null) UPDATE_CAUSE.remove();
+                else UPDATE_CAUSE.set(previousCause);
                 running = false;
             }
             for (ReadableSignal<?> dependency : dependencies) {
-                subscriptions.add(dependency.subscribe(ignored -> notifyLater(rerun)));
+                subscriptions.add(dependency.subscribe(ignored -> {
+                    nextCause = dependency;
+                    notifyLater(rerun);
+                }));
             }
         }
 

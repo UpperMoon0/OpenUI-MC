@@ -2,14 +2,16 @@ package com.nstut.openui.graphics;
 
 import com.nstut.openui.api.ClipStack;
 import com.nstut.openui.api.UiRender;
+import com.nstut.openui.controls.Tooltip;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.Objects;
 
-public final class UiCanvas {
+public final class UiCanvas implements UiDrawContext {
     private final GuiGraphics graphics;
     private final Font font;
 
@@ -55,28 +57,11 @@ public final class UiCanvas {
         graphics.drawString(font, text, x, y, color, shadow);
     }
 
-    public void pushClip(int x, int y, int width, int height) {
-        ClipStack.push(graphics, x, y, width, height);
-    }
-
-    public void popClip() {
-        ClipStack.pop(graphics);
-    }
-
-    public void pushTransform() {
-        graphics.pose().pushPose();
-    }
-
-    public void translate(float dx, float dy) {
-        graphics.pose().translate(dx, dy, 0);
-    }
-
-    public void scale(float sx, float sy) {
-        graphics.pose().scale(sx, sy, 1.0F);
-    }
-
-    public void popTransform() {
-        graphics.pose().popPose();
+    public void texture(UiTexture texture, int x, int y, int u, int v, int width, int height) {
+        Objects.requireNonNull(texture, "texture");
+        ResourceLocation location = ResourceLocation.tryParse(texture.id());
+        if (location == null) throw new IllegalArgumentException("Invalid texture id: " + texture.id());
+        graphics.blit(location, x, y, u, v, width, height);
     }
 
     public void renderItem(ItemStack stack, int x, int y) {
@@ -85,4 +70,17 @@ public final class UiCanvas {
             graphics.renderItemDecorations(font, stack, x, y);
         }
     }
+
+    public void tooltip(Component text, int mouseX, int mouseY, int boundsX, int boundsY, int boundsWidth, int boundsHeight) {
+        if (font != null && text != null) {
+            Tooltip.drawHover(graphics, font, text, mouseX, mouseY, boundsX, boundsY, boundsWidth, boundsHeight);
+        }
+    }
+
+    public void pushClip(int x, int y, int width, int height) { ClipStack.push(graphics, x, y, width, height); }
+    public void popClip() { ClipStack.pop(graphics); }
+    public void pushTransform() { graphics.pose().pushPose(); }
+    public void translate(float dx, float dy) { graphics.pose().translate(dx, dy, 0); }
+    public void scale(float sx, float sy) { graphics.pose().scale(sx, sy, 1.0F); }
+    public void popTransform() { graphics.pose().popPose(); }
 }
