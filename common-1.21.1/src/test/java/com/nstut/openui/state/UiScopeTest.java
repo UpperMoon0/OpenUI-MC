@@ -22,6 +22,27 @@ class UiScopeTest {
     }
 
     @Test
+    void closeContinuesAfterFailuresAndAggregatesThem() {
+        UiScope scope = new UiScope();
+        StringBuilder order = new StringBuilder();
+        scope.own(() -> {
+            order.append('a');
+            throw new Exception("a");
+        });
+        scope.own(() -> {
+            order.append('b');
+            throw new Exception("b");
+        });
+
+        RuntimeException failure = assertThrows(RuntimeException.class, scope::close);
+
+        assertEquals("ba", order.toString());
+        assertEquals(2, failure.getSuppressed().length);
+        assertTrue(scope.isClosed());
+        assertDoesNotThrow(scope::close);
+    }
+
+    @Test
     void keyedOwnershipReusesOneResourceAcrossRebuilds() {
         UiScope scope = new UiScope();
         AtomicInteger created = new AtomicInteger();
@@ -40,6 +61,23 @@ class UiScopeTest {
         assertEquals(1, created.get());
         scope.close();
         assertEquals(1, closed.get());
+    }
+
+    @Test
+    void failedKeyedFactoryDoesNotPoisonTheKey() {
+        UiScope scope = new UiScope();
+        AtomicInteger created = new AtomicInteger();
+
+        assertThrows(NullPointerException.class, () -> scope.own("request", () -> null));
+        AutoCloseable resource = scope.own("request", () -> {
+            created.incrementAndGet();
+            return () -> { };
+        });
+
+        assertNotNull(resource);
+        assertEquals(1, created.get());
+        assertEquals(1, scope.debugSnapshot().keyedResources());
+        scope.close();
     }
 
     @Test
