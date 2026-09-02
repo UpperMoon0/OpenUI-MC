@@ -56,6 +56,32 @@ class FocusManagerModernTest {
     }
 
     @Test
+    void removingOuterTrapOutOfOrderRewiresInnerRestoreTarget() {
+        ButtonWidget outside = Ui.button("Outside", () -> { });
+        ButtonWidget outerButton = Ui.button("Outer", () -> { });
+        ButtonWidget innerButton = Ui.button("Inner", () -> { });
+        var inner = Ui.column(innerButton);
+        var outer = Ui.column(outerButton, inner);
+        var root = Ui.column(outside, outer);
+        FocusManager focus = new FocusManager();
+        focus.setRoot(root);
+
+        assertTrue(focus.requestFocus(outside));
+        focus.trapFocus(outer);
+        focus.trapFocus(inner);
+        assertSame(innerButton, focus.focused());
+
+        focus.untrapFocus(outer);
+        assertTrue(focus.isTrapped());
+        assertSame(inner, focus.currentTrapRoot());
+        assertSame(innerButton, focus.focused());
+
+        focus.untrapFocus(inner);
+        assertFalse(focus.isTrapped());
+        assertSame(outside, focus.focused());
+    }
+
+    @Test
     void activeTrapRejectsFocusRequestsOutsideItsSubtree() {
         ButtonWidget outside = Ui.button("Outside", () -> { });
         ButtonWidget inside = Ui.button("Inside", () -> { });
