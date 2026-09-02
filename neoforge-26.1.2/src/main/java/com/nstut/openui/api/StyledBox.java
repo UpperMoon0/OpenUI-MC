@@ -22,10 +22,46 @@ public final class StyledBox extends UIComponent {
     }
 
     public StyledBox styles(StateStyle value) { styles = Objects.requireNonNull(value); invalidateLayout(); return this; }
-    public StyledBox pressed(boolean value) { pressed = value; invalidatePaint(); return this; }
-    public StyledBox disabled(boolean value) { disabled = value; invalidatePaint(); return this; }
+    public StyledBox pressed(boolean value) {
+        if (pressed != value) {
+            pressed = value;
+            invalidateLayout();
+        }
+        return this;
+    }
+    public StyledBox disabled(boolean value) {
+        if (disabled != value) {
+            disabled = value;
+            invalidateLayout();
+        }
+        return this;
+    }
 
     private Style resolved() { return styles.resolve(isHovered(), isFocused(), pressed, disabled); }
+
+    @Override
+    protected void onHoverEnter() {
+        invalidateLayout();
+        super.onHoverEnter();
+    }
+
+    @Override
+    protected void onHoverLeave() {
+        invalidateLayout();
+        super.onHoverLeave();
+    }
+
+    @Override
+    public void onFocusGained() {
+        invalidateLayout();
+        super.onFocusGained();
+    }
+
+    @Override
+    public void onFocusLost() {
+        invalidateLayout();
+        super.onFocusLost();
+    }
 
     @Override public int preferredWidth(Font font) {
         Style s = resolved();

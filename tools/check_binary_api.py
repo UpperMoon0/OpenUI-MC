@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail CI when a released OpenUI public JVM symbol disappears or changes descriptor."""
+"""Fail CI when a released OpenUI public JVM class signature or member ABI changes."""
 
 from __future__ import annotations
 
@@ -50,7 +50,9 @@ def class_names(jar: pathlib.Path) -> list[str]:
         return sorted(set(result))
 
 
-def public_members(javap: str, jar: pathlib.Path, class_name: str) -> tuple[bool, set[tuple[str, str]]]:
+def public_api(
+    javap: str, jar: pathlib.Path, class_name: str
+) -> tuple[bool, str | None, set[tuple[str, str]]]:
     process = subprocess.run(
         [javap, "-classpath", str(jar), "-public", "-s", "-constants", class_name],
         text=True,
@@ -61,12 +63,17 @@ def public_members(javap: str, jar: pathlib.Path, class_name: str) -> tuple[bool
         raise RuntimeError(f"javap failed for {class_name}: {process.stderr.strip()}")
 
     lines = process.stdout.splitlines()
-    is_public = any(
-        line.startswith("public ") and (" class " in line or " interface " in line or " enum " in line or " record " in line)
-        for line in lines
+    declaration = next(
+        (
+            line.strip()
+            for line in lines
+            if line.startswith("public ")
+            and (" class " in line or " interface " in line or " enum " in line or " record " in line)
+        ),
+        None,
     )
-    if not is_public:
-        return False, set()
+    if declaration is None:
+        return False, None, set()
 
     members: set[tuple[str, str]] = set()
     pending: str | None = None
@@ -80,7 +87,7 @@ def public_members(javap: str, jar: pathlib.Path, class_name: str) -> tuple[bool
         if pending is not None and stripped.startswith("descriptor:"):
             members.add((pending, stripped.removeprefix("descriptor:").strip()))
             pending = None
-    return True, members
+    return True, declaration, members
 
 
 def main() -> int:
@@ -104,7 +111,7 @@ def main() -> int:
         failures: list[str] = []
 
         for class_name in class_names(baseline):
-            baseline_public, baseline_members = public_members(javap, baseline, class_name)
+            baseline_public, baseline_declaration, baseline_members = public_api(javap, baseline, class_name)
             if not baseline_public:
                 continue
             checked_classes += 1
@@ -112,10 +119,14 @@ def main() -> int:
             if class_name not in candidate_classes:
                 failures.append(f"REMOVED CLASS: {class_name}")
                 continue
-            candidate_public, candidate_members = public_members(javap, args.candidate, class_name)
+            candidate_public, candidate_declaration, candidate_members = public_api(javap, args.candidate, class_name)
             if not candidate_public:
                 failures.append(f"NO LONGER PUBLIC: {class_name}")
                 continue
+            if baseline_declaration != candidate_declaration:
+                failures.append(
+                    f"CLASS SIGNATURE CHANGED: {class_name} :: {baseline_declaration} -> {candidate_declaration}"
+                )
             for declaration, descriptor in sorted(baseline_members - candidate_members):
                 failures.append(f"REMOVED/CHANGED: {class_name} :: {declaration} [{descriptor}]")
 
@@ -124,13 +135,13 @@ def main() -> int:
         f"OpenUI binary API compatibility: {status}",
         f"Baseline: {args.baseline_url}",
         f"Candidate: {args.candidate}",
-        f"Public classes checked: {checked_classes}",
+        f"Public class signatures checked: {checked_classes}",
         f"Public members checked: {checked_members}",
     ]
     if failures:
         lines.extend(["", "Incompatible changes:", *[f"- {failure}" for failure in failures]])
     else:
-        lines.extend(["", "No released public class/member removals or descriptor changes detected."])
+        lines.extend(["", "No released public class-signature or member ABI regressions detected."])
 
     report = "\n".join(lines) + "\n"
     args.report.write_text(report, encoding="utf-8")
@@ -140,7 +151,10 @@ def main() -> int:
     if summary_path:
         with open(summary_path, "a", encoding="utf-8") as summary:
             summary.write("\n### OpenUI binary API compatibility\n\n")
-            summary.write(f"**{status}** — {checked_classes} released public classes / {checked_members} public members checked against v0.0.7.\n")
+            summary.write(
+                f"**{status}** — {checked_classes} released public class signatures / "
+                f"{checked_members} public members checked against v0.0.7.\n"
+            )
             if failures:
                 summary.write("\n```text\n")
                 summary.write("\n".join(failures[:100]))

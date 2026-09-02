@@ -2,12 +2,13 @@ package com.nstut.openui.debug;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.WeakHashMap;
 
 /**
  * Opt-in low-overhead profiler backing Devtools 2.0. Callers use stable object
@@ -20,7 +21,9 @@ public final class UiProfiler {
     private static final long SLOW_PAINT_NANOS = 4_000_000L;
     private static final long SLOW_EVENT_NANOS = 1_000_000L;
 
-    private final Map<Object, MutableStats> stats = new ConcurrentHashMap<>();
+    // Stats must not keep reconciled/unmounted component owners alive forever.
+    // The bounded trace may retain its current window, while older owners can GC.
+    private final Map<Object, MutableStats> stats = Collections.synchronizedMap(new WeakHashMap<>());
     private final Deque<TraceEntry> trace = new ArrayDeque<>();
     private volatile boolean enabled;
     private volatile int traceLimit = DEFAULT_TRACE_LIMIT;
@@ -45,7 +48,11 @@ public final class UiProfiler {
         Objects.requireNonNull(owner, "owner");
         Objects.requireNonNull(phase, "phase");
         long elapsed = Math.max(0L, System.nanoTime() - startedNanos);
-        stats.computeIfAbsent(owner, ignored -> new MutableStats()).record(phase, elapsed, cause);
+        MutableStats ownerStats;
+        synchronized (stats) {
+            ownerStats = stats.computeIfAbsent(owner, ignored -> new MutableStats());
+        }
+        ownerStats.record(phase, elapsed, cause);
         synchronized (trace) {
             trace.addLast(new TraceEntry(System.nanoTime(), owner, phase, elapsed, cause));
             while (trace.size() > traceLimit) trace.removeFirst();
@@ -54,7 +61,9 @@ public final class UiProfiler {
 
     public Map<Object, Snapshot> snapshot() {
         Map<Object, Snapshot> copy = new LinkedHashMap<>();
-        stats.forEach((key, value) -> copy.put(key, value.snapshot()));
+        synchronized (stats) {
+            stats.forEach((key, value) -> copy.put(key, value.snapshot()));
+        }
         return Map.copyOf(copy);
     }
 

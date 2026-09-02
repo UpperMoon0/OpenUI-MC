@@ -2,7 +2,12 @@ package com.nstut.openui.state;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -83,6 +88,43 @@ class ScopedAsyncTest {
         assertEquals(0, workCalls.get());
         assertEquals(0, callbacks.get());
         assertTrue(task.isClosed());
+    }
+
+    @Test
+    void closingRunningWorkRequestsInterruptionAndSuppressesCallbacks() throws Exception {
+        ExecutorService background = Executors.newSingleThreadExecutor();
+        CountDownLatch started = new CountDownLatch(1);
+        CountDownLatch interrupted = new CountDownLatch(1);
+        AtomicInteger callbacks = new AtomicInteger();
+        AtomicBoolean sawInterrupt = new AtomicBoolean();
+        try {
+            ScopedAsync<Integer> task = ScopedAsync.start(
+                    () -> {
+                        started.countDown();
+                        try {
+                            new CountDownLatch(1).await();
+                            return 7;
+                        } catch (InterruptedException expected) {
+                            sawInterrupt.set(true);
+                            interrupted.countDown();
+                            throw new RuntimeException(expected);
+                        }
+                    },
+                    background,
+                    DIRECT,
+                    ignored -> callbacks.incrementAndGet(),
+                    ignored -> callbacks.incrementAndGet());
+
+            assertTrue(started.await(2, TimeUnit.SECONDS));
+            task.close();
+
+            assertTrue(interrupted.await(2, TimeUnit.SECONDS));
+            assertTrue(sawInterrupt.get());
+            assertEquals(0, callbacks.get());
+            assertTrue(task.stage().toCompletableFuture().isCancelled());
+        } finally {
+            background.shutdownNow();
+        }
     }
 
     private static Consumer<Throwable> unexpectedFailure() {

@@ -1,5 +1,6 @@
 package com.nstut.openui.api;
 
+import com.nstut.openui.component.DirtyFlag;
 import com.nstut.openui.context.ContextKey;
 import com.nstut.openui.semantics.SemanticNarration;
 import com.nstut.openui.semantics.Semantics;
@@ -125,6 +126,36 @@ class ModernFrameworkApiTest {
         assertEquals(9, child.getY());
         assertEquals(26, child.getWidth());
         assertEquals(16, child.getHeight());
+    }
+
+    @Test
+    void styledBoxStateTransitionsInvalidateLayoutForLayoutAffectingVariants() {
+        FixedComponent child = new FixedComponent(10, 5);
+        StateStyle styles = new StateStyle(
+                Style.EMPTY,
+                Style.builder().padding(4).build(),
+                Style.builder().width(40).build(),
+                Style.builder().margin(3).build(),
+                Style.builder().height(30).build());
+        StyledBox box = Ui.styled(styles, child);
+
+        box.layoutTree(null, 0, 0, 100, 100);
+        assertFalse(box.isDirty(DirtyFlag.LAYOUT));
+
+        box.pressed(true);
+        assertTrue(box.isDirty(DirtyFlag.LAYOUT));
+        box.layoutTree(null, 0, 0, 100, 100);
+
+        box.disabled(true);
+        assertTrue(box.isDirty(DirtyFlag.LAYOUT));
+        box.layoutTree(null, 0, 0, 100, 100);
+
+        box.onHoverEnter();
+        assertTrue(box.isDirty(DirtyFlag.LAYOUT));
+        box.layoutTree(null, 0, 0, 100, 100);
+
+        box.onFocusGained();
+        assertTrue(box.isDirty(DirtyFlag.LAYOUT));
     }
 
     private static final class FixedComponent extends UIComponent {
