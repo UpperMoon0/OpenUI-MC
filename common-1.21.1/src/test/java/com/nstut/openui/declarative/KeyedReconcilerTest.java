@@ -4,10 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 class KeyedReconcilerTest {
     private static NodeIdentity node(String type, String key) {
@@ -31,11 +28,12 @@ class KeyedReconcilerTest {
                 List.of(node("button", "status")));
 
         assertFalse(plan.reuses(0));
+        assertEquals(-1, plan.oldIndex(0));
         assertEquals(List.of(0), plan.removedOldIndices());
     }
 
     @Test
-    void unkeyedNodesUsePositionalSemantics() {
+    void unkeyedNodesUseStrictPositionalSemantics() {
         ReconcilePlan plan = KeyedReconciler.plan(
                 List.of(node("text", null), node("button", null)),
                 List.of(node("text", null), node("slider", null)));
@@ -44,6 +42,16 @@ class KeyedReconcilerTest {
         assertEquals(0, plan.oldIndex(0));
         assertFalse(plan.reuses(1));
         assertEquals(List.of(1), plan.removedOldIndices());
+    }
+
+    @Test
+    void insertedKeyedNodeDoesNotStealUnkeyedPositionalIdentity() {
+        ReconcilePlan plan = KeyedReconciler.plan(
+                List.of(node("text", null), node("text", "kept")),
+                List.of(node("text", "new"), node("text", "kept")));
+
+        assertEquals(List.of(-1, 1), plan.oldIndexForNew());
+        assertEquals(List.of(0), plan.removedOldIndices());
     }
 
     @Test
@@ -57,9 +65,17 @@ class KeyedReconcilerTest {
     }
 
     @Test
-    void duplicateSiblingKeysAreRejected() {
-        assertThrows(IllegalArgumentException.class, () -> KeyedReconciler.plan(
-                List.of(),
-                List.of(node("text", "same"), node("button", "same"))));
+    void duplicateSiblingKeysAreRejectedOnBothSides() {
+        IllegalArgumentException oldDuplicate = assertThrows(IllegalArgumentException.class, () ->
+                KeyedReconciler.plan(
+                        List.of(node("text", "same"), node("button", "same")),
+                        List.of()));
+        IllegalArgumentException newDuplicate = assertThrows(IllegalArgumentException.class, () ->
+                KeyedReconciler.plan(
+                        List.of(),
+                        List.of(node("text", "same"), node("button", "same"))));
+
+        assertTrue(oldDuplicate.getMessage().contains("Duplicate old sibling key"));
+        assertTrue(newDuplicate.getMessage().contains("Duplicate new sibling key"));
     }
 }
