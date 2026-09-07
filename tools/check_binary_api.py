@@ -90,6 +90,32 @@ def public_api(
     return True, declaration, members
 
 
+def compatible_class_declaration(baseline: str | None, candidate: str | None) -> bool:
+    """Adding implemented interfaces preserves existing class linkage; removals do not."""
+    if baseline == candidate:
+        return True
+    if baseline is None or candidate is None or " class " not in baseline:
+        return False
+
+    def parts(declaration: str) -> tuple[str, set[str]]:
+        head, separator, tail = declaration.removesuffix(" {").partition(" implements ")
+        interfaces: set[str] = set()
+        depth, start = 0, 0
+        if separator:
+            for index, char in enumerate(tail):
+                if char == "<": depth += 1
+                elif char == ">": depth -= 1
+                elif char == "," and depth == 0:
+                    interfaces.add(tail[start:index].strip())
+                    start = index + 1
+            interfaces.add(tail[start:].strip())
+        return head, interfaces
+
+    old_head, old_interfaces = parts(baseline)
+    new_head, new_interfaces = parts(candidate)
+    return old_head == new_head and old_interfaces <= new_interfaces
+
+
 def main() -> int:
     args = parse_args()
     javap = shutil.which("javap")
@@ -123,7 +149,7 @@ def main() -> int:
             if not candidate_public:
                 failures.append(f"NO LONGER PUBLIC: {class_name}")
                 continue
-            if baseline_declaration != candidate_declaration:
+            if not compatible_class_declaration(baseline_declaration, candidate_declaration):
                 failures.append(
                     f"CLASS SIGNATURE CHANGED: {class_name} :: {baseline_declaration} -> {candidate_declaration}"
                 )
