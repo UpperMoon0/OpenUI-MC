@@ -45,7 +45,10 @@ public final class FrameScheduler {
                     throw new IllegalStateException("OpenUI update loop exceeded " + maxPasses + " scheduler passes");
                 }
 
-                while (!immediate.isEmpty()) immediate.remove().run();
+                // Work queued by this batch belongs to the next bounded pass.
+                // Draining a self-replenishing queue here bypasses maxPasses forever.
+                int immediateCount = immediate.size();
+                for (int i = 0; i < immediateCount; i++) immediate.remove().run();
                 if (!keyed.isEmpty()) {
                     var batch = java.util.List.copyOf(keyed);
                     keyed.clear();

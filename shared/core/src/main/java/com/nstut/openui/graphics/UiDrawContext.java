@@ -11,6 +11,10 @@ import net.minecraft.world.item.ItemStack;
 public interface UiDrawContext {
     int width();
     int height();
+    /** Additive glass-like surface with a portable gradient fallback; no framebuffer dependency. */
+    default void surface(int x, int y, int width, int height, SurfaceStyle style) {
+        SurfacePainter.paint(this::fill, x, y, width, height, style);
+    }
     void fill(int x, int y, int width, int height, int color);
     void roundedRect(int x, int y, int width, int height, int radius, int color);
     void roundedOutline(int x, int y, int width, int height, int radius, int fillColor, int borderColor);
