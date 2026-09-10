@@ -16,7 +16,7 @@ import zipfile
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--baseline-url", required=True)
+    parser.add_argument("--baseline-url", required=True, action="append", dest="baseline_urls")
     parser.add_argument("--candidate", required=True, type=pathlib.Path)
     parser.add_argument("--report", required=True, type=pathlib.Path)
     return parser.parse_args()
@@ -119,6 +119,35 @@ def compatible_class_declaration(baseline: str | None, candidate: str | None) ->
     return old_head == new_head and old_interfaces <= new_interfaces
 
 
+def check_baseline(javap: str, baseline: pathlib.Path, candidate: pathlib.Path) -> tuple[int, int, list[str]]:
+    candidate_classes = set(class_names(candidate))
+    checked_classes = 0
+    checked_members = 0
+    failures: list[str] = []
+
+    for class_name in class_names(baseline):
+        baseline_public, baseline_declaration, baseline_members = class_api(javap, baseline, class_name)
+        if not baseline_public:
+            continue
+        checked_classes += 1
+        checked_members += len(baseline_members)
+        if class_name not in candidate_classes:
+            failures.append(f"REMOVED CLASS: {class_name}")
+            continue
+        candidate_public, candidate_declaration, candidate_members = class_api(javap, candidate, class_name)
+        if not candidate_public:
+            failures.append(f"NO LONGER PUBLIC: {class_name}")
+            continue
+        if not compatible_class_declaration(baseline_declaration, candidate_declaration):
+            failures.append(
+                f"CLASS SIGNATURE CHANGED: {class_name} :: {baseline_declaration} -> {candidate_declaration}"
+            )
+        for declaration, descriptor in sorted(baseline_members - candidate_members):
+            failures.append(f"REMOVED/CHANGED: {class_name} :: {declaration} [{descriptor}]")
+
+    return checked_classes, checked_members, failures
+
+
 def main() -> int:
     args = parse_args()
     javap = shutil.which("javap")
@@ -130,45 +159,32 @@ def main() -> int:
         return 2
 
     args.report.parent.mkdir(parents=True, exist_ok=True)
+    baseline_results: list[tuple[str, int, int, list[str]]] = []
+    all_failures: list[str] = []
     with tempfile.TemporaryDirectory(prefix="openui-api-") as temp_dir:
-        baseline = pathlib.Path(temp_dir) / "baseline.jar"
-        download(args.baseline_url, baseline)
+        temp_root = pathlib.Path(temp_dir)
+        for index, baseline_url in enumerate(args.baseline_urls):
+            baseline = temp_root / f"baseline-{index}.jar"
+            download(baseline_url, baseline)
+            checked_classes, checked_members, failures = check_baseline(javap, baseline, args.candidate)
+            labelled_failures = [f"[{baseline_url}] {failure}" for failure in failures]
+            all_failures.extend(labelled_failures)
+            baseline_results.append((baseline_url, checked_classes, checked_members, labelled_failures))
 
-        candidate_classes = set(class_names(args.candidate))
-        checked_classes = 0
-        checked_members = 0
-        failures: list[str] = []
-
-        for class_name in class_names(baseline):
-            baseline_public, baseline_declaration, baseline_members = class_api(javap, baseline, class_name)
-            if not baseline_public:
-                continue
-            checked_classes += 1
-            checked_members += len(baseline_members)
-            if class_name not in candidate_classes:
-                failures.append(f"REMOVED CLASS: {class_name}")
-                continue
-            candidate_public, candidate_declaration, candidate_members = class_api(javap, args.candidate, class_name)
-            if not candidate_public:
-                failures.append(f"NO LONGER PUBLIC: {class_name}")
-                continue
-            if not compatible_class_declaration(baseline_declaration, candidate_declaration):
-                failures.append(
-                    f"CLASS SIGNATURE CHANGED: {class_name} :: {baseline_declaration} -> {candidate_declaration}"
-                )
-            for declaration, descriptor in sorted(baseline_members - candidate_members):
-                failures.append(f"REMOVED/CHANGED: {class_name} :: {declaration} [{descriptor}]")
-
-    status = "PASS" if not failures else "FAIL"
+    status = "PASS" if not all_failures else "FAIL"
     lines = [
         f"OpenUI binary API compatibility: {status}",
-        f"Baseline: {args.baseline_url}",
         f"Candidate: {args.candidate}",
-        f"Public class signatures checked: {checked_classes}",
-        f"Public/protected members checked: {checked_members}",
+        "Baselines:",
     ]
-    if failures:
-        lines.extend(["", "Incompatible changes:", *[f"- {failure}" for failure in failures]])
+    for baseline_url, checked_classes, checked_members, failures in baseline_results:
+        baseline_status = "PASS" if not failures else "FAIL"
+        lines.append(
+            f"- {baseline_status}: {baseline_url} :: {checked_classes} public class signatures / "
+            f"{checked_members} public/protected members"
+        )
+    if all_failures:
+        lines.extend(["", "Incompatible changes:", *[f"- {failure}" for failure in all_failures]])
     else:
         lines.extend(["", "No released public class-signature or member ABI regressions detected."])
 
@@ -180,16 +196,19 @@ def main() -> int:
     if summary_path:
         with open(summary_path, "a", encoding="utf-8") as summary:
             summary.write("\n### OpenUI binary API compatibility\n\n")
-            summary.write(
-                f"**{status}** — {checked_classes} released public class signatures / "
-                f"{checked_members} public/protected members checked against v0.0.7.\n"
-            )
-            if failures:
+            summary.write(f"**{status}** against {len(baseline_results)} released baseline(s).\n\n")
+            for baseline_url, checked_classes, checked_members, failures in baseline_results:
+                baseline_status = "PASS" if not failures else "FAIL"
+                summary.write(
+                    f"- **{baseline_status}** `{baseline_url}` ? {checked_classes} public class signatures / "
+                    f"{checked_members} public/protected members.\n"
+                )
+            if all_failures:
                 summary.write("\n```text\n")
-                summary.write("\n".join(failures[:100]))
+                summary.write("\n".join(all_failures[:100]))
                 summary.write("\n```\n")
 
-    return 1 if failures else 0
+    return 1 if all_failures else 0
 
 
 if __name__ == "__main__":

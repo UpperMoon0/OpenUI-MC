@@ -40,6 +40,8 @@ public final class DeclarativeHost extends ScopedUIComponent {
     };
 
     private final Builder builder;
+    private final Object buildScheduleKey = new Object();
+    private final Object reconcileScheduleKey = new Object();
     private final FrameScheduler detachedScheduler = new FrameScheduler();
     private final DeclarativeTree<UIComponent> tree = new DeclarativeTree<>(RETAINED_ADAPTER);
     private final UiProfiler profiler = new UiProfiler();
@@ -74,7 +76,7 @@ public final class DeclarativeHost extends ScopedUIComponent {
     private void scheduleBuild(UiRuntime mountedRuntime, Runnable task) {
         if (runtime() != mountedRuntime) return;
         invalidateBuild();
-        schedulerFor(mountedRuntime).schedule(this, () -> {
+        schedulerFor(mountedRuntime).schedule(buildScheduleKey, () -> {
             if (runtime() == mountedRuntime) task.run();
         });
     }
@@ -82,10 +84,10 @@ public final class DeclarativeHost extends ScopedUIComponent {
     private void schedulePending() {
         UiRuntime currentRuntime = runtime();
         if (currentRuntime == null) {
-            detachedScheduler.schedule(this, this::applyPending);
+            detachedScheduler.schedule(reconcileScheduleKey, this::applyPending);
             return;
         }
-        schedulerFor(currentRuntime).schedule(this, () -> {
+        schedulerFor(currentRuntime).schedule(reconcileScheduleKey, () -> {
             if (runtime() == currentRuntime) applyPending();
         });
     }

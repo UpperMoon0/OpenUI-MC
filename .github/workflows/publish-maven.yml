@@ -44,17 +44,19 @@ jobs:
           git fetch origin main --force
           main_sha="$(git rev-parse origin/main)"
 
-          if [[ "$target_sha" != "$main_sha" ]]; then
-            echo "Refusing to publish: target $target_sha is not current main $main_sha" >&2
-            exit 1
-          fi
-
           if [[ -n "$RELEASE_TAG" ]]; then
             tag_sha="$(git rev-list -n 1 "$RELEASE_TAG")"
             if [[ "$tag_sha" != "$target_sha" ]]; then
               echo "Refusing to publish: release tag $RELEASE_TAG resolves to $tag_sha, expected $target_sha" >&2
               exit 1
             fi
+            if ! git merge-base --is-ancestor "$target_sha" "$main_sha"; then
+              echo "Refusing to publish: release target $target_sha is not contained in main history" >&2
+              exit 1
+            fi
+          elif [[ "$target_sha" != "$main_sha" ]]; then
+            echo "Refusing manual publish: target $target_sha is not current main $main_sha" >&2
+            exit 1
           fi
 
           runs="$(gh api --method GET "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${target_sha}&status=completed&per_page=100")"

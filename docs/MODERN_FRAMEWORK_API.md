@@ -215,7 +215,7 @@ CI protects the compatibility contract with:
 - legacy 1.20.1/1.21.1 source-parity checks;
 - unit tests;
 - all supported loader/Minecraft builds;
-- a public JVM binary API comparison against the released 0.0.7 Fabric baseline;
+- public JVM binary API comparisons against the latest released 0.0.9 Fabric ABI plus the legacy 0.0.7 baseline;
 - the precompiled Simply Speakers downstream boot fixture.
 
 The binary API check emits a compatibility report into the GitHub Actions summary and fails when a released public class/member disappears or changes JVM descriptor.

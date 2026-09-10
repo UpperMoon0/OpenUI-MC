@@ -204,6 +204,51 @@ class ModernFrameworkApiTest {
         }
     }
 
+    @Test
+    void reconcileKeyCannotSuppressReactiveRebuildQueuedLaterInSameFlush() {
+        Signal<Integer> shared = Signals.of(0);
+        AtomicInteger hostABuilds = new AtomicInteger();
+        AtomicInteger hostBBuilds = new AtomicInteger();
+        AtomicInteger triggerOnce = new AtomicInteger();
+
+        DeclarativeHost hostA = new DeclarativeHost(scope -> {
+            hostABuilds.incrementAndGet();
+            shared.get();
+            return List.of(new DeclarativeChild<>(
+                    "fixed", "a", () -> new FixedComponent(1, 1), ignored -> { }));
+        });
+        hostA.profiler().enabled(true);
+        DeclarativeHost hostB = new DeclarativeHost(scope -> {
+            hostBBuilds.incrementAndGet();
+            if (triggerOnce.getAndIncrement() == 0) shared.set(1);
+            return List.of(new DeclarativeChild<>(
+                    "fixed", "b", () -> new FixedComponent(1, 1), ignored -> { }));
+        });
+
+        FixedComponent root = new FixedComponent(1, 1);
+        root.addChild(hostA);
+        root.addChild(hostB);
+        Font font = new Font(null, false);
+        NativeWidgetHost widgets = new NativeWidgetHost() {
+            @Override public void add(AbstractWidget widget) { }
+            @Override public void remove(AbstractWidget widget) { }
+        };
+        UiRuntime runtime = new UiRuntime(font, widgets);
+        try {
+            runtime.setRoot(root);
+            hostA.preferredWidth(font);
+
+            assertEquals(2, hostABuilds.get(),
+                    "Host A must rebuild after Host B invalidates its shared dependency in the same flush");
+            assertEquals(1, hostBBuilds.get());
+            assertEquals(2, phaseCount(hostA, UiProfiler.Phase.BUILD));
+            assertEquals(2, phaseCount(hostA, UiProfiler.Phase.RECONCILE),
+                    "the fresh Host A build must also reconcile instead of leaving stale pending state");
+        } finally {
+            runtime.close();
+        }
+    }
+
     private static long phaseCount(DeclarativeHost host, UiProfiler.Phase phase) {
         return host.profiler().trace().stream().filter(entry -> entry.phase() == phase).count();
     }
