@@ -14,6 +14,7 @@ public final class FrameScheduler {
     private final Queue<Runnable> immediate = new ArrayDeque<>();
     private final Set<KeyedTask> keyed = new LinkedHashSet<>();
     private boolean flushing;
+    private long clearGeneration;
     private int maxPasses = 100;
 
     public void schedule(Runnable task) {
@@ -28,6 +29,13 @@ public final class FrameScheduler {
         return !immediate.isEmpty() || !keyed.isEmpty();
     }
 
+    /** Drops all queued work without executing it. */
+    public void clear() {
+        immediate.clear();
+        keyed.clear();
+        clearGeneration++;
+    }
+
     public void maxPasses(int value) {
         if (value < 1) throw new IllegalArgumentException("maxPasses must be >= 1");
         maxPasses = value;
@@ -40,19 +48,28 @@ public final class FrameScheduler {
             int passes = 0;
             while (hasPendingWork()) {
                 if (++passes > maxPasses) {
-                    immediate.clear();
-                    keyed.clear();
+                    clear();
                     throw new IllegalStateException("OpenUI update loop exceeded " + maxPasses + " scheduler passes");
                 }
 
                 // Work queued by this batch belongs to the next bounded pass.
                 // Draining a self-replenishing queue here bypasses maxPasses forever.
+                // A clear during a callback invalidates the rest of the current batch.
+                long passGeneration = clearGeneration;
                 int immediateCount = immediate.size();
-                for (int i = 0; i < immediateCount; i++) immediate.remove().run();
+                for (int i = 0; i < immediateCount && clearGeneration == passGeneration; i++) {
+                    Runnable task = immediate.poll();
+                    if (task == null) break;
+                    task.run();
+                }
+                if (clearGeneration != passGeneration) continue;
                 if (!keyed.isEmpty()) {
                     var batch = java.util.List.copyOf(keyed);
                     keyed.clear();
-                    for (KeyedTask task : batch) task.task.run();
+                    for (KeyedTask task : batch) {
+                        if (clearGeneration != passGeneration) break;
+                        task.task.run();
+                    }
                 }
             }
         } finally {

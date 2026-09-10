@@ -25,6 +25,7 @@ public final class UiRuntime implements AutoCloseable {
     private final NativeWidgetManager nativeWidgets;
     private final AnimationManager animations = new AnimationManager();
     private final OverlayManager overlays = new OverlayManager(this);
+    private final FrameScheduler frameScheduler = new FrameScheduler();
     private Theme theme;
     private UIComponent root;
     private boolean layoutDirty = true;
@@ -44,6 +45,7 @@ public final class UiRuntime implements AutoCloseable {
     private UIComponent hoverCandidate;
     private long hoverCandidateSinceNanos;
     private static final long TOOLTIP_DWELL_NANOS = 300_000_000L;
+    private boolean closed;
 
     public UiRuntime(Font font, NativeWidgetHost widgetHost) {
         this(font, widgetHost, Theme.dark());
@@ -61,6 +63,15 @@ public final class UiRuntime implements AutoCloseable {
     public NativeWidgetManager nativeWidgets() { return nativeWidgets; }
     public AnimationManager animations() { return animations; }
     public OverlayManager overlays() { return overlays; }
+    /** Queues keyed framework work for this runtime's next frame flush. */
+    public void scheduleFrame(Object key, Runnable task) {
+        if (!closed) frameScheduler.schedule(key, task);
+    }
+    /** Flushes framework work owned by this runtime. Closed runtimes never execute queued work. */
+    public void flushFrameTasks() {
+        if (!closed) frameScheduler.flush();
+    }
+    boolean hasPendingFrameTasks() { return frameScheduler.hasPendingWork(); }
     public boolean hasTextInputFocus() {
         UIComponent focused = focus.focused();
         return focused != null && focused.acceptsTextInput();
@@ -355,15 +366,21 @@ public final class UiRuntime implements AutoCloseable {
 
     @Override
     public void close() {
-        closeTooltip();
-        nativeWidgets.close();
-        animations.close();
-        overlays.close();
-        focus.clearFocus();
-        pointerCapture = null;
-        pressedTarget = null;
-        if (root != null) root.dispose();
-        root = null;
+        if (closed) return;
+        closed = true;
+        try {
+            closeTooltip();
+            nativeWidgets.close();
+            animations.close();
+            overlays.close();
+            focus.clearFocus();
+            pointerCapture = null;
+            pressedTarget = null;
+            if (root != null) root.dispose();
+            root = null;
+        } finally {
+            frameScheduler.clear();
+        }
     }
 
 }

@@ -50,6 +50,22 @@ class ModernFrameworkFoundationTest {
     }
 
     @Test
+    void schedulerClearDuringFlushCancelsRemainingBatch() {
+        FrameScheduler scheduler = new FrameScheduler();
+        List<String> calls = new ArrayList<>();
+        scheduler.schedule("first", () -> {
+            calls.add("first");
+            scheduler.clear();
+        });
+        scheduler.schedule("second", () -> calls.add("second"));
+
+        scheduler.flush();
+
+        assertEquals(List.of("first"), calls);
+        assertFalse(scheduler.hasPendingWork());
+    }
+
+    @Test
     void declarativeDescriptionUpdatesCreatedAndReusedInstances() {
         AtomicInteger updates = new AtomicInteger();
         DeclarativeChild<StringBuilder> child = new DeclarativeChild<>(

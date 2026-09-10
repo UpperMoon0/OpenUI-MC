@@ -5,18 +5,14 @@ import com.nstut.openui.declarative.DeclarativeChild;
 import com.nstut.openui.declarative.DeclarativeTree;
 import com.nstut.openui.input.EventPhase;
 import com.nstut.openui.input.UiEvent;
-import com.nstut.openui.runtime.FrameScheduler;
 import com.nstut.openui.runtime.UiRuntime;
 import com.nstut.openui.state.Signals;
 import com.nstut.openui.state.UiScope;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.WeakHashMap;
 import java.util.function.Supplier;
 
 /** Reactive functional-component bridge backed by retained UIComponent nodes. */
@@ -25,9 +21,6 @@ public final class DeclarativeHost extends ScopedUIComponent {
     public interface Builder {
         List<DeclarativeChild<UIComponent>> build(UiBuildScope scope);
     }
-
-    private static final Map<UiRuntime, FrameScheduler> RUNTIME_SCHEDULERS =
-            Collections.synchronizedMap(new WeakHashMap<>());
 
     private static final DeclarativeTree.Adapter<UIComponent> RETAINED_ADAPTER = new DeclarativeTree.Adapter<>() {
         @Override public void attach(UIComponent parent, UIComponent child) { parent.addChild(child); }
@@ -95,27 +88,21 @@ public final class DeclarativeHost extends ScopedUIComponent {
     private void scheduleBuild(MountState mount, Runnable task) {
         if (!isActiveMount(mount)) return;
         invalidateBuild();
-        schedulerFor(mount.runtime).schedule(mount.buildScheduleKey, () -> {
+        mount.runtime.scheduleFrame(mount.buildScheduleKey, () -> {
             if (isActiveMount(mount)) task.run();
         });
     }
 
     private void schedulePending(MountState mount) {
         if (!isActiveMount(mount)) return;
-        schedulerFor(mount.runtime).schedule(mount.reconcileScheduleKey, () -> {
+        mount.runtime.scheduleFrame(mount.reconcileScheduleKey, () -> {
             if (isActiveMount(mount)) applyPending(mount);
         });
     }
 
     private void ensureBuilt() {
         UiRuntime currentRuntime = runtime();
-        if (currentRuntime != null) schedulerFor(currentRuntime).flush();
-    }
-
-    private static FrameScheduler schedulerFor(UiRuntime runtime) {
-        synchronized (RUNTIME_SCHEDULERS) {
-            return RUNTIME_SCHEDULERS.computeIfAbsent(runtime, ignored -> new FrameScheduler());
-        }
+        if (currentRuntime != null) currentRuntime.flushFrameTasks();
     }
 
     private void applyPending(MountState mount) {
