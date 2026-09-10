@@ -132,7 +132,7 @@ Styles support margin/padding, background/border/radius, exact/min/max dimension
 
 ## Stable drawing SPI
 
-Reusable component libraries should target `UiDrawContext` where possible. `UiCanvas` implements this interface on every supported Minecraft generation.
+Reusable component libraries should target `UiDrawContext` where possible. `UiCanvas` implements this interface on every supported Minecraft generation. For textures that are not the traditional 256x256 GUI case, use the full `texture(...)` overload with explicit source-region and texture dimensions; the shorter overload intentionally remains a 256x256 compatibility convenience.
 
 The stable surface covers:
 
@@ -157,7 +157,7 @@ UIComponent buy = Ui.semantic(
 );
 ```
 
-`SemanticNarration.describe(...)` converts role/state/value metadata into concise narration text. `describeNearest(...)` resolves the nearest semantic wrapper for a retained/focused leaf and `describeTree(...)` exposes visible semantic descriptions in retained-tree order. `FocusManager.focusedNarration()` connects focused UI to that semantic layer.
+`SemanticNarration.describe(...)` converts role/state/value metadata into concise narration text. `describeNearest(...)` resolves the nearest semantic wrapper for a retained/focused leaf and `describeTree(...)` exposes visible semantic descriptions in retained-tree order. `FocusManager.focusedNarration()` connects focused UI to that semantic layer. These are narration-ready helpers; the current versioned `UiScreen` adapters do not yet register OpenUI's retained semantic tree with Minecraft's native screen narration pipeline.
 
 `FocusManager.focusDirection(...)` uses `SpatialNavigation` for directional keyboard/controller movement while respecting active focus traps and overlays. Existing Tab traversal remains unchanged.
 

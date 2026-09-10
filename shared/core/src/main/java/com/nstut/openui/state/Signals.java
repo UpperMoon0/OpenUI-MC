@@ -34,8 +34,12 @@ public final class Signals {
     }
 
     public static Effect effect(Runnable action) {
-        EffectImpl effect = new EffectImpl(action);
-        effect.run();
+        return effect(action, Runnable::run);
+    }
+
+    static Effect effect(Runnable action, Consumer<Runnable> scheduler) {
+        EffectImpl effect = new EffectImpl(action, scheduler);
+        effect.schedule(null);
         return effect;
     }
 
@@ -246,9 +250,21 @@ public final class Signals {
         private boolean closed;
         private boolean running;
         private ReadableSignal<?> nextCause;
+        private final Consumer<Runnable> scheduler;
         private final Runnable rerun = this::run;
+        private final Runnable scheduleRerun;
 
-        private EffectImpl(Runnable action) { this.action = Objects.requireNonNull(action); }
+        private EffectImpl(Runnable action, Consumer<Runnable> scheduler) {
+            this.action = Objects.requireNonNull(action);
+            this.scheduler = Objects.requireNonNull(scheduler);
+            this.scheduleRerun = () -> this.scheduler.accept(rerun);
+        }
+
+        private void schedule(ReadableSignal<?> cause) {
+            if (closed) return;
+            if (cause != null) nextCause = cause;
+            scheduler.accept(rerun);
+        }
 
         @Override
         public void run() {
@@ -275,7 +291,7 @@ public final class Signals {
             for (ReadableSignal<?> dependency : dependencies) {
                 subscriptions.add(dependency.subscribe(ignored -> {
                     nextCause = dependency;
-                    notifyLater(rerun);
+                    notifyLater(scheduleRerun);
                 }));
             }
         }

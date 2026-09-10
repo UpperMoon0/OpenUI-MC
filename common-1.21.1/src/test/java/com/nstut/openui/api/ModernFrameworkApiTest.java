@@ -2,6 +2,10 @@ package com.nstut.openui.api;
 
 import com.nstut.openui.component.DirtyFlag;
 import com.nstut.openui.context.ContextKey;
+import com.nstut.openui.debug.UiProfiler;
+import com.nstut.openui.declarative.DeclarativeChild;
+import com.nstut.openui.runtime.NativeWidgetHost;
+import com.nstut.openui.runtime.UiRuntime;
 import com.nstut.openui.semantics.SemanticNarration;
 import com.nstut.openui.semantics.Semantics;
 import com.nstut.openui.state.AsyncValue;
@@ -14,6 +18,7 @@ import com.nstut.openui.style.StateStyle;
 import com.nstut.openui.style.Style;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -156,6 +161,51 @@ class ModernFrameworkApiTest {
 
         box.onFocusGained();
         assertTrue(box.isDirty(DirtyFlag.LAYOUT));
+    }
+
+    @Test
+    void declarativeBuildAndReconcileAreCoalescedUntilFrameFlush() {
+        Signal<Integer> first = Signals.of(0);
+        Signal<Integer> second = Signals.of(0);
+        AtomicInteger builds = new AtomicInteger();
+        DeclarativeHost host = new DeclarativeHost(scope -> {
+            builds.incrementAndGet();
+            first.get();
+            second.get();
+            return List.of(new DeclarativeChild<>(
+                    "fixed", "child", () -> new FixedComponent(1, 1), ignored -> { }));
+        });
+        host.profiler().enabled(true);
+
+        Font font = new Font(null, false);
+        NativeWidgetHost widgets = new NativeWidgetHost() {
+            @Override public void add(AbstractWidget widget) { }
+            @Override public void remove(AbstractWidget widget) { }
+        };
+        UiRuntime runtime = new UiRuntime(font, widgets);
+        try {
+            runtime.setRoot(host);
+            assertEquals(0, builds.get(), "initial build should wait for the frame scheduler");
+            host.preferredWidth(font);
+            assertEquals(1, builds.get());
+            assertEquals(1, phaseCount(host, UiProfiler.Phase.BUILD));
+            assertEquals(1, phaseCount(host, UiProfiler.Phase.RECONCILE));
+
+            first.set(1);
+            second.set(1);
+            assertEquals(1, builds.get(), "signal writes must not rebuild synchronously");
+
+            host.preferredWidth(font);
+            assertEquals(2, builds.get(), "two writes in one frame must coalesce to one rebuild");
+            assertEquals(2, phaseCount(host, UiProfiler.Phase.BUILD));
+            assertEquals(2, phaseCount(host, UiProfiler.Phase.RECONCILE));
+        } finally {
+            runtime.close();
+        }
+    }
+
+    private static long phaseCount(DeclarativeHost host, UiProfiler.Phase phase) {
+        return host.profiler().trace().stream().filter(entry -> entry.phase() == phase).count();
     }
 
     private static final class FixedComponent extends UIComponent {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail CI when a released OpenUI public JVM class signature or member ABI changes."""
+"""Fail CI when a released OpenUI public JVM class or subclass-visible member ABI changes."""
 
 from __future__ import annotations
 
@@ -50,19 +50,8 @@ def class_names(jar: pathlib.Path) -> list[str]:
         return sorted(set(result))
 
 
-def public_api(
-    javap: str, jar: pathlib.Path, class_name: str
-) -> tuple[bool, str | None, set[tuple[str, str]]]:
-    process = subprocess.run(
-        [javap, "-classpath", str(jar), "-public", "-s", "-constants", class_name],
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    if process.returncode != 0:
-        raise RuntimeError(f"javap failed for {class_name}: {process.stderr.strip()}")
-
-    lines = process.stdout.splitlines()
+def parse_class_api(output: str) -> tuple[bool, str | None, set[tuple[str, str]]]:
+    lines = output.splitlines()
     declaration = next(
         (
             line.strip()
@@ -88,6 +77,20 @@ def public_api(
             members.add((pending, stripped.removeprefix("descriptor:").strip()))
             pending = None
     return True, declaration, members
+
+
+def class_api(
+    javap: str, jar: pathlib.Path, class_name: str
+) -> tuple[bool, str | None, set[tuple[str, str]]]:
+    process = subprocess.run(
+        [javap, "-classpath", str(jar), "-protected", "-s", "-constants", class_name],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if process.returncode != 0:
+        raise RuntimeError(f"javap failed for {class_name}: {process.stderr.strip()}")
+    return parse_class_api(process.stdout)
 
 
 def compatible_class_declaration(baseline: str | None, candidate: str | None) -> bool:
@@ -137,7 +140,7 @@ def main() -> int:
         failures: list[str] = []
 
         for class_name in class_names(baseline):
-            baseline_public, baseline_declaration, baseline_members = public_api(javap, baseline, class_name)
+            baseline_public, baseline_declaration, baseline_members = class_api(javap, baseline, class_name)
             if not baseline_public:
                 continue
             checked_classes += 1
@@ -145,7 +148,7 @@ def main() -> int:
             if class_name not in candidate_classes:
                 failures.append(f"REMOVED CLASS: {class_name}")
                 continue
-            candidate_public, candidate_declaration, candidate_members = public_api(javap, args.candidate, class_name)
+            candidate_public, candidate_declaration, candidate_members = class_api(javap, args.candidate, class_name)
             if not candidate_public:
                 failures.append(f"NO LONGER PUBLIC: {class_name}")
                 continue
@@ -162,7 +165,7 @@ def main() -> int:
         f"Baseline: {args.baseline_url}",
         f"Candidate: {args.candidate}",
         f"Public class signatures checked: {checked_classes}",
-        f"Public members checked: {checked_members}",
+        f"Public/protected members checked: {checked_members}",
     ]
     if failures:
         lines.extend(["", "Incompatible changes:", *[f"- {failure}" for failure in failures]])
@@ -179,7 +182,7 @@ def main() -> int:
             summary.write("\n### OpenUI binary API compatibility\n\n")
             summary.write(
                 f"**{status}** — {checked_classes} released public class signatures / "
-                f"{checked_members} public members checked against v0.0.7.\n"
+                f"{checked_members} public/protected members checked against v0.0.7.\n"
             )
             if failures:
                 summary.write("\n```text\n")

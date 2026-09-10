@@ -257,7 +257,7 @@ Introduce a semantic tree independent from rendering:
 - actions;
 - heading/group semantics.
 
-Use it for Minecraft narration and richer keyboard/controller navigation. Preserve current Tab/focus behavior while adding spatial/directional focus as an opt-in/default-safe capability.
+The semantic layer is narration-ready: `SemanticNarration` and `FocusManager.focusedNarration()` expose retained-tree descriptions for a future versioned Minecraft adapter. The current `UiScreen` implementations do not yet register OpenUI semantics with Minecraft's native narration pipeline. Spatial/directional focus is implemented as an opt-in/default-safe capability while preserving current Tab/focus behavior.
 
 ## Phase 11 — Devtools 2.0
 

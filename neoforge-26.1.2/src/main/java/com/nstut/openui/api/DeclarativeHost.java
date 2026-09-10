@@ -59,6 +59,7 @@ public final class DeclarativeHost extends ScopedUIComponent {
     @Override
     protected void onScopedMount(UiScope scope) {
         UiBuildScope currentBuildScope = new UiBuildScope(scope, this);
+        UiRuntime mountedRuntime = runtime();
         scope.effect(() -> {
             long started = profiler.begin();
             String cause = Signals.currentUpdateCause().orElse("initial mount");
@@ -66,7 +67,14 @@ public final class DeclarativeHost extends ScopedUIComponent {
             pending = next == null ? List.of() : List.copyOf(next);
             profiler.record(this, UiProfiler.Phase.BUILD, started, cause);
             schedulePending();
-            invalidateBuild();
+        }, task -> scheduleBuild(mountedRuntime, task));
+    }
+
+    private void scheduleBuild(UiRuntime mountedRuntime, Runnable task) {
+        if (runtime() != mountedRuntime) return;
+        invalidateBuild();
+        schedulerFor(mountedRuntime).schedule(this, () -> {
+            if (runtime() == mountedRuntime) task.run();
         });
     }
 

@@ -48,7 +48,30 @@ public interface UiDrawContext {
     void shadow(int x, int y, int width, int height, int radius);
     void text(Component text, int x, int y, int color, boolean shadow);
     void text(String text, int x, int y, int color, boolean shadow);
-    void texture(UiTexture texture, int x, int y, int u, int v, int width, int height);
+
+    /**
+     * Compatibility convenience for the traditional 256x256 GUI texture case.
+     * The requested destination size is also used as the source-region size.
+     */
+    default void texture(UiTexture texture, int x, int y, int u, int v, int width, int height) {
+        texture(texture, x, y, u, v, width, height, width, height, 256, 256);
+    }
+
+    /**
+     * Draws an arbitrary source region from a texture without assuming atlas dimensions.
+     */
+    void texture(
+            UiTexture texture,
+            int x,
+            int y,
+            int u,
+            int v,
+            int width,
+            int height,
+            int srcWidth,
+            int srcHeight,
+            int textureWidth,
+            int textureHeight);
     void renderItem(ItemStack stack, int x, int y);
     void tooltip(Component text, int mouseX, int mouseY, int boundsX, int boundsY, int boundsWidth, int boundsHeight);
     void pushClip(int x, int y, int width, int height);

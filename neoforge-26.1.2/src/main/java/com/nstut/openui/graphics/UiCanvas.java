@@ -42,11 +42,23 @@ public final class UiCanvas implements UiDrawContext {
         if (font != null && text != null) graphics.text(font, text, x, y, color, shadow);
     }
 
-    public void texture(UiTexture texture, int x, int y, int u, int v, int width, int height) {
+    public void texture(
+            UiTexture texture,
+            int x,
+            int y,
+            int u,
+            int v,
+            int width,
+            int height,
+            int srcWidth,
+            int srcHeight,
+            int textureWidth,
+            int textureHeight) {
         Objects.requireNonNull(texture, "texture");
         Identifier location = Identifier.tryParse(texture.id());
         if (location == null) throw new IllegalArgumentException("Invalid texture id: " + texture.id());
-        graphics.blit(RenderPipelines.GUI_TEXTURED, location, x, y, u, v, width, height, 256, 256);
+        graphics.blit(RenderPipelines.GUI_TEXTURED, location, x, y, u, v, width, height,
+                srcWidth, srcHeight, textureWidth, textureHeight);
     }
 
     public void renderItem(ItemStack stack, int x, int y) {

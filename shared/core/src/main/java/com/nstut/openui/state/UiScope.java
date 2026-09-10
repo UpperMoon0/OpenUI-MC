@@ -54,6 +54,18 @@ public final class UiScope implements AutoCloseable {
         return own(Signals.effect(Objects.requireNonNull(action, "action")));
     }
 
+    /**
+     * Creates an owned dependency-tracked effect whose executions are dispatched
+     * through the supplied scheduler. The scheduler may coalesce repeated
+     * invalidations while the effect retains its normal dependency tracking.
+     */
+    public Effect effect(Runnable action, Consumer<Runnable> scheduler) {
+        ensureOpen();
+        return own(Signals.effect(
+                Objects.requireNonNull(action, "action"),
+                Objects.requireNonNull(scheduler, "scheduler")));
+    }
+
     /** Subscribes to a signal and owns the returned subscription. */
     public <T> Subscription subscribe(ReadableSignal<T> signal, Consumer<? super T> listener) {
         ensureOpen();
