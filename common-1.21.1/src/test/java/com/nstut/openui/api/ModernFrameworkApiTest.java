@@ -4,6 +4,8 @@ import com.nstut.openui.component.DirtyFlag;
 import com.nstut.openui.context.ContextKey;
 import com.nstut.openui.debug.UiProfiler;
 import com.nstut.openui.declarative.DeclarativeChild;
+import com.nstut.openui.overlay.OverlayHandle;
+import com.nstut.openui.overlay.OverlayLayer;
 import com.nstut.openui.runtime.NativeWidgetHost;
 import com.nstut.openui.runtime.UiRuntime;
 import com.nstut.openui.semantics.SemanticNarration;
@@ -244,6 +246,91 @@ class ModernFrameworkApiTest {
             assertEquals(2, phaseCount(hostA, UiProfiler.Phase.BUILD));
             assertEquals(2, phaseCount(hostA, UiProfiler.Phase.RECONCILE),
                     "the fresh Host A build must also reconcile instead of leaving stale pending state");
+        } finally {
+            runtime.close();
+        }
+    }
+
+    @Test
+    void sameRuntimeOverlayRemountGetsFreshInitialBuild() {
+        AtomicInteger builds = new AtomicInteger();
+        DeclarativeHost host = new DeclarativeHost(scope -> {
+            builds.incrementAndGet();
+            return List.of(new DeclarativeChild<>(
+                    "fixed", "child", () -> new FixedComponent(1, 1), ignored -> { }));
+        });
+        host.profiler().enabled(true);
+
+        Font font = new Font(null, false);
+        NativeWidgetHost widgets = new NativeWidgetHost() {
+            @Override public void add(AbstractWidget widget) { }
+            @Override public void remove(AbstractWidget widget) { }
+        };
+        UiRuntime runtime = new UiRuntime(font, widgets);
+        try {
+            OverlayHandle first = runtime.overlays().show(OverlayLayer.POPOVER, host);
+            first.close();
+            runtime.overlays().show(OverlayLayer.POPOVER, host);
+
+            assertEquals(0, builds.get(), "both initial effects should still be queued before the frame flush");
+            host.preferredWidth(font);
+
+            assertEquals(1, builds.get(), "the remounted host must execute its own initial build");
+            assertEquals(1, phaseCount(host, UiProfiler.Phase.BUILD));
+            assertEquals(1, phaseCount(host, UiProfiler.Phase.RECONCILE));
+        } finally {
+            runtime.close();
+        }
+    }
+
+    @Test
+    void staleReconcileFromPreviousMountCannotRunAgainstRemount() {
+        AtomicInteger hostABuilds = new AtomicInteger();
+        AtomicInteger hostBBuilds = new AtomicInteger();
+        AtomicInteger childCreations = new AtomicInteger();
+        AtomicReference<OverlayHandle> firstHandle = new AtomicReference<>();
+        AtomicInteger remountOnce = new AtomicInteger();
+
+        DeclarativeHost hostA = new DeclarativeHost(scope -> {
+            int build = hostABuilds.incrementAndGet();
+            return List.of(new DeclarativeChild<>(
+                    "fixed", "a-" + build,
+                    () -> {
+                        childCreations.incrementAndGet();
+                        return new FixedComponent(1, 1);
+                    },
+                    ignored -> { }));
+        });
+        hostA.profiler().enabled(true);
+
+        Font font = new Font(null, false);
+        NativeWidgetHost widgets = new NativeWidgetHost() {
+            @Override public void add(AbstractWidget widget) { }
+            @Override public void remove(AbstractWidget widget) { }
+        };
+        UiRuntime runtime = new UiRuntime(font, widgets);
+        DeclarativeHost hostB = new DeclarativeHost(scope -> {
+            hostBBuilds.incrementAndGet();
+            if (remountOnce.getAndIncrement() == 0) {
+                firstHandle.get().close();
+                runtime.overlays().show(OverlayLayer.POPOVER, hostA);
+            }
+            return List.of();
+        });
+
+        try {
+            firstHandle.set(runtime.overlays().show(OverlayLayer.POPOVER, hostA));
+            runtime.overlays().show(OverlayLayer.POPOVER, hostB);
+            hostA.preferredWidth(font);
+
+            assertEquals(2, hostABuilds.get(), "each mount must perform its own initial build");
+            assertEquals(1, hostBBuilds.get());
+            assertEquals(2, phaseCount(hostA, UiProfiler.Phase.BUILD));
+            assertEquals(1, phaseCount(hostA, UiProfiler.Phase.RECONCILE),
+                    "only the active mount may reconcile; stale previous-mount pending state must be ignored");
+            assertEquals(1, childCreations.get(),
+                    "the previous mount must not create or reconcile retained children after remount");
+            assertEquals(1, hostA.children().size());
         } finally {
             runtime.close();
         }

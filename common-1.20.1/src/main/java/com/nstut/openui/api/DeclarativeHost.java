@@ -40,12 +40,20 @@ public final class DeclarativeHost extends ScopedUIComponent {
     };
 
     private final Builder builder;
-    private final Object buildScheduleKey = new Object();
-    private final Object reconcileScheduleKey = new Object();
-    private final FrameScheduler detachedScheduler = new FrameScheduler();
     private final DeclarativeTree<UIComponent> tree = new DeclarativeTree<>(RETAINED_ADAPTER);
     private final UiProfiler profiler = new UiProfiler();
-    private List<DeclarativeChild<UIComponent>> pending = List.of();
+    private MountState activeMount;
+
+    private static final class MountState {
+        private final UiRuntime runtime;
+        private final Object buildScheduleKey = new Object();
+        private final Object reconcileScheduleKey = new Object();
+        private List<DeclarativeChild<UIComponent>> pending = List.of();
+
+        private MountState(UiRuntime runtime) {
+            this.runtime = Objects.requireNonNull(runtime, "runtime");
+        }
+    }
 
     public DeclarativeHost(Builder builder) {
         this.builder = Objects.requireNonNull(builder, "builder");
@@ -61,41 +69,47 @@ public final class DeclarativeHost extends ScopedUIComponent {
 
     @Override
     protected void onScopedMount(UiScope scope) {
+        MountState mount = new MountState(runtime());
+        activeMount = mount;
         UiBuildScope currentBuildScope = new UiBuildScope(scope, this);
-        UiRuntime mountedRuntime = runtime();
         scope.effect(() -> {
+            if (!isActiveMount(mount)) return;
             long started = profiler.begin();
             String cause = Signals.currentUpdateCause().orElse("initial mount");
             List<DeclarativeChild<UIComponent>> next = builder.build(currentBuildScope);
-            pending = next == null ? List.of() : List.copyOf(next);
+            mount.pending = next == null ? List.of() : List.copyOf(next);
             profiler.record(this, UiProfiler.Phase.BUILD, started, cause);
-            schedulePending();
-        }, task -> scheduleBuild(mountedRuntime, task));
+            schedulePending(mount);
+        }, task -> scheduleBuild(mount, task));
     }
 
-    private void scheduleBuild(UiRuntime mountedRuntime, Runnable task) {
-        if (runtime() != mountedRuntime) return;
+    @Override
+    protected void onScopedUnmount() {
+        activeMount = null;
+    }
+
+    private boolean isActiveMount(MountState mount) {
+        return activeMount == mount && runtime() == mount.runtime;
+    }
+
+    private void scheduleBuild(MountState mount, Runnable task) {
+        if (!isActiveMount(mount)) return;
         invalidateBuild();
-        schedulerFor(mountedRuntime).schedule(buildScheduleKey, () -> {
-            if (runtime() == mountedRuntime) task.run();
+        schedulerFor(mount.runtime).schedule(mount.buildScheduleKey, () -> {
+            if (isActiveMount(mount)) task.run();
         });
     }
 
-    private void schedulePending() {
-        UiRuntime currentRuntime = runtime();
-        if (currentRuntime == null) {
-            detachedScheduler.schedule(reconcileScheduleKey, this::applyPending);
-            return;
-        }
-        schedulerFor(currentRuntime).schedule(reconcileScheduleKey, () -> {
-            if (runtime() == currentRuntime) applyPending();
+    private void schedulePending(MountState mount) {
+        if (!isActiveMount(mount)) return;
+        schedulerFor(mount.runtime).schedule(mount.reconcileScheduleKey, () -> {
+            if (isActiveMount(mount)) applyPending(mount);
         });
     }
 
     private void ensureBuilt() {
         UiRuntime currentRuntime = runtime();
-        if (currentRuntime == null) detachedScheduler.flush();
-        else schedulerFor(currentRuntime).flush();
+        if (currentRuntime != null) schedulerFor(currentRuntime).flush();
     }
 
     private static FrameScheduler schedulerFor(UiRuntime runtime) {
@@ -104,10 +118,10 @@ public final class DeclarativeHost extends ScopedUIComponent {
         }
     }
 
-    private void applyPending() {
-        if (runtime() == null) return;
+    private void applyPending(MountState mount) {
+        if (!isActiveMount(mount)) return;
         long started = profiler.begin();
-        tree.reconcile(this, pending);
+        tree.reconcile(this, mount.pending);
         markBuilt();
         DeclarativeTree.Diagnostics d = tree.diagnostics();
         profiler.record(this, UiProfiler.Phase.RECONCILE, started,
