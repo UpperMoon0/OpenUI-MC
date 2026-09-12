@@ -36,6 +36,10 @@ if (consumerE2eRequested) {
         throw new GradleException("Unsupported consumer E2E target '${e2eTarget}'. Expected one of: ${consumerE2eTargets.sort().join(', ')}")
     }
     targetedProjects.add(e2eTarget)
+    // The pinned Simply Speakers shared source compiles against the matching
+    // Fabric OpenUI artifact even when the runtime target is Forge/NeoForge.
+    if (e2eTarget == 'forge-1.20.1') targetedProjects.add('fabric-1.20.1')
+    if (e2eTarget == 'neoforge-1.21.1') targetedProjects.add('fabric-1.21.1')
 }
 
 def wholeWorkspaceTasks = ['buildAll', 'testAllVersions'] as Set

@@ -90,9 +90,9 @@ tasks.register('checkBinaryApiCompatibility', Exec) {
 
 def consumerE2ePublishTasks = [
         'fabric-1.20.1'  : [':common-1.20.1:publishToMavenLocal', ':fabric-1.20.1:publishToMavenLocal'],
-        'forge-1.20.1'   : [':common-1.20.1:publishToMavenLocal', ':forge-1.20.1:publishToMavenLocal'],
+        'forge-1.20.1'   : [':common-1.20.1:publishToMavenLocal', ':fabric-1.20.1:publishToMavenLocal', ':forge-1.20.1:publishToMavenLocal'],
         'fabric-1.21.1'  : [':common-1.21.1:publishToMavenLocal', ':fabric-1.21.1:publishToMavenLocal'],
-        'neoforge-1.21.1': [':common-1.21.1:publishToMavenLocal', ':neoforge-1.21.1:publishToMavenLocal'],
+        'neoforge-1.21.1': [':common-1.21.1:publishToMavenLocal', ':fabric-1.21.1:publishToMavenLocal', ':neoforge-1.21.1:publishToMavenLocal'],
         'neoforge-26.1.2': [':neoforge-26.1.2:publishToMavenLocal']
 ]
 def consumerE2eTarget = providers.gradleProperty('e2eTarget').getOrElse('fabric-1.20.1')
