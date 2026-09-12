@@ -1,0 +1,145 @@
+#!/usr/bin/env python3
+"""Run the pinned Simply Speakers live-join consumer fixture against this OpenUI candidate."""
+
+from __future__ import annotations
+
+import argparse
+import os
+import re
+import shutil
+import stat
+import subprocess
+import sys
+from pathlib import Path
+
+CONSUMER_REPOSITORY = "https://github.com/UpperMoon0/Simply-Speakers.git"
+CONSUMER_REF = "9a9681671e783bfd6e80594c3e23a76fb7132efb"
+TARGETS = {
+    "fabric-1.20.1",
+    "forge-1.20.1",
+    "fabric-1.21.1",
+    "neoforge-1.21.1",
+    "neoforge-26.1.2",
+}
+
+
+def run(command: list[str], cwd: Path | None = None) -> None:
+    printable = " ".join(command)
+    print(f"+ {printable}", flush=True)
+    subprocess.run(command, cwd=cwd, check=True)
+
+
+def clone_consumer(destination: Path) -> None:
+    if destination.exists():
+        shutil.rmtree(destination)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    run(["git", "init", str(destination)])
+    run(["git", "remote", "add", "origin", CONSUMER_REPOSITORY], cwd=destination)
+    run(["git", "fetch", "--depth", "1", "origin", CONSUMER_REF], cwd=destination)
+    run(["git", "checkout", "--detach", "FETCH_HEAD"], cwd=destination)
+
+    wrapper = destination / ("gradlew.bat" if os.name == "nt" else "gradlew")
+    if os.name != "nt":
+        wrapper.chmod(wrapper.stat().st_mode | stat.S_IXUSR)
+
+
+def set_candidate_version(consumer: Path, version: str) -> None:
+    properties = consumer / "gradle.properties"
+    text = properties.read_text(encoding="utf-8")
+    updated, count = re.subn(
+        r"(?m)^openui_version\s*=.*$",
+        f"openui_version = {version}",
+        text,
+        count=1,
+    )
+    if count != 1:
+        raise RuntimeError("Could not find exactly one openui_version property in consumer fixture")
+    properties.write_text(updated, encoding="utf-8")
+
+
+def java_tool(name: str) -> str:
+    suffix = ".exe" if os.name == "nt" else ""
+    java_home = os.environ.get("JAVA_HOME")
+    if java_home:
+        candidate = Path(java_home) / "bin" / f"{name}{suffix}"
+        if candidate.is_file():
+            return str(candidate)
+    resolved = shutil.which(name)
+    if resolved:
+        return resolved
+    raise RuntimeError(f"Required Java tool is unavailable: {name}")
+
+
+def install_fabric_1201_cc_api_shim(consumer: Path, workspace: Path) -> None:
+    """Supply only the optional CC:Tweaked ABI referenced by the pinned Fabric consumer."""
+    shim_root = workspace / "cc-api-shim"
+    source_root = shim_root / "src" / "dan200" / "computercraft" / "api" / "peripheral"
+    classes = shim_root / "classes"
+    if shim_root.exists():
+        shutil.rmtree(shim_root)
+    source_root.mkdir(parents=True, exist_ok=True)
+    classes.mkdir(parents=True, exist_ok=True)
+
+    sources = {
+        "IPeripheral.java": """package dan200.computercraft.api.peripheral;\npublic interface IPeripheral {}\n""",
+        "IPeripheralProvider.java": """package dan200.computercraft.api.peripheral;\npublic interface IPeripheralProvider {}\n""",
+        "PeripheralLookup.java": """package dan200.computercraft.api.peripheral;\nimport java.util.function.BiFunction;\npublic final class PeripheralLookup {\n    private static final PeripheralLookup INSTANCE = new PeripheralLookup();\n    private PeripheralLookup() {}\n    public static PeripheralLookup get() { return INSTANCE; }\n    public void registerForBlockEntity(BiFunction<?, ?, ?> provider, Object blockEntityType) {}\n}\n""",
+    }
+    source_files: list[str] = []
+    for name, body in sources.items():
+        path = source_root / name
+        path.write_text(body, encoding="utf-8")
+        source_files.append(str(path))
+
+    run([java_tool("javac"), "--release", "17", "-d", str(classes), *source_files])
+
+    metadata = shim_root / "fabric.mod.json"
+    metadata.write_text(
+        '{"schemaVersion":1,"id":"openui_cc_api_shim","version":"1.0.0",'
+        '"name":"OpenUI CC API shim","environment":"*",'
+        '"depends":{"fabricloader":">=0.14","minecraft":"1.20.1"}}\n',
+        encoding="utf-8",
+    )
+    jar_path = shim_root / "openui-cc-api-shim.jar"
+    run([
+        java_tool("jar"), "--create", "--file", str(jar_path),
+        "-C", str(classes), ".", "-C", str(shim_root), "fabric.mod.json",
+    ])
+
+    for side in ("client", "server"):
+        mods = consumer / "fabric-1.20.1" / "run" / "live-join" / side / "mods"
+        mods.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(jar_path, mods / jar_path.name)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--target", required=True, choices=sorted(TARGETS))
+    parser.add_argument("--candidate-version", required=True)
+    parser.add_argument("--work-dir", type=Path, required=True)
+    parser.add_argument("--timeout", type=int, default=360)
+    args = parser.parse_args()
+
+    workspace = args.work_dir.resolve()
+    consumer = workspace / "simply-speakers"
+    clone_consumer(consumer)
+    set_candidate_version(consumer, args.candidate_version)
+
+    if args.target == "fabric-1.20.1":
+        install_fabric_1201_cc_api_shim(consumer, workspace)
+
+    run([
+        sys.executable,
+        str(consumer / "tools" / "live_join_test.py"),
+        "--target", args.target,
+        "--timeout", str(args.timeout),
+    ], cwd=consumer)
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except (OSError, RuntimeError, subprocess.CalledProcessError) as error:
+        print(f"OPENUI CONSUMER LIVE E2E FAILED: {error}", file=sys.stderr)
+        raise SystemExit(1)

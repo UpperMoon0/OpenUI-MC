@@ -88,6 +88,38 @@ tasks.register('checkBinaryApiCompatibility', Exec) {
     }
 }
 
+def consumerE2ePublishTasks = [
+        'fabric-1.20.1'  : [':common-1.20.1:publishToMavenLocal', ':fabric-1.20.1:publishToMavenLocal'],
+        'forge-1.20.1'   : [':common-1.20.1:publishToMavenLocal', ':forge-1.20.1:publishToMavenLocal'],
+        'fabric-1.21.1'  : [':common-1.21.1:publishToMavenLocal', ':fabric-1.21.1:publishToMavenLocal'],
+        'neoforge-1.21.1': [':common-1.21.1:publishToMavenLocal', ':neoforge-1.21.1:publishToMavenLocal'],
+        'neoforge-26.1.2': [':neoforge-26.1.2:publishToMavenLocal']
+]
+def consumerE2eTarget = providers.gradleProperty('e2eTarget').getOrElse('fabric-1.20.1')
+def consumerE2eTasks = consumerE2ePublishTasks[consumerE2eTarget]
+if (consumerE2eTasks == null) {
+    throw new GradleException("Unsupported consumer E2E target '${consumerE2eTarget}'. Expected one of: ${consumerE2ePublishTasks.keySet().sort().join(', ')}")
+}
+
+tasks.register('consumerLiveJoinE2E', Exec) {
+    group = 'verification'
+    description = "Publishes OpenUI ${mod_version} locally and runs the pinned Simply Speakers real client/server join fixture for ${consumerE2eTarget}."
+    dependsOn consumerE2eTasks
+    outputs.upToDateWhen { false }
+
+    doFirst {
+        if (findProject(":${consumerE2eTarget}") == null) {
+            throw new GradleException("E2E target project ${consumerE2eTarget} was not selected by settings.gradle")
+        }
+        def pythonCommand = System.getenv('PYTHON') ?: (System.getProperty('os.name').toLowerCase().contains('windows') ? 'py' : 'python3')
+        commandLine pythonCommand,
+                file('tools/run_consumer_live_join.py'),
+                '--target', consumerE2eTarget,
+                '--candidate-version', mod_version.toString(),
+                '--work-dir', layout.buildDirectory.dir("consumer-live-e2e/${consumerE2eTarget}").get().asFile.absolutePath
+    }
+}
+
 // Reuse the normal Fabric 1.20.1 build in CI as the binary-compatibility gate.
 // Targeted builds intentionally omit unrelated projects, so only attach the
 // finalizer when Fabric 1.20.1 is actually part of the selected workspace.
