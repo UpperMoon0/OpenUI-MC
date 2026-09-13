@@ -92,6 +92,21 @@ rootProject.name = 'simplyspeakers'
     (consumer / "settings.gradle").write_text(settings, encoding="utf-8")
 
 
+def normalize_forge_1201_optional_dependency(consumer: Path) -> None:
+    """Translate stale NeoForge-style optional dependency metadata for Forge 1.20.1."""
+    metadata = consumer / "forge-1.20.1" / "src" / "main" / "resources" / "META-INF" / "mods.toml"
+    text = metadata.read_text(encoding="utf-8")
+    updated, count = re.subn(
+        r'(?m)^(\s*)type\s*=\s*"optional"\s*$',
+        r'\1mandatory = false\n\1versionRange = "[1.109.2,)"',
+        text,
+        count=1,
+    )
+    if count != 1:
+        raise RuntimeError("Could not normalize the pinned Forge 1.20.1 optional ComputerCraft dependency")
+    metadata.write_text(updated, encoding="utf-8")
+
+
 def consumer_environment(consumer: Path) -> dict[str, str]:
     """Allow the fixture Gradle JVM to differ from the candidate build JVM."""
     env = os.environ.copy()
@@ -127,44 +142,69 @@ def java_tool(name: str) -> str:
     raise RuntimeError(f"Required Java tool is unavailable: {name}")
 
 
-def install_fabric_1201_cc_api_shim(consumer: Path, workspace: Path) -> None:
-    """Supply only the optional CC:Tweaked ABI referenced by the pinned Fabric consumer."""
+def install_cc_api_shim(consumer: Path, workspace: Path, target: str) -> None:
+    """Supply only CC:Tweaked ABI classes needed to link the pinned optional integration."""
     shim_root = workspace / "cc-api-shim"
-    source_root = shim_root / "src" / "dan200" / "computercraft" / "api" / "peripheral"
+    source_root = shim_root / "src"
     classes = shim_root / "classes"
     if shim_root.exists():
         shutil.rmtree(shim_root)
-    source_root.mkdir(parents=True, exist_ok=True)
     classes.mkdir(parents=True, exist_ok=True)
 
     sources = {
-        "IPeripheral.java": """package dan200.computercraft.api.peripheral;\npublic interface IPeripheral {}\n""",
-        "IPeripheralProvider.java": """package dan200.computercraft.api.peripheral;\npublic interface IPeripheralProvider {}\n""",
-        "PeripheralLookup.java": """package dan200.computercraft.api.peripheral;\nimport java.util.function.BiFunction;\npublic final class PeripheralLookup {\n    private static final PeripheralLookup INSTANCE = new PeripheralLookup();\n    private PeripheralLookup() {}\n    public static PeripheralLookup get() { return INSTANCE; }\n    public void registerForBlockEntity(BiFunction<?, ?, ?> provider, Object blockEntityType) {}\n}\n""",
+        "dan200/computercraft/api/peripheral/IPeripheral.java": """package dan200.computercraft.api.peripheral;\npublic interface IPeripheral {}\n""",
+        "dan200/computercraft/api/peripheral/IPeripheralProvider.java": """package dan200.computercraft.api.peripheral;\npublic interface IPeripheralProvider {}\n""",
+        "dan200/computercraft/api/peripheral/IComputerAccess.java": """package dan200.computercraft.api.peripheral;\npublic interface IComputerAccess {}\n""",
+        "dan200/computercraft/api/peripheral/PeripheralLookup.java": """package dan200.computercraft.api.peripheral;\nimport java.util.function.BiFunction;\npublic final class PeripheralLookup {\n    private static final PeripheralLookup INSTANCE = new PeripheralLookup();\n    private PeripheralLookup() {}\n    public static PeripheralLookup get() { return INSTANCE; }\n    public void registerForBlockEntity(BiFunction<?, ?, ?> provider, Object blockEntityType) {}\n}\n""",
+        "dan200/computercraft/api/lua/LuaFunction.java": """package dan200.computercraft.api.lua;\nimport java.lang.annotation.ElementType;\nimport java.lang.annotation.Retention;\nimport java.lang.annotation.RetentionPolicy;\nimport java.lang.annotation.Target;\n@Retention(RetentionPolicy.RUNTIME)\n@Target(ElementType.METHOD)\npublic @interface LuaFunction { boolean mainThread() default false; }\n""",
     }
     source_files: list[str] = []
-    for name, body in sources.items():
-        path = source_root / name
+    for relative_path, body in sources.items():
+        path = source_root / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(body, encoding="utf-8")
         source_files.append(str(path))
 
     run([java_tool("javac"), "--release", "17", "-d", str(classes), *source_files])
 
-    metadata = shim_root / "fabric.mod.json"
-    metadata.write_text(
-        '{"schemaVersion":1,"id":"openui_cc_api_shim","version":"1.0.0",'
-        '"name":"OpenUI CC API shim","environment":"*",'
-        '"depends":{"fabricloader":">=0.14","minecraft":"1.20.1"}}\n',
-        encoding="utf-8",
-    )
+    jar_inputs = ["-C", str(classes), "."]
+    if target.startswith("fabric-"):
+        metadata = shim_root / "fabric.mod.json"
+        metadata.write_text(
+            '{"schemaVersion":1,"id":"openui_cc_api_shim","version":"1.0.0",'
+            '"name":"OpenUI CC API shim","environment":"*",'
+            '"depends":{"fabricloader":">=0.14","minecraft":">=1.20.1"}}\n',
+            encoding="utf-8",
+        )
+        jar_inputs.extend(["-C", str(shim_root), "fabric.mod.json"])
+    elif target == "forge-1.20.1":
+        metadata = shim_root / "META-INF" / "mods.toml"
+        metadata.parent.mkdir(parents=True, exist_ok=True)
+        metadata.write_text(
+            'modLoader="javafml"\nloaderVersion="[47,)"\nlicense="MIT"\n\n'
+            '[[mods]]\nmodId="openui_cc_api_shim"\nversion="1.0.0"\n'
+            'displayName="OpenUI CC API shim"\n',
+            encoding="utf-8",
+        )
+        jar_inputs.extend(["-C", str(shim_root), "META-INF"])
+    elif target == "neoforge-1.21.1":
+        metadata = shim_root / "META-INF" / "neoforge.mods.toml"
+        metadata.parent.mkdir(parents=True, exist_ok=True)
+        metadata.write_text(
+            'modLoader="javafml"\nloaderVersion="[4,)"\nlicense="MIT"\n\n'
+            '[[mods]]\nmodId="openui_cc_api_shim"\nversion="1.0.0"\n'
+            'displayName="OpenUI CC API shim"\n',
+            encoding="utf-8",
+        )
+        jar_inputs.extend(["-C", str(shim_root), "META-INF"])
+    else:
+        raise RuntimeError(f"CC API shim is not defined for target {target}")
+
     jar_path = shim_root / "openui-cc-api-shim.jar"
-    run([
-        java_tool("jar"), "--create", "--file", str(jar_path),
-        "-C", str(classes), ".", "-C", str(shim_root), "fabric.mod.json",
-    ])
+    run([java_tool("jar"), "--create", "--file", str(jar_path), *jar_inputs])
 
     for side in ("client", "server"):
-        mods = consumer / "fabric-1.20.1" / "run" / "live-join" / side / "mods"
+        mods = consumer / target / "run" / "live-join" / side / "mods"
         mods.mkdir(parents=True, exist_ok=True)
         shutil.copy2(jar_path, mods / jar_path.name)
 
@@ -183,8 +223,11 @@ def main() -> int:
     set_candidate_version(consumer, args.candidate_version)
     isolate_consumer_target(consumer, args.target)
 
-    if args.target == "fabric-1.20.1":
-        install_fabric_1201_cc_api_shim(consumer, workspace)
+    if args.target == "forge-1.20.1":
+        normalize_forge_1201_optional_dependency(consumer)
+
+    if args.target != "neoforge-26.1.2":
+        install_cc_api_shim(consumer, workspace, args.target)
 
     run([
         sys.executable,
