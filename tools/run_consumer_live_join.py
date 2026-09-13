@@ -178,15 +178,10 @@ def install_cc_api_shim(consumer: Path, workspace: Path, target: str) -> None:
         )
         jar_inputs.extend(["-C", str(shim_root), "fabric.mod.json"])
     elif target == "forge-1.20.1":
-        metadata = shim_root / "META-INF" / "mods.toml"
-        metadata.parent.mkdir(parents=True, exist_ok=True)
-        metadata.write_text(
-            'modLoader="javafml"\nloaderVersion="[47,)"\nlicense="MIT"\n\n'
-            '[[mods]]\nmodId="openui_cc_api_shim"\nversion="1.0.0"\n'
-            'displayName="OpenUI CC API shim"\n',
-            encoding="utf-8",
-        )
-        jar_inputs.extend(["-C", str(shim_root), "META-INF"])
+        # Forge 1.20.1 rejects a metadata-only jar as a mod because it has no
+        # @Mod class. Keep this shim a plain library and add it through Loom's
+        # forgeRuntimeLibrary configuration below instead.
+        pass
     elif target == "neoforge-1.21.1":
         metadata = shim_root / "META-INF" / "neoforge.mods.toml"
         metadata.parent.mkdir(parents=True, exist_ok=True)
@@ -202,6 +197,15 @@ def install_cc_api_shim(consumer: Path, workspace: Path, target: str) -> None:
 
     jar_path = shim_root / "openui-cc-api-shim.jar"
     run([java_tool("jar"), "--create", "--file", str(jar_path), *jar_inputs])
+
+    if target == "forge-1.20.1":
+        build_gradle = consumer / target / "build.gradle"
+        with build_gradle.open("a", encoding="utf-8") as stream:
+            stream.write("\n// OpenUI pinned E2E fixture: optional CC API linkage only.\n")
+            stream.write("dependencies {\n")
+            stream.write(f"    forgeRuntimeLibrary files('{jar_path.as_posix()}')\n")
+            stream.write("}\n")
+        return
 
     for side in ("client", "server"):
         mods = consumer / target / "run" / "live-join" / side / "mods"
