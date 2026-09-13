@@ -239,10 +239,14 @@ jobs:
             !${{ matrix.project }}/build/libs/*-dev-shadow.jar
           if-no-files-found: error
 
+  consumer-live-e2e:
+    name: Consumer real client/server compatibility
+    uses: ./.github/workflows/consumer-live-e2e.yml
+
   publish-curseforge:
     name: Publish ${{ matrix.platform }} ${{ matrix.version }} to CurseForge
     if: needs.release-gate.outputs.should_release == 'true'
-    needs: [release-gate, test-common, consumer-binary-smoke, build]
+    needs: [release-gate, test-common, consumer-binary-smoke, build, consumer-live-e2e]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -385,7 +389,7 @@ jobs:
   publish-github-release:
     name: Publish GitHub Release
     if: needs.release-gate.outputs.should_release == 'true'
-    needs: [release-gate, test-common, consumer-binary-smoke, build]
+    needs: [release-gate, test-common, consumer-binary-smoke, build, consumer-live-e2e]
     runs-on: ubuntu-latest
     permissions:
       contents: write
