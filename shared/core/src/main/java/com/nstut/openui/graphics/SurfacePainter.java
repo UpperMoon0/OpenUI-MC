@@ -2,6 +2,8 @@ package com.nstut.openui.graphics;
 
 /** Scanline surfaces with disjoint fill/border pixels: translucent colors never self-overlap. */
 public final class SurfacePainter {
+    private static final int MAX_GRADIENT_BANDS = 64;
+
     private SurfacePainter() { }
     @FunctionalInterface public interface Fill { void draw(int x, int y, int width, int height, int color); }
 
@@ -13,51 +15,51 @@ public final class SurfacePainter {
         }
         int radius = Math.min(style.radius(), Math.min(width, height) / 2);
         int extent = style.shadowExtent();
-        // Disjoint one-pixel rings give a soft falloff without repeated alpha overdraw.
+        // Each shadow band is a disjoint rounded ring. Straight edges coalesce into tall rectangles,
+        // so render-state count depends on corner radius/extent rather than panel height * extent.
         for (int ring = extent; ring > 0; ring--) {
             int alpha = (style.shadowColor() >>> 24) * (extent - ring + 1) / (extent + 1);
-            outline(fill, x - ring, y - ring + 2, width + ring * 2, height + ring * 2,
-                    radius + ring, alpha << 24 | style.shadowColor() & 0xFFFFFF);
+            int color = alpha << 24 | style.shadowColor() & 0xFFFFFF;
+            RoundedGeometry.paintRing(fill::draw, x - ring, y - ring + 2,
+                    width + ring * 2, height + ring * 2, radius + ring, 1, color);
         }
-        for (int row = 0; row < height; row++) {
-            int inset = inset(row, width, height, radius);
-            int color = mix(style.topColor(), style.bottomColor(), height == 1 ? 0 : (float) row / (height - 1));
-            int innerInset = row == 0 || row == height - 1 ? width / 2 :
-                    1 + inset(row - 1, width - 2, height - 2, Math.max(0, radius - 1));
-            if (row == 0 || row == height - 1) {
-                fill.draw(x + inset, y + row, width - inset * 2, 1, style.borderColor());
+
+        RoundedGeometry.paintRing(fill::draw, x, y, width, height, radius, 1, style.borderColor());
+        int innerWidth = width - 2;
+        int innerHeight = height - 2;
+        int innerRadius = Math.max(0, radius - 1);
+        if (style.topColor() == style.bottomColor()) {
+            RoundedGeometry.paintRounded(fill::draw, x + 1, y + 1,
+                    innerWidth, innerHeight, innerRadius, style.topColor());
+            return;
+        }
+        int bands = Math.min(MAX_GRADIENT_BANDS, innerHeight);
+        int runX = 0, runY = 0, runWidth = 0, runHeight = 0, runColor = 0;
+        for (int row = 0; row < innerHeight; row++) {
+            int inset = RoundedGeometry.inset(row, innerWidth, innerHeight, innerRadius);
+            int band = Math.min(bands - 1, row * bands / innerHeight);
+            float bandCenterRow = ((band + 0.5F) * innerHeight / bands) + 1.0F;
+            int color = mix(style.topColor(), style.bottomColor(), bandCenterRow / (height - 1));
+            int span = innerWidth - inset * 2;
+            int rowX = x + 1 + inset;
+            int rowY = y + 1 + row;
+            if (span > 0 && runHeight > 0 && rowX == runX && span == runWidth
+                    && color == runColor && runY + runHeight == rowY) {
+                runHeight++;
+                continue;
+            }
+            if (runHeight > 0) fill.draw(runX, runY, runWidth, runHeight, runColor);
+            if (span > 0) {
+                runX = rowX;
+                runY = rowY;
+                runWidth = span;
+                runHeight = 1;
+                runColor = color;
             } else {
-                int edge = Math.max(0, innerInset - inset);
-                if (edge > 0) {
-                    fill.draw(x + inset, y + row, edge, 1, style.borderColor());
-                    fill.draw(x + width - innerInset, y + row, edge, 1, style.borderColor());
-                }
-                if (width > innerInset * 2) fill.draw(x + innerInset, y + row, width - innerInset * 2, 1, color);
+                runHeight = 0;
             }
         }
-    }
-
-    private static void outline(Fill f, int x, int y, int w, int h, int r, int color) {
-        for (int row = 0; row < h; row++) {
-            int outer = inset(row, w, h, r);
-            if (row == 0 || row == h - 1) f.draw(x + outer, y + row, w - 2 * outer, 1, color);
-            else {
-                int inner = 1 + inset(row - 1, w - 2, h - 2, Math.max(0, r - 1));
-                if (inner > outer) {
-                    f.draw(x + outer, y + row, inner - outer, 1, color);
-                    f.draw(x + w - inner, y + row, inner - outer, 1, color);
-                }
-            }
-        }
-    }
-
-    private static int inset(int row, int width, int height, int radius) {
-        int r = Math.max(0, Math.min(radius, Math.min(width, height) / 2));
-        if (r <= 1) return 0;
-        int edge = Math.min(row, height - row - 1);
-        if (edge >= r) return 0;
-        double dy = r - edge - .5;
-        return Math.max(0, (int) Math.ceil(r - Math.sqrt(r * r - dy * dy)));
+        if (runHeight > 0) fill.draw(runX, runY, runWidth, runHeight, runColor);
     }
 
     private static int mix(int a, int b, float t) {

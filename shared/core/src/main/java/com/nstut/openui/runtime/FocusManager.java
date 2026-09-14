@@ -31,6 +31,11 @@ public final class FocusManager {
 
     public UIComponent focused() { return focused; }
 
+    /** Returns whether the current focus target is this component or one of its descendants. */
+    public boolean isFocusWithin(UIComponent component) {
+        return component != null && belongsToTree(focused, component);
+    }
+
     /** Narration for the nearest semantic ancestor of the current focus target. */
     public String focusedNarration() { return SemanticNarration.describeNearest(focused); }
 
@@ -173,7 +178,25 @@ public final class FocusManager {
         UIComponent prev = this.focused;
         this.focused = next;
         if (prev != null) prev.onFocusLost();
+        notifyFocusWithinLost(prev, next);
         if (next != null) next.onFocusGained();
+        notifyFocusWithinGained(prev, next);
+    }
+
+    private static void notifyFocusWithinLost(UIComponent previous, UIComponent next) {
+        for (UIComponent cursor = previous != null ? previous.parent() : null;
+             cursor != null;
+             cursor = cursor.parent()) {
+            if (!belongsToTree(next, cursor)) cursor.onFocusWithinLost();
+        }
+    }
+
+    private static void notifyFocusWithinGained(UIComponent previous, UIComponent next) {
+        for (UIComponent cursor = next != null ? next.parent() : null;
+             cursor != null;
+             cursor = cursor.parent()) {
+            if (!belongsToTree(previous, cursor)) cursor.onFocusWithinGained();
+        }
     }
 
     private void collect(UIComponent component, List<UIComponent> output) {

@@ -136,6 +136,46 @@ class ModernFrameworkApiTest {
     }
 
     @Test
+    void styledBoxFocusedVariantTracksFocusedDescendantAndInvalidatesLayout() {
+        FixedComponent child = new FixedComponent(10, 5);
+        child.focusable(true);
+        StateStyle styles = new StateStyle(
+                Style.builder().width(20).build(),
+                Style.EMPTY,
+                Style.builder().width(40).build(),
+                Style.EMPTY,
+                Style.EMPTY);
+        StyledBox box = Ui.styled(styles, child);
+        Font font = new Font(null, false);
+        NativeWidgetHost widgets = new NativeWidgetHost() {
+            @Override public void add(AbstractWidget widget) { }
+            @Override public void remove(AbstractWidget widget) { }
+        };
+        UiRuntime runtime = new UiRuntime(font, widgets);
+        try {
+            runtime.setRoot(box);
+            box.layoutTree(font, 0, 0, 100, 100);
+            assertEquals(20, box.preferredWidth(font));
+            assertFalse(box.isDirty(DirtyFlag.LAYOUT));
+
+            assertTrue(runtime.focus().requestFocus(child));
+            assertTrue(child.isFocused());
+            assertFalse(box.isFocused(), "styled wrapper must not become a second focus target");
+            assertTrue(box.isFocusWithin());
+            assertTrue(box.isDirty(DirtyFlag.LAYOUT), "focus-within transition must invalidate layout");
+            assertEquals(40, box.preferredWidth(font));
+
+            box.layoutTree(font, 0, 0, 100, 100);
+            runtime.focus().clearFocus();
+            assertFalse(box.isFocusWithin());
+            assertTrue(box.isDirty(DirtyFlag.LAYOUT), "leaving the subtree must invalidate layout");
+            assertEquals(20, box.preferredWidth(font));
+        } finally {
+            runtime.close();
+        }
+    }
+
+    @Test
     void styledBoxStateTransitionsInvalidateLayoutForLayoutAffectingVariants() {
         FixedComponent child = new FixedComponent(10, 5);
         StateStyle styles = new StateStyle(

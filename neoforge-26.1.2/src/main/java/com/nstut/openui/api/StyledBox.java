@@ -37,7 +37,7 @@ public final class StyledBox extends UIComponent {
         return this;
     }
 
-    private Style resolved() { return styles.resolve(isHovered(), isFocused(), pressed, disabled); }
+    private Style resolved() { return styles.resolve(isHovered(), isFocusWithin(), pressed, disabled); }
 
     @Override
     protected void onHoverEnter() {
@@ -61,6 +61,18 @@ public final class StyledBox extends UIComponent {
     public void onFocusLost() {
         invalidateLayout();
         super.onFocusLost();
+    }
+
+    @Override
+    public void onFocusWithinGained() {
+        invalidateLayout();
+        super.onFocusWithinGained();
+    }
+
+    @Override
+    public void onFocusWithinLost() {
+        invalidateLayout();
+        super.onFocusWithinLost();
     }
 
     @Override public int preferredWidth(Font font) {

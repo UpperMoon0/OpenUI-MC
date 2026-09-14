@@ -19,7 +19,7 @@ public interface UiDrawContext {
     void roundedRect(int x, int y, int width, int height, int radius, int color);
     void roundedOutline(int x, int y, int width, int height, int radius, int fillColor, int borderColor);
 
-    /** Draws a rounded outline with an explicit border width using stable primitives only. */
+    /** Draws a rounded outline with an explicit border width using stable, disjoint primitives. */
     default void roundedOutline(
             int x,
             int y,
@@ -35,7 +35,7 @@ public interface UiDrawContext {
             roundedRect(x, y, width, height, radius, fillColor);
             return;
         }
-        roundedRect(x, y, width, height, radius, borderColor);
+        RoundedGeometry.paintRing(this::fill, x, y, width, height, radius, thickness, borderColor);
         int innerWidth = width - thickness * 2;
         int innerHeight = height - thickness * 2;
         if (innerWidth > 0 && innerHeight > 0) {

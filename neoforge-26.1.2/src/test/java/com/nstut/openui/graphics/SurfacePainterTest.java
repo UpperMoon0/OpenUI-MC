@@ -33,5 +33,35 @@ class SurfacePainterTest {
                 new SurfaceStyle(0,0,0,10,200,0));
         assertEquals(16, new SurfaceStyle(0,0,0,-1,200,0).shadowExtent());
         assertEquals(0, new SurfaceStyle(0,0,0,-1,200,0).radius());
+
+        SurfaceStyle style = new SurfaceStyle(0x80224433, 0x80224433, 0xAABBCCDD, 12, 16, 0x66000000);
+        int normal = drawCalls(200, 200, style);
+        int tall = drawCalls(200, 2000, style);
+        assertTrue(normal < 2500, "single surface emitted " + normal + " primitive fills");
+        assertTrue(tall <= normal + 16,
+                "straight-edge height must not multiply shadow render states: " + normal + " -> " + tall);
+
+        SurfaceStyle gradient = new SurfaceStyle(0x80224433, 0x80112211, 0xAABBCCDD, 12, 16, 0x66000000);
+        int gradientNormal = drawCalls(200, 200, gradient);
+        int gradientTall = drawCalls(200, 2000, gradient);
+        assertTrue(gradientTall <= gradientNormal + 16,
+                "gradient height must stay bounded too: " + gradientNormal + " -> " + gradientTall);
+    }
+
+    @Test void explicitRoundedRingDoesNotUnderpaintItsInterior() {
+        int[][] hits = new int[24][24];
+        RoundedGeometry.paintRing((x, y, w, h, color) -> {
+            for (int xx = x; xx < x + w; xx++) for (int yy = y; yy < y + h; yy++) {
+                assertEquals(1, ++hits[xx][yy], "Ring geometry overlapped itself");
+            }
+        }, 0, 0, 24, 24, 7, 3, 0x80FFFFFF);
+        assertEquals(0, hits[12][12], "Border ring must not paint the interior");
+        assertEquals(1, hits[0][7], "Expected left border pixel");
+    }
+
+    private static int drawCalls(int width, int height, SurfaceStyle style) {
+        int[] calls = {0};
+        SurfacePainter.paint((x, y, w, h, color) -> calls[0]++, 0, 0, width, height, style);
+        return calls[0];
     }
 }
