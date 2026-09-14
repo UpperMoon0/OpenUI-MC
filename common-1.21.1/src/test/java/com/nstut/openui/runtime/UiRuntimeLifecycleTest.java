@@ -1,5 +1,6 @@
 package com.nstut.openui.runtime;
 
+import com.nstut.openui.api.ButtonWidget;
 import com.nstut.openui.api.DeclarativeHost;
 import com.nstut.openui.api.UIComponent;
 import com.nstut.openui.declarative.DeclarativeChild;
@@ -119,6 +120,103 @@ class UiRuntimeLifecycleTest {
             runtime.setRoot(root);
             assertTrue(runtime.focus().requestFocus(child));
             child.severParentForTest();
+
+            assertFalse(runtime.keyPressed(257, 0, 0));
+            assertFalse(runtime.charTyped('x', 0));
+            assertNull(runtime.focus().focused());
+            assertEquals(1, child.focusLost);
+            assertEquals(0, child.keyPresses);
+            assertEquals(0, child.typedCharacters);
+        } finally {
+            runtime.close();
+        }
+    }
+
+    @Test
+    void hidingFocusedButtonClearsFocusBeforeKeyboardActivation() {
+        TrackingContainer root = new TrackingContainer();
+        AtomicInteger clicks = new AtomicInteger();
+        ButtonWidget button = new ButtonWidget("Hidden").onPress(clicks::incrementAndGet);
+        root.addChild(button);
+        UiRuntime runtime = runtime();
+        try {
+            runtime.setRoot(root);
+            assertTrue(runtime.focus().requestFocus(button));
+            assertTrue(root.isFocusWithin());
+
+            button.setVisible(false);
+
+            assertFalse(runtime.keyPressed(257, 0, 0));
+            assertFalse(runtime.keyPressed(32, 0, 0));
+            assertNull(runtime.focus().focused());
+            assertEquals(1, root.focusWithinLost);
+            assertEquals(0, clicks.get());
+        } finally {
+            runtime.close();
+        }
+    }
+
+    @Test
+    void hidingFocusedAncestorBlocksKeyboardAndTextDispatch() {
+        TrackingContainer root = new TrackingContainer();
+        TrackingContainer parent = new TrackingContainer();
+        TrackingComponent child = new TrackingComponent();
+        parent.addChild(child);
+        root.addChild(parent);
+        UiRuntime runtime = runtime();
+        try {
+            runtime.setRoot(root);
+            assertTrue(runtime.focus().requestFocus(child));
+            assertTrue(parent.isFocusWithin());
+            assertTrue(root.isFocusWithin());
+
+            parent.setVisible(false);
+
+            assertFalse(runtime.keyPressed(257, 0, 0));
+            assertFalse(runtime.charTyped('x', 0));
+            assertNull(runtime.focus().focused());
+            assertEquals(1, child.focusLost);
+            assertEquals(1, parent.focusWithinLost);
+            assertEquals(1, root.focusWithinLost);
+            assertEquals(0, child.keyPresses);
+            assertEquals(0, child.typedCharacters);
+        } finally {
+            runtime.close();
+        }
+    }
+
+    @Test
+    void buttonDefensivelyRejectsDirectKeyboardActivationThroughHiddenAncestor() {
+        TrackingContainer root = new TrackingContainer();
+        TrackingContainer parent = new TrackingContainer();
+        AtomicInteger clicks = new AtomicInteger();
+        ButtonWidget button = new ButtonWidget("Hidden ancestor").onPress(clicks::incrementAndGet);
+        parent.addChild(button);
+        root.addChild(parent);
+        UiRuntime runtime = runtime();
+        try {
+            runtime.setRoot(root);
+            parent.setVisible(false);
+
+            assertFalse(button.keyPressed(257, 0, 0));
+            assertFalse(button.keyPressed(32, 0, 0));
+            assertEquals(0, clicks.get());
+        } finally {
+            runtime.close();
+        }
+    }
+
+    @Test
+    void focusedComponentBecomingNonFocusableCannotReceiveKeyboardOrText() {
+        TrackingContainer root = new TrackingContainer();
+        TrackingComponent child = new TrackingComponent();
+        root.addChild(child);
+        UiRuntime runtime = runtime();
+        try {
+            runtime.setRoot(root);
+            assertTrue(runtime.focus().requestFocus(child));
+
+            child.focusable(false);
 
             assertFalse(runtime.keyPressed(257, 0, 0));
             assertFalse(runtime.charTyped('x', 0));

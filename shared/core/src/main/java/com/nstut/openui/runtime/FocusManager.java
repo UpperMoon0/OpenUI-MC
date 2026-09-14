@@ -22,20 +22,21 @@ public final class FocusManager {
 
     void setRoot(UIComponent root) {
         this.root = root;
-        if (focused != null && !belongsToActiveTree(focused)) setFocusedInternal(null);
+        if (focused != null && !isCurrentFocusValid(focused)) setFocusedInternal(null);
     }
 
     public void setOverlayRoots(Supplier<List<UIComponent>> overlayRoots) {
         this.overlayRoots = overlayRoots != null ? overlayRoots : List::of;
     }
 
-    /** Returns the active focus target, clearing any stale detached reference defensively. */
+    /** Returns the active focus target, clearing detached, hidden or non-focusable references defensively. */
     public UIComponent focused() {
         if (focused != null && !isCurrentFocusValid(focused)) setFocusedInternal(null);
         return focused;
     }
 
     private boolean isCurrentFocusValid(UIComponent component) {
+        if (!isEffectivelyFocusable(component)) return false;
         if (belongsToActiveTree(component)) return true;
         FocusTrap top = traps.peek();
         return top != null && belongsToTree(component, top.trapRoot());
@@ -50,7 +51,7 @@ public final class FocusManager {
     public String focusedNarration() { return SemanticNarration.describeNearest(focused()); }
 
     public boolean requestFocus(UIComponent component) {
-        if (component == null || !component.isFocusable() || !belongsToActiveTree(component)) return false;
+        if (!isEffectivelyFocusable(component) || !belongsToActiveTree(component)) return false;
         FocusTrap top = traps.peek();
         if (top != null && !belongsToTree(component, top.trapRoot())) return false;
         setFocusedInternal(component);
@@ -90,7 +91,7 @@ public final class FocusManager {
     public void restoreFocus() {
         while (!focusHistory.isEmpty()) {
             UIComponent previous = focusHistory.pop();
-            if (previous.isVisible() && previous.isFocusable() && belongsToActiveTree(previous)) {
+            if (isEffectivelyFocusable(previous) && belongsToActiveTree(previous)) {
                 setFocusedInternal(previous);
                 return;
             }
@@ -126,9 +127,7 @@ public final class FocusManager {
     }
 
     private boolean validRestoreTarget(UIComponent component, FocusTrap parent) {
-        return component != null
-                && component.isVisible()
-                && component.isFocusable()
+        return isEffectivelyFocusable(component)
                 && belongsToActiveTree(component)
                 && (parent == null || belongsToTree(component, parent.trapRoot()));
     }
@@ -245,7 +244,7 @@ public final class FocusManager {
     }
 
     private void collect(UIComponent component, List<UIComponent> output) {
-        if (component == null || !component.isVisible()) return;
+        if (!isEffectivelyVisible(component)) return;
         if (component.isFocusable()) output.add(component);
         for (UIComponent child : component.children()) collect(child, output);
     }
@@ -255,6 +254,18 @@ public final class FocusManager {
         if (belongsToTree(component, root)) return true;
         for (UIComponent overlay : overlayRoots.get()) if (belongsToTree(component, overlay)) return true;
         return false;
+    }
+
+    private static boolean isEffectivelyFocusable(UIComponent component) {
+        return component != null && component.isFocusable() && isEffectivelyVisible(component);
+    }
+
+    private static boolean isEffectivelyVisible(UIComponent component) {
+        if (component == null) return false;
+        for (UIComponent cursor = component; cursor != null; cursor = cursor.parent()) {
+            if (!cursor.isVisible()) return false;
+        }
+        return true;
     }
 
     private static boolean belongsToTree(UIComponent component, UIComponent targetRoot) {
