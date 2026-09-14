@@ -173,6 +173,7 @@ public abstract class UIComponent {
 
     public final void unmount() {
         if (lifecycleState != LifecycleState.MOUNTED) return;
+        if (runtime != null) runtime.focus().onSubtreeDetaching(this);
         for (UIComponent child : children) child.unmount();
         onUnmount();
         runtime = null;

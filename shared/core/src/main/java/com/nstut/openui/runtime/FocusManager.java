@@ -31,8 +31,14 @@ public final class FocusManager {
 
     /** Returns the active focus target, clearing any stale detached reference defensively. */
     public UIComponent focused() {
-        if (focused != null && !belongsToActiveTree(focused)) setFocusedInternal(null);
+        if (focused != null && !isCurrentFocusValid(focused)) setFocusedInternal(null);
         return focused;
+    }
+
+    private boolean isCurrentFocusValid(UIComponent component) {
+        if (belongsToActiveTree(component)) return true;
+        FocusTrap top = traps.peek();
+        return top != null && belongsToTree(component, top.trapRoot());
     }
 
     /** Returns whether the current focus target is this component or one of its descendants. */
