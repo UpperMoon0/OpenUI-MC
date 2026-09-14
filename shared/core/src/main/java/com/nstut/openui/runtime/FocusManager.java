@@ -60,6 +60,14 @@ public final class FocusManager {
 
     public void clearFocus() { setFocusedInternal(null); }
 
+    /** Revalidates focus immediately after visibility/focusability changes while ancestry is intact. */
+    public void onFocusEligibilityChanged(UIComponent subtree) {
+        if (subtree == null || focused == null) return;
+        if (belongsToTree(focused, subtree) && !isEffectivelyFocusable(focused)) {
+            setFocusedInternal(null);
+        }
+    }
+
     /**
      * Framework lifecycle hook invoked while {@code subtree} is still attached.
      * Clears focus before ancestry is severed and removes stale history/trap references.

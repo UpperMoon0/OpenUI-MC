@@ -61,6 +61,7 @@ public abstract class UIComponent {
     public void setVisible(boolean v) {
         if (visible == v) return;
         this.visible = v;
+        if (!v && runtime != null) runtime.focus().onFocusEligibilityChanged(this);
         invalidateLayout();
     }
     public boolean isVisible() { return visible; }
@@ -205,7 +206,12 @@ public abstract class UIComponent {
     public void markPainted() { dirtyFlags.remove(DirtyFlag.PAINT); }
     public void markBuilt() { dirtyFlags.remove(DirtyFlag.BUILD); }
 
-    public UIComponent focusable(boolean focusable) { this.focusable = focusable; return this; }
+    public UIComponent focusable(boolean focusable) {
+        if (this.focusable == focusable) return this;
+        this.focusable = focusable;
+        if (!focusable && runtime != null) runtime.focus().onFocusEligibilityChanged(this);
+        return this;
+    }
     public boolean isFocusable() { return focusable && visible; }
     public boolean isFocused() { return runtime != null && runtime.focus().focused() == this; }
     /** True when this component or any descendant owns runtime focus. */
