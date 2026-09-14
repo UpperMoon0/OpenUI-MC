@@ -18,13 +18,35 @@ def allProjects = [
         'common-1.21.1', 'fabric-1.21.1', 'neoforge-1.21.1',
         'neoforge-26.1.2'
 ] as Set
+def consumerE2eTargets = [
+        'fabric-1.20.1', 'forge-1.20.1',
+        'fabric-1.21.1', 'neoforge-1.21.1',
+        'neoforge-26.1.2'
+] as Set
 def requestedTasks = gradle.startParameter.taskNames
 def targetedProjects = requestedTasks
         .findAll { it.startsWith(':') }
         .collect { it.split(':')[1] }
         .findAll { it in allProjects } as Set
-def needsWholeWorkspace = requestedTasks.isEmpty() || requestedTasks.any {
-    !it.startsWith(':') || it in ['buildAll', 'testAllVersions']
+
+def consumerE2eRequested = requestedTasks.any { it == 'consumerLiveJoinE2E' || it.endsWith(':consumerLiveJoinE2E') }
+if (consumerE2eRequested) {
+    def e2eTarget = gradle.startParameter.projectProperties['e2eTarget'] ?: 'fabric-1.20.1'
+    if (!(e2eTarget in consumerE2eTargets)) {
+        throw new GradleException("Unsupported consumer E2E target '${e2eTarget}'. Expected one of: ${consumerE2eTargets.sort().join(', ')}")
+    }
+    targetedProjects.add(e2eTarget)
+    // The pinned Simply Speakers shared source compiles against the matching
+    // Fabric OpenUI artifact even when the runtime target is Forge/NeoForge.
+    if (e2eTarget == 'forge-1.20.1') targetedProjects.add('fabric-1.20.1')
+    if (e2eTarget == 'neoforge-1.21.1') targetedProjects.add('fabric-1.21.1')
+}
+
+def wholeWorkspaceTasks = ['buildAll', 'testAllVersions'] as Set
+def rootTasksWithTargetedWorkspace = ['consumerLiveJoinE2E'] as Set
+def needsWholeWorkspace = requestedTasks.isEmpty() || requestedTasks.any { taskName ->
+    taskName in wholeWorkspaceTasks ||
+            (!taskName.startsWith(':') && !(taskName in rootTasksWithTargetedWorkspace))
 }
 
 def selected = [] as Set

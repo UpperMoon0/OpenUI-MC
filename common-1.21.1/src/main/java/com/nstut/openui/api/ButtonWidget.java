@@ -64,8 +64,17 @@ public class ButtonWidget extends UIComponent {
     public ButtonWidget radius(int radius) { this.customRadius = Math.max(0, radius); return this; }
     public ButtonWidget height(int height) { this.customHeight = Math.max(0, height); return this; }
     public ButtonWidget textColor(int color) { this.customTextColor = color; return this; }
-    public ButtonWidget enabled(boolean enabled) { this.enabled = enabled; return this; }
+    public ButtonWidget enabled(boolean enabled) {
+        if (this.enabled == enabled) return this;
+        this.enabled = enabled;
+        if (!enabled && runtime() != null) runtime().focus().onFocusEligibilityChanged(this);
+        invalidatePaint();
+        return this;
+    }
     public boolean isEnabled() { return enabled; }
+
+    @Override
+    public boolean isFocusable() { return enabled && super.isFocusable(); }
 
     public ButtonWidget size(Size size) { this.size = Objects.requireNonNull(size); invalidateLayout(); return this; }
     public ButtonWidget small() { return size(Size.SMALL); }
@@ -263,9 +272,16 @@ public class ButtonWidget extends UIComponent {
         return value <= 0.04045D ? value / 12.92D : Math.pow((value + 0.055D) / 1.055D, 2.4D);
     }
 
+    private boolean isEffectivelyVisibleForInput() {
+        for (UIComponent cursor = this; cursor != null; cursor = cursor.parent()) {
+            if (!cursor.isVisible()) return false;
+        }
+        return true;
+    }
+
     @Override
     public boolean mouseClicked(double mx, double my, int btn) {
-        boolean inBounds = visible && mx >= x && mx < x + width && my >= y && my < y + height;
+        boolean inBounds = isEffectivelyVisibleForInput() && mx >= x && mx < x + width && my >= y && my < y + height;
         if (enabled && btn == 0 && inBounds && onClick != null) {
             onClick.run();
             return true;
@@ -275,7 +291,7 @@ public class ButtonWidget extends UIComponent {
 
     @Override
     public boolean keyPressed(int key, int scanCode, int modifiers) {
-        if (enabled && (key == 257 || key == 32) && onClick != null) {
+        if (enabled && isEffectivelyVisibleForInput() && (key == 257 || key == 32) && onClick != null) {
             onClick.run();
             return true;
         }

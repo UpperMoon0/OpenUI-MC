@@ -1,5 +1,6 @@
 package com.nstut.openui.api;
 
+import com.nstut.openui.context.ContextKey;
 import com.nstut.openui.controls.AsyncComponent;
 import com.nstut.openui.controls.Badge;
 import com.nstut.openui.controls.BarChart;
@@ -33,10 +34,13 @@ import com.nstut.openui.controls.Toast;
 import com.nstut.openui.controls.Tooltip;
 import com.nstut.openui.controls.VirtualGrid;
 import com.nstut.openui.controls.VirtualList;
+import com.nstut.openui.declarative.DeclarativeChild;
 import com.nstut.openui.layout.Insets;
+import com.nstut.openui.semantics.Semantics;
 import com.nstut.openui.state.AsyncValue;
 import com.nstut.openui.state.ReadableSignal;
 import com.nstut.openui.state.Signal;
+import com.nstut.openui.style.StateStyle;
 import com.nstut.openui.theme.TextStyle;
 import com.nstut.openui.theme.Theme;
 import net.minecraft.client.gui.Font;
@@ -45,11 +49,46 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 public final class Ui {
     private Ui() { }
+
+    public static <T> ContextProvider provide(ContextKey<T> key, T value, UIComponent child) {
+        return new ContextProvider(key, value, child);
+    }
+
+    public static DeclarativeHost component(DeclarativeHost.Builder builder) {
+        return new DeclarativeHost(builder);
+    }
+
+    public static DeclarativeHost component(Supplier<? extends List<DeclarativeChild<UIComponent>>> builder) {
+        return new DeclarativeHost(builder);
+    }
+
+    @SafeVarargs
+    public static DeclarativeChild<UIComponent> node(
+            String type,
+            String key,
+            Supplier<? extends UIComponent> factory,
+            Consumer<? super UIComponent> update,
+            DeclarativeChild<UIComponent>... children) {
+        return new DeclarativeChild<>(type, key, factory, update, List.of(children));
+    }
+
+    @SafeVarargs
+    public static DeclarativeChild<UIComponent> node(
+            String type,
+            String key,
+            Supplier<? extends UIComponent> factory,
+            DeclarativeChild<UIComponent>... children) {
+        return new DeclarativeChild<>(type, key, factory, null, List.of(children));
+    }
+
+    public static StyledBox styled(StateStyle styles, UIComponent child) { return new StyledBox(styles, child); }
+    public static SemanticComponent semantic(Semantics semantics, UIComponent child) { return new SemanticComponent(semantics, child); }
 
     public static HStack row(UIComponent... children) { HStack row = new HStack(); for (UIComponent child : children) row.addChild(child); return row; }
     public static VStack column(UIComponent... children) { VStack column = new VStack(); for (UIComponent child : children) column.addChild(child); return column; }

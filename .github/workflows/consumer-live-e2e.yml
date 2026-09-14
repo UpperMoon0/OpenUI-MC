@@ -1,0 +1,52 @@
+name: Consumer Live E2E
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-join:
+    name: ${{ matrix.target }} live client/server join
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: fabric-1.20.1
+            java: '21'
+          - target: forge-1.20.1
+            java: '21'
+          - target: fabric-1.21.1
+            java: '21'
+          - target: neoforge-1.21.1
+            java: '21'
+          - target: neoforge-26.1.2
+            java: '25'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Java 21 for consumer Gradle
+        if: matrix.target == 'neoforge-26.1.2'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Capture consumer Gradle JVM
+        if: matrix.target == 'neoforge-26.1.2'
+        shell: bash
+        run: echo "CONSUMER_JAVA_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
+      - name: Set up candidate build Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: gradle
+      - name: Install virtual display
+        run: sudo apt-get update -o Acquire::Retries=3 && sudo apt-get install -y --no-install-recommends xvfb
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+      - name: Run real consumer live-join E2E
+        run: ./gradlew consumerLiveJoinE2E -Pe2eTarget=${{ matrix.target }} --no-daemon --console=plain

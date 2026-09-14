@@ -61,6 +61,7 @@ public abstract class UIComponent {
     public void setVisible(boolean v) {
         if (visible == v) return;
         this.visible = v;
+        if (!v && runtime != null) runtime.focus().onFocusEligibilityChanged(this);
         invalidateLayout();
     }
     public boolean isVisible() { return visible; }
@@ -172,6 +173,7 @@ public abstract class UIComponent {
 
     public final void unmount() {
         if (lifecycleState != LifecycleState.MOUNTED) return;
+        if (runtime != null) runtime.focus().onSubtreeDetaching(this);
         for (UIComponent child : children) child.unmount();
         onUnmount();
         runtime = null;
@@ -204,9 +206,16 @@ public abstract class UIComponent {
     public void markPainted() { dirtyFlags.remove(DirtyFlag.PAINT); }
     public void markBuilt() { dirtyFlags.remove(DirtyFlag.BUILD); }
 
-    public UIComponent focusable(boolean focusable) { this.focusable = focusable; return this; }
+    public UIComponent focusable(boolean focusable) {
+        if (this.focusable == focusable) return this;
+        this.focusable = focusable;
+        if (!focusable && runtime != null) runtime.focus().onFocusEligibilityChanged(this);
+        return this;
+    }
     public boolean isFocusable() { return focusable && visible; }
     public boolean isFocused() { return runtime != null && runtime.focus().focused() == this; }
+    /** True when this component or any descendant owns runtime focus. */
+    public boolean isFocusWithin() { return runtime != null && runtime.focus().isFocusWithin(this); }
     public void requestFocus() { if (runtime != null) runtime.focus().requestFocus(this); }
     public void clearFocus() { if (runtime != null && isFocused()) runtime.focus().clearFocus(); }
     public UIComponent theme(Theme theme) { if (java.util.Objects.equals(localTheme, theme)) return this; this.localTheme = theme; invalidateLayout(); return this; }
@@ -273,6 +282,12 @@ public abstract class UIComponent {
             runtime.dispatch(new UiEvent(EventType.BLUR, this));
         }
     }
+
+    /** Called when focus enters this component's descendant tree without focusing this component itself. */
+    public void onFocusWithinGained() { invalidatePaint(); }
+
+    /** Called when focus leaves this component's descendant tree. */
+    public void onFocusWithinLost() { invalidatePaint(); }
 
     public void preRender(int mx, int my) {
         if (!visible) return;

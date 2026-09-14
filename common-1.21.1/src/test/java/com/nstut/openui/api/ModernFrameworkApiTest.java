@@ -1,0 +1,396 @@
+package com.nstut.openui.api;
+
+import com.nstut.openui.component.DirtyFlag;
+import com.nstut.openui.context.ContextKey;
+import com.nstut.openui.debug.UiProfiler;
+import com.nstut.openui.declarative.DeclarativeChild;
+import com.nstut.openui.overlay.OverlayHandle;
+import com.nstut.openui.overlay.OverlayLayer;
+import com.nstut.openui.runtime.NativeWidgetHost;
+import com.nstut.openui.runtime.UiRuntime;
+import com.nstut.openui.semantics.SemanticNarration;
+import com.nstut.openui.semantics.Semantics;
+import com.nstut.openui.state.AsyncValue;
+import com.nstut.openui.state.Effect;
+import com.nstut.openui.state.ReadableSignal;
+import com.nstut.openui.state.Signal;
+import com.nstut.openui.state.Signals;
+import com.nstut.openui.state.UiScope;
+import com.nstut.openui.style.StateStyle;
+import com.nstut.openui.style.Style;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class ModernFrameworkApiTest {
+    private static final Executor DIRECT = Runnable::run;
+
+    @Test
+    void contextProviderUpdatesReactiveConsumers() {
+        ContextKey<String> key = ContextKey.create("service");
+        FixedComponent child = new FixedComponent(10, 5);
+        ContextProvider provider = Ui.provide(key, "one", child);
+        AtomicReference<String> observed = new AtomicReference<>();
+
+        try (Effect ignored = Signals.effect(() -> observed.set(Contexts.require(child, key)))) {
+            assertEquals("one", observed.get());
+            provider.value(key, "two");
+            assertEquals("two", observed.get());
+        }
+    }
+
+    @Test
+    void buildScopeSharesRememberedStateAndInheritedContextForOneMount() {
+        ContextKey<String> key = ContextKey.create("service");
+        FixedComponent child = new FixedComponent(10, 5);
+        Ui.provide(key, "inherited", child);
+        UiScope lifecycle = new UiScope();
+        UiBuildScope build = new UiBuildScope(lifecycle, child);
+
+        Signal<Integer> first = build.remember("count", 1);
+        first.set(7);
+        Signal<Integer> second = build.remember("count", 99);
+
+        assertSame(first, second);
+        assertEquals(7, second.get());
+        assertEquals("inherited", build.context(key));
+        assertEquals("inherited", build.findContext(key).orElseThrow());
+        lifecycle.close();
+    }
+
+    @Test
+    void buildScopeAsyncIsKeyedAndPublishesSuccessWithoutDuplicateWork() {
+        UiScope lifecycle = new UiScope();
+        UiBuildScope build = new UiBuildScope(lifecycle, new FixedComponent(1, 1));
+        AtomicInteger workCalls = new AtomicInteger();
+
+        ReadableSignal<AsyncValue<Integer>> first = build.async(
+                "profile", workCalls::incrementAndGet, DIRECT, DIRECT);
+        ReadableSignal<AsyncValue<Integer>> second = build.async(
+                "profile", workCalls::incrementAndGet, DIRECT, DIRECT);
+
+        assertSame(first, second);
+        assertEquals(1, workCalls.get());
+        assertEquals(AsyncValue.Status.SUCCESS, first.get().status());
+        assertEquals(1, first.get().value());
+        lifecycle.close();
+    }
+
+    @Test
+    void buildScopeAsyncPublishesOriginalFailure() {
+        UiScope lifecycle = new UiScope();
+        UiBuildScope build = new UiBuildScope(lifecycle, new FixedComponent(1, 1));
+        IllegalStateException expected = new IllegalStateException("boom");
+
+        ReadableSignal<AsyncValue<Integer>> state = build.async(
+                "failing",
+                () -> { throw expected; },
+                DIRECT,
+                DIRECT);
+
+        assertEquals(AsyncValue.Status.ERROR, state.get().status());
+        assertSame(expected, state.get().error());
+        lifecycle.close();
+    }
+
+    @Test
+    void semanticNarrationResolvesFromFocusedLeafToWrapper() {
+        FixedComponent child = new FixedComponent(10, 5);
+        SemanticComponent semantic = Ui.semantic(
+                Semantics.button().label("Buy item").build(), child);
+
+        assertSame(semantic, child.parent());
+        assertEquals("Buy item, button", SemanticNarration.describeNearest(child));
+        assertEquals(List.of("Buy item, button"), SemanticNarration.describeTree(semantic));
+    }
+
+    @Test
+    void styledBoxAppliesExplicitSizeConstraintsAndPadding() {
+        FixedComponent child = new FixedComponent(10, 5);
+        Style style = Style.builder()
+                .padding(2)
+                .margin(1)
+                .width(30)
+                .height(20)
+                .build();
+        StyledBox box = Ui.styled(StateStyle.of(style), child);
+
+        assertEquals(32, box.preferredWidth(null));
+        assertEquals(22, box.preferredHeight(null));
+        box.layout(4, 6, 100, 100);
+
+        assertEquals(32, box.getWidth());
+        assertEquals(22, box.getHeight());
+        assertEquals(7, child.getX());
+        assertEquals(9, child.getY());
+        assertEquals(26, child.getWidth());
+        assertEquals(16, child.getHeight());
+    }
+
+    @Test
+    void styledBoxFocusedVariantTracksFocusedDescendantAndInvalidatesLayout() {
+        FixedComponent child = new FixedComponent(10, 5);
+        child.focusable(true);
+        StateStyle styles = new StateStyle(
+                Style.builder().width(20).build(),
+                Style.EMPTY,
+                Style.builder().width(40).build(),
+                Style.EMPTY,
+                Style.EMPTY);
+        StyledBox box = Ui.styled(styles, child);
+        Font font = new Font(null, false);
+        NativeWidgetHost widgets = new NativeWidgetHost() {
+            @Override public void add(AbstractWidget widget) { }
+            @Override public void remove(AbstractWidget widget) { }
+        };
+        UiRuntime runtime = new UiRuntime(font, widgets);
+        try {
+            runtime.setRoot(box);
+            box.layoutTree(font, 0, 0, 100, 100);
+            assertEquals(20, box.preferredWidth(font));
+            assertFalse(box.isDirty(DirtyFlag.LAYOUT));
+
+            assertTrue(runtime.focus().requestFocus(child));
+            assertTrue(child.isFocused());
+            assertFalse(box.isFocused(), "styled wrapper must not become a second focus target");
+            assertTrue(box.isFocusWithin());
+            assertTrue(box.isDirty(DirtyFlag.LAYOUT), "focus-within transition must invalidate layout");
+            assertEquals(40, box.preferredWidth(font));
+
+            box.layoutTree(font, 0, 0, 100, 100);
+            runtime.focus().clearFocus();
+            assertFalse(box.isFocusWithin());
+            assertTrue(box.isDirty(DirtyFlag.LAYOUT), "leaving the subtree must invalidate layout");
+            assertEquals(20, box.preferredWidth(font));
+        } finally {
+            runtime.close();
+        }
+    }
+
+    @Test
+    void styledBoxStateTransitionsInvalidateLayoutForLayoutAffectingVariants() {
+        FixedComponent child = new FixedComponent(10, 5);
+        StateStyle styles = new StateStyle(
+                Style.EMPTY,
+                Style.builder().padding(4).build(),
+                Style.builder().width(40).build(),
+                Style.builder().margin(3).build(),
+                Style.builder().height(30).build());
+        StyledBox box = Ui.styled(styles, child);
+
+        box.layoutTree(null, 0, 0, 100, 100);
+        assertFalse(box.isDirty(DirtyFlag.LAYOUT));
+
+        box.pressed(true);
+        assertTrue(box.isDirty(DirtyFlag.LAYOUT));
+        box.layoutTree(null, 0, 0, 100, 100);
+
+        box.disabled(true);
+        assertTrue(box.isDirty(DirtyFlag.LAYOUT));
+        box.layoutTree(null, 0, 0, 100, 100);
+
+        box.onHoverEnter();
+        assertTrue(box.isDirty(DirtyFlag.LAYOUT));
+        box.layoutTree(null, 0, 0, 100, 100);
+
+        box.onFocusGained();
+        assertTrue(box.isDirty(DirtyFlag.LAYOUT));
+    }
+
+    @Test
+    void declarativeBuildAndReconcileAreCoalescedUntilFrameFlush() {
+        Signal<Integer> first = Signals.of(0);
+        Signal<Integer> second = Signals.of(0);
+        AtomicInteger builds = new AtomicInteger();
+        DeclarativeHost host = new DeclarativeHost(scope -> {
+            builds.incrementAndGet();
+            first.get();
+            second.get();
+            return List.of(new DeclarativeChild<>(
+                    "fixed", "child", () -> new FixedComponent(1, 1), ignored -> { }));
+        });
+        host.profiler().enabled(true);
+
+        Font font = new Font(null, false);
+        NativeWidgetHost widgets = new NativeWidgetHost() {
+            @Override public void add(AbstractWidget widget) { }
+            @Override public void remove(AbstractWidget widget) { }
+        };
+        UiRuntime runtime = new UiRuntime(font, widgets);
+        try {
+            runtime.setRoot(host);
+            assertEquals(0, builds.get(), "initial build should wait for the frame scheduler");
+            host.preferredWidth(font);
+            assertEquals(1, builds.get());
+            assertEquals(1, phaseCount(host, UiProfiler.Phase.BUILD));
+            assertEquals(1, phaseCount(host, UiProfiler.Phase.RECONCILE));
+
+            first.set(1);
+            second.set(1);
+            assertEquals(1, builds.get(), "signal writes must not rebuild synchronously");
+
+            host.preferredWidth(font);
+            assertEquals(2, builds.get(), "two writes in one frame must coalesce to one rebuild");
+            assertEquals(2, phaseCount(host, UiProfiler.Phase.BUILD));
+            assertEquals(2, phaseCount(host, UiProfiler.Phase.RECONCILE));
+        } finally {
+            runtime.close();
+        }
+    }
+
+    @Test
+    void reconcileKeyCannotSuppressReactiveRebuildQueuedLaterInSameFlush() {
+        Signal<Integer> shared = Signals.of(0);
+        AtomicInteger hostABuilds = new AtomicInteger();
+        AtomicInteger hostBBuilds = new AtomicInteger();
+        AtomicInteger triggerOnce = new AtomicInteger();
+
+        DeclarativeHost hostA = new DeclarativeHost(scope -> {
+            hostABuilds.incrementAndGet();
+            shared.get();
+            return List.of(new DeclarativeChild<>(
+                    "fixed", "a", () -> new FixedComponent(1, 1), ignored -> { }));
+        });
+        hostA.profiler().enabled(true);
+        DeclarativeHost hostB = new DeclarativeHost(scope -> {
+            hostBBuilds.incrementAndGet();
+            if (triggerOnce.getAndIncrement() == 0) shared.set(1);
+            return List.of(new DeclarativeChild<>(
+                    "fixed", "b", () -> new FixedComponent(1, 1), ignored -> { }));
+        });
+
+        FixedComponent root = new FixedComponent(1, 1);
+        root.addChild(hostA);
+        root.addChild(hostB);
+        Font font = new Font(null, false);
+        NativeWidgetHost widgets = new NativeWidgetHost() {
+            @Override public void add(AbstractWidget widget) { }
+            @Override public void remove(AbstractWidget widget) { }
+        };
+        UiRuntime runtime = new UiRuntime(font, widgets);
+        try {
+            runtime.setRoot(root);
+            hostA.preferredWidth(font);
+
+            assertEquals(2, hostABuilds.get(),
+                    "Host A must rebuild after Host B invalidates its shared dependency in the same flush");
+            assertEquals(1, hostBBuilds.get());
+            assertEquals(2, phaseCount(hostA, UiProfiler.Phase.BUILD));
+            assertEquals(2, phaseCount(hostA, UiProfiler.Phase.RECONCILE),
+                    "the fresh Host A build must also reconcile instead of leaving stale pending state");
+        } finally {
+            runtime.close();
+        }
+    }
+
+    @Test
+    void sameRuntimeOverlayRemountGetsFreshInitialBuild() {
+        AtomicInteger builds = new AtomicInteger();
+        DeclarativeHost host = new DeclarativeHost(scope -> {
+            builds.incrementAndGet();
+            return List.of(new DeclarativeChild<>(
+                    "fixed", "child", () -> new FixedComponent(1, 1), ignored -> { }));
+        });
+        host.profiler().enabled(true);
+
+        Font font = new Font(null, false);
+        NativeWidgetHost widgets = new NativeWidgetHost() {
+            @Override public void add(AbstractWidget widget) { }
+            @Override public void remove(AbstractWidget widget) { }
+        };
+        UiRuntime runtime = new UiRuntime(font, widgets);
+        try {
+            OverlayHandle first = runtime.overlays().show(OverlayLayer.POPOVER, host);
+            first.close();
+            runtime.overlays().show(OverlayLayer.POPOVER, host);
+
+            assertEquals(0, builds.get(), "both initial effects should still be queued before the frame flush");
+            host.preferredWidth(font);
+
+            assertEquals(1, builds.get(), "the remounted host must execute its own initial build");
+            assertEquals(1, phaseCount(host, UiProfiler.Phase.BUILD));
+            assertEquals(1, phaseCount(host, UiProfiler.Phase.RECONCILE));
+        } finally {
+            runtime.close();
+        }
+    }
+
+    @Test
+    void staleReconcileFromPreviousMountCannotRunAgainstRemount() {
+        AtomicInteger hostABuilds = new AtomicInteger();
+        AtomicInteger hostBBuilds = new AtomicInteger();
+        AtomicInteger childCreations = new AtomicInteger();
+        AtomicReference<OverlayHandle> firstHandle = new AtomicReference<>();
+        AtomicInteger remountOnce = new AtomicInteger();
+
+        DeclarativeHost hostA = new DeclarativeHost(scope -> {
+            int build = hostABuilds.incrementAndGet();
+            return List.of(new DeclarativeChild<>(
+                    "fixed", "a-" + build,
+                    () -> {
+                        childCreations.incrementAndGet();
+                        return new FixedComponent(1, 1);
+                    },
+                    ignored -> { }));
+        });
+        hostA.profiler().enabled(true);
+
+        Font font = new Font(null, false);
+        NativeWidgetHost widgets = new NativeWidgetHost() {
+            @Override public void add(AbstractWidget widget) { }
+            @Override public void remove(AbstractWidget widget) { }
+        };
+        UiRuntime runtime = new UiRuntime(font, widgets);
+        DeclarativeHost hostB = new DeclarativeHost(scope -> {
+            hostBBuilds.incrementAndGet();
+            if (remountOnce.getAndIncrement() == 0) {
+                firstHandle.get().close();
+                runtime.overlays().show(OverlayLayer.POPOVER, hostA);
+            }
+            return List.of();
+        });
+
+        try {
+            firstHandle.set(runtime.overlays().show(OverlayLayer.POPOVER, hostA));
+            runtime.overlays().show(OverlayLayer.POPOVER, hostB);
+            hostA.preferredWidth(font);
+
+            assertEquals(2, hostABuilds.get(), "each mount must perform its own initial build");
+            assertEquals(1, hostBBuilds.get());
+            assertEquals(2, phaseCount(hostA, UiProfiler.Phase.BUILD));
+            assertEquals(1, phaseCount(hostA, UiProfiler.Phase.RECONCILE),
+                    "only the active mount may reconcile; stale previous-mount pending state must be ignored");
+            assertEquals(1, childCreations.get(),
+                    "the previous mount must not create or reconcile retained children after remount");
+            assertEquals(1, hostA.children().size());
+        } finally {
+            runtime.close();
+        }
+    }
+
+    private static long phaseCount(DeclarativeHost host, UiProfiler.Phase phase) {
+        return host.profiler().trace().stream().filter(entry -> entry.phase() == phase).count();
+    }
+
+    private static final class FixedComponent extends UIComponent {
+        private final int preferredWidth;
+        private final int preferredHeight;
+
+        private FixedComponent(int preferredWidth, int preferredHeight) {
+            this.preferredWidth = preferredWidth;
+            this.preferredHeight = preferredHeight;
+        }
+
+        @Override public int preferredWidth(Font font) { return preferredWidth; }
+        @Override public int preferredHeight(Font font) { return preferredHeight; }
+        @Override public void render(GuiGraphics g, Font font, int mx, int my, float pt) { }
+    }
+}

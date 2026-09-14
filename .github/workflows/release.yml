@@ -78,11 +78,11 @@ jobs:
       - run: ./gradlew checkLegacySourceParity :common-1.20.1:test :common-1.21.1:test
 
   consumer-binary-smoke:
-    name: Simply Speakers 0.0.7 binary compatibility
+    name: Simply Speakers released binary compatibility
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
-      - name: Checkout OpenUI 0.0.9 candidate
+      - name: Checkout candidate OpenUI
         uses: actions/checkout@v4
         with:
           path: openui-candidate
@@ -134,13 +134,15 @@ jobs:
             :fabric-1.20.1:publishToMavenLocal --no-daemon
           ./simply-speakers/gradlew -p simply-speakers \
             :fabric-1.20.1:classes --no-daemon
-      - name: Install OpenUI 0.0.9 without recompiling consumer
+      - name: Install candidate OpenUI without recompiling consumer
         shell: bash
         run: |
           ./openui-candidate/gradlew -p openui-candidate \
             :common-1.20.1:publishToMavenLocal \
             :fabric-1.20.1:publishToMavenLocal --no-daemon
-          sed -i 's/^openui_version[[:space:]]*=.*/openui_version = 0.0.9/' simply-speakers/gradle.properties
+          candidate_version="$(sed -n 's/^mod_version[[:space:]]*=[[:space:]]*//p' openui-candidate/gradle.properties | head -n1 | tr -d '\r' | xargs)"
+          test -n "$candidate_version"
+          sed -i "s/^openui_version[[:space:]]*=.*/openui_version = ${candidate_version}/" simply-speakers/gradle.properties
           sed -i '/"-Dorg.gradle.jvmargs=-Xmx2048m",/a\        "-x", ":common-1.20.1:compileJava", "-x", ":fabric-1.20.1:compileJava",' \
             simply-speakers/tools/live_join_test.py
       - name: Add CC:Tweaked API shim for optional linkage
@@ -186,7 +188,7 @@ jobs:
             simply-speakers/fabric-1.20.1/run/live-join/client/mods/
           cp "$shim_root/openui-cc-api-shim.jar" \
             simply-speakers/fabric-1.20.1/run/live-join/server/mods/
-      - name: Boot precompiled consumer with OpenUI 0.0.9
+      - name: Boot precompiled consumer with candidate OpenUI
         working-directory: simply-speakers
         run: python3 tools/live_join_test.py --target fabric-1.20.1
 
@@ -237,10 +239,14 @@ jobs:
             !${{ matrix.project }}/build/libs/*-dev-shadow.jar
           if-no-files-found: error
 
+  consumer-live-e2e:
+    name: Consumer real client/server compatibility
+    uses: ./.github/workflows/consumer-live-e2e.yml
+
   publish-curseforge:
     name: Publish ${{ matrix.platform }} ${{ matrix.version }} to CurseForge
     if: needs.release-gate.outputs.should_release == 'true'
-    needs: [release-gate, test-common, consumer-binary-smoke, build]
+    needs: [release-gate, test-common, consumer-binary-smoke, build, consumer-live-e2e]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -383,7 +389,7 @@ jobs:
   publish-github-release:
     name: Publish GitHub Release
     if: needs.release-gate.outputs.should_release == 'true'
-    needs: [release-gate, test-common, consumer-binary-smoke, build]
+    needs: [release-gate, test-common, consumer-binary-smoke, build, consumer-live-e2e]
     runs-on: ubuntu-latest
     permissions:
       contents: write
