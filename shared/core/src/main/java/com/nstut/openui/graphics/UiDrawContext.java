@@ -16,8 +16,16 @@ public interface UiDrawContext {
         SurfacePainter.paint(this::fill, x, y, width, height, style);
     }
     void fill(int x, int y, int width, int height, int color);
-    void roundedRect(int x, int y, int width, int height, int radius, int color);
-    void roundedOutline(int x, int y, int width, int height, int radius, int fillColor, int borderColor);
+
+    /** Draws a rounded rectangle as disjoint fills so translucent pixels are composited exactly once. */
+    default void roundedRect(int x, int y, int width, int height, int radius, int color) {
+        RoundedGeometry.paintRounded(this::fill, x, y, width, height, radius, color);
+    }
+
+    /** Draws the traditional one-pixel rounded outline without painting border color under the fill. */
+    default void roundedOutline(int x, int y, int width, int height, int radius, int fillColor, int borderColor) {
+        roundedOutline(x, y, width, height, radius, 1, fillColor, borderColor);
+    }
 
     /** Draws a rounded outline with an explicit border width using stable, disjoint primitives. */
     default void roundedOutline(

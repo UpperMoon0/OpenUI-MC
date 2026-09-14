@@ -30,8 +30,8 @@ public final class UiCanvas implements UiDrawContext {
         if (width <= 0 || height <= 0) return;
         graphics.fill(x, y, x + width, y + height, color);
     }
-    public void roundedRect(int x, int y, int width, int height, int radius, int color) { UiRender.roundedRect(graphics, x, y, width, height, radius, color); }
-    public void roundedOutline(int x, int y, int width, int height, int radius, int fillColor, int borderColor) { UiRender.roundedOutline(graphics, x, y, width, height, radius, fillColor, borderColor); }
+    public void roundedRect(int x, int y, int width, int height, int radius, int color) { UiDrawContext.super.roundedRect(x, y, width, height, radius, color); }
+    public void roundedOutline(int x, int y, int width, int height, int radius, int fillColor, int borderColor) { UiDrawContext.super.roundedOutline(x, y, width, height, radius, fillColor, borderColor); }
     public void surface(int x, int y, int width, int height, int radius, int fillColor, int borderColor, boolean elevated) { UiRender.surface(graphics, x, y, width, height, radius, fillColor, borderColor, elevated); }
     public void shadow(int x, int y, int width, int height, int radius) { UiRender.shadow(graphics, x, y, width, height, radius); }
 

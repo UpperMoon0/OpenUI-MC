@@ -32,11 +32,11 @@ public final class UiCanvas implements UiDrawContext {
     }
 
     public void roundedRect(int x, int y, int width, int height, int radius, int color) {
-        UiRender.roundedRect(graphics, x, y, width, height, radius, color);
+        UiDrawContext.super.roundedRect(x, y, width, height, radius, color);
     }
 
     public void roundedOutline(int x, int y, int width, int height, int radius, int fillColor, int borderColor) {
-        UiRender.roundedOutline(graphics, x, y, width, height, radius, fillColor, borderColor);
+        UiDrawContext.super.roundedOutline(x, y, width, height, radius, fillColor, borderColor);
     }
 
     public void surface(int x, int y, int width, int height, int radius, int fillColor, int borderColor, boolean elevated) {

@@ -1,6 +1,9 @@
 package com.nstut.openui.graphics;
 
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class SurfacePainterTest {
@@ -59,9 +62,60 @@ class SurfacePainterTest {
         assertEquals(1, hits[0][7], "Expected left border pixel");
     }
 
+    @Test void ordinaryRoundedPrimitivesNeverEmitTheSamePixelTwice() {
+        for (int w = 1; w <= 24; w++) for (int h = 1; h <= 24; h++) {
+            RecordingContext rect = new RecordingContext(w, h);
+            rect.roundedRect(0, 0, w, h, 7, 0x80408040);
+
+            RecordingContext outline = new RecordingContext(w, h);
+            outline.roundedOutline(0, 0, w, h, 7, 0x80204020, 0x80FFFFFF);
+        }
+    }
+
     private static int drawCalls(int width, int height, SurfaceStyle style) {
         int[] calls = {0};
         SurfacePainter.paint((x, y, w, h, color) -> calls[0]++, 0, 0, width, height, style);
         return calls[0];
+    }
+
+    private static final class RecordingContext implements UiDrawContext {
+        private final int width;
+        private final int height;
+        private final int[][] hits;
+
+        private RecordingContext(int width, int height) {
+            this.width = width;
+            this.height = height;
+            this.hits = new int[width][height];
+        }
+
+        @Override public int width() { return width; }
+        @Override public int height() { return height; }
+
+        @Override
+        public void fill(int x, int y, int w, int h, int color) {
+            assertTrue(w > 0 && h > 0, "fill must have positive bounds");
+            assertTrue(x >= 0 && y >= 0 && x + w <= width && y + h <= height,
+                    "fill escaped primitive bounds");
+            for (int xx = x; xx < x + w; xx++) for (int yy = y; yy < y + h; yy++) {
+                assertEquals(1, ++hits[xx][yy], "Alpha overdraw at " + xx + "," + yy);
+            }
+        }
+
+        @Override public void surface(int x, int y, int width, int height, int radius, int fillColor, int borderColor, boolean elevated) { }
+        @Override public void shadow(int x, int y, int width, int height, int radius) { }
+        @Override public void text(Component text, int x, int y, int color, boolean shadow) { }
+        @Override public void text(String text, int x, int y, int color, boolean shadow) { }
+        @Override public void texture(UiTexture texture, int x, int y, int u, int v, int width, int height,
+                                      int srcWidth, int srcHeight, int textureWidth, int textureHeight) { }
+        @Override public void renderItem(ItemStack stack, int x, int y) { }
+        @Override public void tooltip(Component text, int mouseX, int mouseY, int boundsX, int boundsY,
+                                      int boundsWidth, int boundsHeight) { }
+        @Override public void pushClip(int x, int y, int width, int height) { }
+        @Override public void popClip() { }
+        @Override public void pushTransform() { }
+        @Override public void translate(float dx, float dy) { }
+        @Override public void scale(float sx, float sy) { }
+        @Override public void popTransform() { }
     }
 }

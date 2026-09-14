@@ -29,15 +29,19 @@ public final class FocusManager {
         this.overlayRoots = overlayRoots != null ? overlayRoots : List::of;
     }
 
-    public UIComponent focused() { return focused; }
+    /** Returns the active focus target, clearing any stale detached reference defensively. */
+    public UIComponent focused() {
+        if (focused != null && !belongsToActiveTree(focused)) setFocusedInternal(null);
+        return focused;
+    }
 
     /** Returns whether the current focus target is this component or one of its descendants. */
     public boolean isFocusWithin(UIComponent component) {
-        return component != null && belongsToTree(focused, component);
+        return component != null && belongsToTree(focused(), component);
     }
 
     /** Narration for the nearest semantic ancestor of the current focus target. */
-    public String focusedNarration() { return SemanticNarration.describeNearest(focused); }
+    public String focusedNarration() { return SemanticNarration.describeNearest(focused()); }
 
     public boolean requestFocus(UIComponent component) {
         if (component == null || !component.isFocusable() || !belongsToActiveTree(component)) return false;
@@ -49,9 +53,31 @@ public final class FocusManager {
 
     public void clearFocus() { setFocusedInternal(null); }
 
+    /**
+     * Framework lifecycle hook invoked while {@code subtree} is still attached.
+     * Clears focus before ancestry is severed and removes stale history/trap references.
+     */
+    public void onSubtreeDetaching(UIComponent subtree) {
+        if (subtree == null) return;
+        if (belongsToTree(focused, subtree)) setFocusedInternal(null);
+        focusHistory.removeIf(component -> belongsToTree(component, subtree));
+        if (traps.isEmpty()) return;
+
+        List<FocusTrap> frames = new ArrayList<>(traps.size());
+        for (FocusTrap trap : traps) {
+            if (belongsToTree(trap.trapRoot(), subtree)) continue;
+            UIComponent previous = trap.previousFocus();
+            if (belongsToTree(previous, subtree)) previous = null;
+            frames.add(new FocusTrap(trap.trapRoot(), previous));
+        }
+        traps.clear();
+        for (int i = frames.size() - 1; i >= 0; i--) traps.push(frames.get(i));
+    }
+
     /** Compatibility API retained from 0.0.7: remembers the current focus for later restoration. */
     public void pushFocus() {
-        if (focused != null) focusHistory.push(focused);
+        UIComponent current = focused();
+        if (current != null) focusHistory.push(current);
     }
 
     /** Compatibility API retained from 0.0.7 with its original restoration semantics. */
@@ -68,7 +94,7 @@ public final class FocusManager {
 
     public void trapFocus(UIComponent trapRoot) {
         if (trapRoot == null) return;
-        traps.push(new FocusTrap(trapRoot, focused));
+        traps.push(new FocusTrap(trapRoot, focused()));
         List<UIComponent> focusable = new ArrayList<>();
         collect(trapRoot, focusable);
         setFocusedInternal(focusable.isEmpty() ? null : focusable.get(0));
@@ -137,7 +163,7 @@ public final class FocusManager {
     public boolean focusDirection(SpatialNavigation.Direction direction) {
         List<UIComponent> focusable = activeFocusable();
         if (focusable.isEmpty()) return false;
-        UIComponent current = focused;
+        UIComponent current = focused();
         if (current == null || !focusable.contains(current)) {
             setFocusedInternal(focusable.get(0));
             return true;
@@ -150,7 +176,7 @@ public final class FocusManager {
     private boolean move(int direction) {
         List<UIComponent> focusable = activeFocusable();
         if (focusable.isEmpty()) return false;
-        int current = focusable.indexOf(focused);
+        int current = focusable.indexOf(focused());
         int next = current < 0
                 ? (direction > 0 ? 0 : focusable.size() - 1)
                 : Math.floorMod(current + direction, focusable.size());
@@ -176,27 +202,40 @@ public final class FocusManager {
     private void setFocusedInternal(UIComponent next) {
         if (this.focused == next) return;
         UIComponent prev = this.focused;
+        List<UIComponent> previousAncestors = ancestors(prev);
+        List<UIComponent> nextAncestors = ancestors(next);
         this.focused = next;
         if (prev != null) prev.onFocusLost();
-        notifyFocusWithinLost(prev, next);
+        notifyFocusWithinLost(previousAncestors, nextAncestors);
         if (next != null) next.onFocusGained();
-        notifyFocusWithinGained(prev, next);
+        notifyFocusWithinGained(previousAncestors, nextAncestors);
     }
 
-    private static void notifyFocusWithinLost(UIComponent previous, UIComponent next) {
-        for (UIComponent cursor = previous != null ? previous.parent() : null;
+    private static List<UIComponent> ancestors(UIComponent component) {
+        List<UIComponent> result = new ArrayList<>();
+        for (UIComponent cursor = component != null ? component.parent() : null;
              cursor != null;
              cursor = cursor.parent()) {
-            if (!belongsToTree(next, cursor)) cursor.onFocusWithinLost();
+            result.add(cursor);
+        }
+        return result;
+    }
+
+    private static void notifyFocusWithinLost(List<UIComponent> previousAncestors, List<UIComponent> nextAncestors) {
+        for (UIComponent cursor : previousAncestors) {
+            if (!containsIdentity(nextAncestors, cursor)) cursor.onFocusWithinLost();
         }
     }
 
-    private static void notifyFocusWithinGained(UIComponent previous, UIComponent next) {
-        for (UIComponent cursor = next != null ? next.parent() : null;
-             cursor != null;
-             cursor = cursor.parent()) {
-            if (!belongsToTree(previous, cursor)) cursor.onFocusWithinGained();
+    private static void notifyFocusWithinGained(List<UIComponent> previousAncestors, List<UIComponent> nextAncestors) {
+        for (UIComponent cursor : nextAncestors) {
+            if (!containsIdentity(previousAncestors, cursor)) cursor.onFocusWithinGained();
         }
+    }
+
+    private static boolean containsIdentity(List<UIComponent> components, UIComponent candidate) {
+        for (UIComponent component : components) if (component == candidate) return true;
+        return false;
     }
 
     private void collect(UIComponent component, List<UIComponent> output) {
