@@ -64,8 +64,17 @@ public class ButtonWidget extends UIComponent {
     public ButtonWidget radius(int radius) { this.customRadius = Math.max(0, radius); return this; }
     public ButtonWidget height(int height) { this.customHeight = Math.max(0, height); return this; }
     public ButtonWidget textColor(int color) { this.customTextColor = color; return this; }
-    public ButtonWidget enabled(boolean enabled) { this.enabled = enabled; return this; }
+    public ButtonWidget enabled(boolean enabled) {
+        if (this.enabled == enabled) return this;
+        this.enabled = enabled;
+        if (!enabled && runtime() != null) runtime().focus().onFocusEligibilityChanged(this);
+        invalidatePaint();
+        return this;
+    }
     public boolean isEnabled() { return enabled; }
+
+    @Override
+    public boolean isFocusable() { return enabled && super.isFocusable(); }
 
     public ButtonWidget size(Size size) { this.size = Objects.requireNonNull(size); invalidateLayout(); return this; }
     public ButtonWidget small() { return size(Size.SMALL); }

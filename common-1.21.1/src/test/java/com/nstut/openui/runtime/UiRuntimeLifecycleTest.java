@@ -3,8 +3,10 @@ package com.nstut.openui.runtime;
 import com.nstut.openui.api.ButtonWidget;
 import com.nstut.openui.api.DeclarativeHost;
 import com.nstut.openui.api.UIComponent;
+import com.nstut.openui.api.Ui;
 import com.nstut.openui.declarative.DeclarativeChild;
 import com.nstut.openui.declarative.DeclarativeTree;
+import com.nstut.openui.input.SpatialNavigation;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -229,6 +231,81 @@ class UiRuntimeLifecycleTest {
         }
     }
 
+    @Test
+    void disablingFocusedButtonClearsFocusAndRestoresRootKeyboardRouting() {
+        RootKeyCapture root = new RootKeyCapture();
+        AtomicInteger clicks = new AtomicInteger();
+        ButtonWidget button = new ButtonWidget("Disable me").onPress(clicks::incrementAndGet);
+        root.addChild(button);
+        UiRuntime runtime = runtime();
+        try {
+            runtime.setRoot(root);
+            assertTrue(runtime.focus().requestFocus(button));
+
+            button.enabled(false);
+
+            assertFalse(button.isFocusable());
+            assertNull(runtime.focus().focused());
+            assertTrue(runtime.keyPressed(82, 0, 0), "unfocused keyboard routing should return to the root");
+            assertEquals(1, root.keyPresses);
+            assertEquals(0, clicks.get());
+        } finally {
+            runtime.close();
+        }
+    }
+
+    @Test
+    void tabAndSpatialNavigationSkipDisabledButtons() {
+        ButtonWidget first = new ButtonWidget("First");
+        ButtonWidget disabled = new ButtonWidget("Disabled").enabled(false);
+        ButtonWidget last = new ButtonWidget("Last");
+        UIComponent row = Ui.row(first, disabled, last);
+        row.layoutTree(new Font(null, false), 0, 0, 300, 40);
+
+        FocusManager focus = new FocusManager();
+        focus.setRoot(row);
+
+        assertTrue(focus.focusNext());
+        assertSame(first, focus.focused());
+        assertTrue(focus.focusNext());
+        assertSame(last, focus.focused(), "Tab navigation must skip disabled buttons");
+        assertFalse(focus.requestFocus(disabled), "disabled buttons must reject direct focus requests");
+
+        assertTrue(focus.requestFocus(first));
+        assertTrue(focus.focusDirection(SpatialNavigation.Direction.RIGHT));
+        assertSame(last, focus.focused(), "spatial navigation must skip disabled buttons");
+    }
+
+    @Test
+    void modalFocusTrapSkipsDisabledButtons() {
+        ButtonWidget disabled = new ButtonWidget("Disabled").enabled(false);
+        ButtonWidget enabled = new ButtonWidget("Enabled");
+        UIComponent modal = Ui.column(disabled, enabled);
+        FocusManager focus = new FocusManager();
+
+        focus.trapFocus(modal);
+
+        assertSame(enabled, focus.focused(), "focus traps must select the first enabled focusable control");
+        focus.untrapFocus(modal);
+    }
+
+    @Test
+    void clickingDisabledButtonDoesNotFocusOrActivateIt() {
+        AtomicInteger clicks = new AtomicInteger();
+        ButtonWidget button = new ButtonWidget("Disabled").onPress(clicks::incrementAndGet).enabled(false);
+        UiRuntime runtime = runtime();
+        try {
+            runtime.setRoot(button);
+            runtime.setViewport(0, 0, 120, 30);
+
+            assertFalse(runtime.mouseClicked(10, 10, 0));
+            assertNull(runtime.focus().focused());
+            assertEquals(0, clicks.get());
+        } finally {
+            runtime.close();
+        }
+    }
+
     private static UiRuntime runtime() {
         Font font = new Font(null, false);
         NativeWidgetHost widgets = new NativeWidgetHost() {
@@ -255,6 +332,15 @@ class UiRuntimeLifecycleTest {
         void reorderChildren(List<UIComponent> ordered) {
             children.clear();
             children.addAll(ordered);
+        }
+    }
+
+    private static final class RootKeyCapture extends FixedComponent {
+        int keyPresses;
+
+        @Override public boolean keyPressed(int key, int scanCode, int modifiers) {
+            keyPresses++;
+            return true;
         }
     }
 
