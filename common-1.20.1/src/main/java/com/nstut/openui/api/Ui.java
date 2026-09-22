@@ -104,10 +104,25 @@ public final class Ui {
     public static Spacer spacer() { return new Spacer(); }
     public static Divider divider() { return new Divider(); }
 
-    public static TextWidget text(String text) { return new TextWidget(text); }
-    public static TextWidget text(Component text) { return new TextWidget(text); }
-    public static TextWidget text(Supplier<Component> text) { return new TextWidget(text); }
-    public static SignalText text(ReadableSignal<String> text) { return new SignalText(text); }
+    /**
+     * Creates normal body text. Body text wraps naturally when width-constrained and grows
+     * vertically to fit. Compact single-line labels should opt out with
+     * {@link TextWidget#nowrap()} and choose {@link TextWidget#ellipsis()} or
+     * {@link TextWidget#marquee()} explicitly.
+     */
+    public static TextWidget text(String text) { return bodyText(new TextWidget(text)); }
+    public static TextWidget text(Component text) { return bodyText(new TextWidget(text)); }
+    public static TextWidget text(Supplier<Component> text) { return bodyText(new TextWidget(text)); }
+    public static SignalText text(ReadableSignal<String> text) {
+        SignalText widget = new SignalText(text);
+        bodyText(widget);
+        return widget;
+    }
+
+    private static <T extends TextWidget> T bodyText(T widget) {
+        widget.wrap().ellipsis(false);
+        return widget;
+    }
     public static TextWidget heading(String text) { return new TextWidget(text).style(TextStyle.HEADING); }
     public static TextWidget heading(Component text) { return new TextWidget(text).style(TextStyle.HEADING); }
     public static TextWidget title(String text) { return new TextWidget(text).style(TextStyle.TITLE); }

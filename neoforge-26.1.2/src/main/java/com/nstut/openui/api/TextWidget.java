@@ -97,6 +97,11 @@ public class TextWidget extends UIComponent {
         return this;
     }
 
+    /** Keeps this text on a single line. Pair with {@link #ellipsis()} or {@link #marquee()} when overflow is possible. */
+    public TextWidget nowrap() {
+        return wrap(false);
+    }
+
     public TextWidget maxLines(int maxLines) {
         this.maxLines = Math.max(1, maxLines);
         invalidateLayout();
