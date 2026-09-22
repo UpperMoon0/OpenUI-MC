@@ -11,6 +11,17 @@ import java.util.List;
 import java.util.Objects;
 
 public final class OverlayManager implements AutoCloseable {
+    // Minecraft GUI item rendering adds +150 Z internally. Keep overlay planes far
+    // enough apart that native-rendered contents from a lower overlay cannot punch
+    // through a later dropdown/popover/tooltip.
+    static final int OVERLAY_BASE_Z = 300;
+    static final int OVERLAY_Z_STRIDE = 512;
+
+    @FunctionalInterface
+    interface OverlayPlaneRenderer<T> {
+        void render(T entry, int z);
+    }
+
     private final UiRuntime runtime;
     private final List<Entry> entries = new ArrayList<>();
 
@@ -110,8 +121,7 @@ public final class OverlayManager implements AutoCloseable {
     }
 
     public void render(GuiGraphics graphics, Font font, int mouseX, int mouseY, float partialTick) {
-        int z = 300;
-        for (Entry entry : List.copyOf(entries)) {
+        renderPlanes(List.copyOf(entries), (entry, z) -> {
             graphics.pose().pushPose();
             graphics.pose().translate(0, 0, z);
             try {
@@ -124,7 +134,14 @@ public final class OverlayManager implements AutoCloseable {
             } finally {
                 graphics.pose().popPose();
             }
-            z += 50;
+        });
+    }
+
+    static <T> void renderPlanes(List<T> orderedEntries, OverlayPlaneRenderer<T> renderer) {
+        int z = OVERLAY_BASE_Z;
+        for (T entry : orderedEntries) {
+            renderer.render(entry, z);
+            z += OVERLAY_Z_STRIDE;
         }
     }
 

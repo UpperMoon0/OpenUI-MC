@@ -50,6 +50,8 @@ Set `openui_version` to the release you use. For Forge 1.20.1, wrap the coordina
 
 High-level components own their layout, clipping, and semantic contrast. Custom `UiRender` code remains available when a screen needs exact Minecraft-native rendering; consumers using that escape hatch are responsible for bounds, clipping, contrast, and native slot collision avoidance.
 
+Normal `Ui.text(...)` body text wraps when width-constrained and measures its multi-line height automatically. Use `.nowrap().ellipsis()` for compact one-line labels, or `.nowrap().marquee()` when the full label should remain readable via ping-pong scrolling.
+
 Create a screen by returning one component tree:
 
 ```java
