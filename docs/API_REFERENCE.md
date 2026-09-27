@@ -24,7 +24,7 @@ This is a practical catalog of the public framework surface. The canonical signa
 - `Ui.grid(items, renderer)` / `DynamicGrid`: responsive repeated cards.
 - `Ui.list(items, renderer)` / `VirtualList`: virtualized, keyed list rows.
 - `Ui.virtualGrid(items, renderer)` / `VirtualGrid`: scrollable, row-virtualized responsive cells. Configure with `.key(...)`, `.minCellWidth(...)`, `.cellHeight(...)`, `.gap(...)`, `.overscanRows(...)`, and inspect/reset with `.columns()`, `.activeCellCount()`, `.scrollOffset()`, and `.resetScroll()`.
-- `Ui.card(a, b, c)`: decorates one logical content component; multiple arguments are automatically stacked vertically. Cards, panels, and styled surface boxes use a protected content rectangle for child layout, paint clipping, and descendant hit-testing. The rectangle respects padding/borders and is radius-safe for rounded surfaces, but these surfaces never become implicit scroll views.
+- `Ui.card(a, b, c)`: decorates one logical content component; multiple arguments are automatically stacked vertically. Cards, panels, and styled surface boxes use a protected content rectangle for child layout, paint clipping, and descendant hit-testing. Radius-safe geometry uses the same dimension-clamped radius as rendering; Card also reserves its one-pixel focus/selection outline gutter independent of transient state so focus cannot reflow content. These surfaces never become implicit scroll views.
 - `Ui.scroll(content)` / `ScrollView`: explicit clipped scrolling for content that must remain reachable inside a bounded height. Pair with `.flex()` inside a column when it should consume the remaining height.
 - `ScrollList` and `ScrollGrid`: lower-level scrollable collections.
 

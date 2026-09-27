@@ -224,6 +224,45 @@ class BoundedOverflowTest {
     }
 
     @Test
+    void cardFocusAndSelectionDoNotReflowProtectedContent() {
+        FixedBox child=new FixedBox(10,10);
+        Card card=new Card(child).outlined(false).padding(0).radius(0).elevated(false).clickable(true);
+        UiRuntime runtime=new UiRuntime(font(),DUMMY_HOST);
+        try {
+            runtime.setRoot(card);
+            card.layoutTree(font(),0,0,20,20);
+            int initialX=child.getX(), initialY=child.getY();
+            int initialWidth=child.getWidth(), initialHeight=child.getHeight();
+            assertEquals(1,initialX,
+                    "Card reserves its one-pixel state-border gutter before focus/selection so state paint cannot reflow content");
+            assertEquals(18,initialWidth);
+
+            card.requestFocus();
+            assertTrue(card.isFocused());
+            card.layoutTree(font(),0,0,20,20);
+            assertEquals(initialX,child.getX());
+            assertEquals(initialY,child.getY());
+            assertEquals(initialWidth,child.getWidth());
+            assertEquals(initialHeight,child.getHeight());
+
+            card.selected(true);
+            card.layoutTree(font(),0,0,20,20);
+            assertEquals(initialX,child.getX());
+            assertEquals(initialY,child.getY());
+            assertEquals(initialWidth,child.getWidth());
+            assertEquals(initialHeight,child.getHeight());
+
+            card.clearFocus();
+            card.selected(false);
+            card.layoutTree(font(),0,0,20,20);
+            assertEquals(initialX,child.getX());
+            assertEquals(initialWidth,child.getWidth());
+        } finally {
+            runtime.close();
+        }
+    }
+
+    @Test
     void unboundedNormalStackKeepsNaturalLayoutAndDoesNotClip() {
         FixedBox child = new FixedBox(80, 300);
         InspectableStack stack = new InspectableStack();

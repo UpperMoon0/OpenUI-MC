@@ -187,6 +187,46 @@ class RenderClippingTest {
     }
 
     @Test
+    void configuredRadiusUsesSameDimensionClampAsRenderer() {
+        PaintBox cardChild=new PaintBox(MARKER_A);
+        Card card=new Card(cardChild).padding(0).radius(20).elevated(false);
+        card.layoutTree(font(),10,20,20,10);
+        RecordingGraphics cardGraphics=RecordingGraphics.create();
+        card.render(cardGraphics,font(),0,0,0);
+        Rect cardClip=new Rect(12,22,28,28);
+        assertEquals(List.of(cardClip),cardGraphics.enabledScissors,
+                "20x10 Card radius(20) must use the renderer-clamped radius 5 for protected geometry");
+        assertEquals(16,cardChild.getWidth());
+        assertEquals(6,cardChild.getHeight(),"high configured radius must not collapse pill-style Card content");
+        assertTrue(cardGraphics.effectivelyCovers(MARKER_A,12,22));
+        assertFalse(cardGraphics.effectivelyCovers(MARKER_A,11,21));
+
+        int background=0xFF112233, border=0xFFCCDDEE;
+        PaintBox panelChild=new PaintBox(MARKER_B);
+        Panel panel=new Panel(background,border).padding(0).radius(20).child(panelChild);
+        panel.layoutTree(font(),10,20,20,10);
+        RecordingGraphics panelGraphics=RecordingGraphics.create();
+        panel.render(panelGraphics,font(),0,0,0);
+        assertEquals(List.of(cardClip),panelGraphics.enabledScissors);
+        assertEquals(16,panelChild.getWidth());
+        assertEquals(6,panelChild.getHeight());
+        assertTrue(panelGraphics.colorCovers(background,12,22));
+
+        Style style=Style.builder().padding(0).background(background).border(4,border).radius(20).build();
+        PaintBox styledChild=new PaintBox(MARKER_A);
+        StyledBox styled=Ui.styled(StateStyle.of(style),styledChild);
+        styled.layoutTree(font(),10,20,20,10);
+        RecordingGraphics styledGraphics=RecordingGraphics.create();
+        styled.render(styledGraphics,font(),0,0,0);
+        Rect styledClip=new Rect(14,24,26,26);
+        assertEquals(List.of(styledClip),styledGraphics.enabledScissors,
+                "StyledBox must clamp both radius and effective border thickness to rendered surface dimensions");
+        assertEquals(12,styledChild.getWidth());
+        assertEquals(2,styledChild.getHeight());
+        assertTrue(styledGraphics.effectivelyCovers(MARKER_A,14,24));
+    }
+
+    @Test
     void styledBorderWidthAndRoundedContentRegionAgree() {
         int background=0xFF223344, border=0xFFABCDEF;
         Style style=Style.builder().padding(0).background(background).border(4,border).radius(8).build();

@@ -27,11 +27,11 @@ public class Panel extends UIComponent {
     int effectiveBackground() { return backgroundOverride != null ? backgroundOverride : theme().colors().surfaceRaised(); }
     int effectiveBorder() { return borderOverride != null ? borderOverride : (elevated ? theme().colors().border() : 0); }
 
-    @Override public int preferredWidth(Font font) { int inset=contentInset(), max=0; for (UIComponent c:children) max=Math.max(max,c.preferredWidth(font)); return max+inset*2; }
-    @Override public int preferredHeight(Font font) { int inset=contentInset(), max=0; for (UIComponent c:children) max=Math.max(max,c.preferredHeight(font)); return max+inset*2; }
+    @Override public int preferredWidth(Font font) { int inset=preferredContentInset(), max=0; for (UIComponent c:children) max=Math.max(max,c.preferredWidth(font)); return max+inset*2; }
+    @Override public int preferredHeight(Font font) { int inset=preferredContentInset(), max=0; for (UIComponent c:children) max=Math.max(max,c.preferredHeight(font)); return max+inset*2; }
 
     @Override public void layout(int x,int y,int availableWidth,int availableHeight) {
-        setBounds(x,y,availableWidth,availableHeight); int inset=contentInset();
+        setBounds(x,y,availableWidth,availableHeight); int inset=contentInsetForBounds(availableWidth,availableHeight);
         int innerW=Math.max(0,availableWidth-inset*2), innerH=Math.max(0,availableHeight-inset*2);
         for (UIComponent c:children) {
             LayoutDiagnostics.checkBoundedOverflow(this,c,innerW,innerH,measureFont());
@@ -39,10 +39,18 @@ public class Panel extends UIComponent {
         }
     }
 
-    private int contentInset() { return Math.max(effectivePadding(), roundedContentInset(effectiveRadius(),effectiveBorder()!=0?1:0)); }
-    private static int roundedContentInset(int radius,int borderWidth) {
-        int border=Math.max(0,borderWidth), innerRadius=Math.max(0,radius-border);
+    private int preferredContentInset() { return Math.max(effectivePadding(),roundedContentInset(effectiveRadius(),effectiveBorder()!=0?1:0,0,0)); }
+    private int contentInsetForBounds(int surfaceWidth,int surfaceHeight) { return Math.max(effectivePadding(),roundedContentInset(effectiveRadius(),effectiveBorder()!=0?1:0,surfaceWidth,surfaceHeight)); }
+    private static int roundedContentInset(int radius,int borderWidth,int surfaceWidth,int surfaceHeight) {
+        int border=Math.max(0,borderWidth);
+        int clampedRadius=clampRadius(radius,surfaceWidth,surfaceHeight);
+        int innerRadius=Math.max(0,clampedRadius-border);
         return border+cornerSafeInset(innerRadius);
+    }
+    private static int clampRadius(int radius,int width,int height) {
+        int r=Math.max(0,radius);
+        if(width<=0||height<=0) return r;
+        return Math.min(r,Math.min(width,height)/2);
     }
     private static int cornerSafeInset(int radius) {
         int r=Math.max(0,radius);
@@ -50,7 +58,7 @@ public class Panel extends UIComponent {
         double rr=(double)r*r;
         return Math.max(0,(int)Math.ceil(r-(1.0D+Math.sqrt(8.0D*rr-1.0D))/4.0D));
     }
-    private int childClipInset() { return contentInset(); }
+    private int childClipInset() { return contentInsetForBounds(width,height); }
     @Override protected boolean clipsChildrenToBounds() { return true; }
     @Override protected int childClipX() { return x + childClipInset(); }
     @Override protected int childClipY() { return y + childClipInset(); }

@@ -105,7 +105,7 @@ public final class StyledBox extends UIComponent {
         int outerHeight = Math.min(availableHeight, safeAdd(surfaceHeight, verticalMargin));
         setBounds(x, y, outerWidth, outerHeight);
 
-        int safe=surfaceSafeInset(s);
+        int safe=surfaceSafeInset(s,surfaceWidth,surfaceHeight);
         int left=Math.max(s.padding().left(),safe), right=Math.max(s.padding().right(),safe);
         int top=Math.max(s.padding().top(),safe), bottom=Math.max(s.padding().bottom(),safe);
         int childX = x + s.margin().left() + left;
@@ -116,10 +116,19 @@ public final class StyledBox extends UIComponent {
         child.layout(childX, childY, childWidth, childHeight);
     }
 
-    private static int clipInset(int padding, Style s) { return Math.max(padding,surfaceSafeInset(s)); }
+    private static int clipInset(int padding,Style s,int surfaceWidth,int surfaceHeight) {
+        return Math.max(padding,surfaceSafeInset(s,surfaceWidth,surfaceHeight));
+    }
     private static int surfaceSafeInset(Style s) {
         int border=s.borderColor()!=null?Math.max(0,s.borderWidth()):0;
         int innerRadius=Math.max(0,s.radius()-border);
+        return border+cornerSafeInset(innerRadius);
+    }
+    private static int surfaceSafeInset(Style s,int surfaceWidth,int surfaceHeight) {
+        int maxThickness=Math.max(0,Math.min(surfaceWidth,surfaceHeight)/2);
+        int border=s.borderColor()!=null?Math.min(Math.max(0,s.borderWidth()),maxThickness):0;
+        int radius=Math.min(Math.max(0,s.radius()),maxThickness);
+        int innerRadius=Math.max(0,radius-border);
         return border+cornerSafeInset(innerRadius);
     }
     private static int cornerSafeInset(int radius) {
@@ -130,23 +139,25 @@ public final class StyledBox extends UIComponent {
     }
     @Override protected boolean clipsChildrenToBounds() { return true; }
     @Override protected int childClipX() {
-        Style s = resolved();
-        return x + s.margin().left() + clipInset(s.padding().left(), s);
+        Style s=resolved(); int sw=surfaceWidth(s), sh=surfaceHeight(s);
+        return x+s.margin().left()+clipInset(s.padding().left(),s,sw,sh);
     }
     @Override protected int childClipY() {
-        Style s = resolved();
-        return y + s.margin().top() + clipInset(s.padding().top(), s);
+        Style s=resolved(); int sw=surfaceWidth(s), sh=surfaceHeight(s);
+        return y+s.margin().top()+clipInset(s.padding().top(),s,sw,sh);
     }
     @Override protected int childClipWidth() {
-        Style s = resolved();
-        int left=clipInset(s.padding().left(),s), right=clipInset(s.padding().right(),s);
-        return Math.max(0, width - s.margin().left() - s.margin().right() - left - right);
+        Style s=resolved(); int sw=surfaceWidth(s), sh=surfaceHeight(s);
+        int left=clipInset(s.padding().left(),s,sw,sh), right=clipInset(s.padding().right(),s,sw,sh);
+        return Math.max(0,sw-left-right);
     }
     @Override protected int childClipHeight() {
-        Style s = resolved();
-        int top=clipInset(s.padding().top(),s), bottom=clipInset(s.padding().bottom(),s);
-        return Math.max(0, height - s.margin().top() - s.margin().bottom() - top - bottom);
+        Style s=resolved(); int sw=surfaceWidth(s), sh=surfaceHeight(s);
+        int top=clipInset(s.padding().top(),s,sw,sh), bottom=clipInset(s.padding().bottom(),s,sw,sh);
+        return Math.max(0,sh-top-bottom);
     }
+    private int surfaceWidth(Style s) { return Math.max(0,width-s.margin().left()-s.margin().right()); }
+    private int surfaceHeight(Style s) { return Math.max(0,height-s.margin().top()-s.margin().bottom()); }
 
     @Override
     public void render(GuiGraphicsExtractor g, Font font, int mx, int my, float pt) {
