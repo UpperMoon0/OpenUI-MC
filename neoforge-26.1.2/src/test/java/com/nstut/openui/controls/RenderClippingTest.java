@@ -78,6 +78,14 @@ class RenderClippingTest {
                 return px>=b.minX()&&px<b.maxX()&&py>=b.minY()&&py<b.maxY();
             });
         }
+        boolean effectivelyCovers(int color,int px,int py) {
+            return paints.stream().filter(paint -> paint.color()==color).anyMatch(paint -> {
+                Rect b=paint.bounds(), c=paint.clip();
+                boolean inBounds=px>=b.minX()&&px<b.maxX()&&py>=b.minY()&&py<b.maxY();
+                boolean inClip=c==null || (px>=c.minX()&&px<c.maxX()&&py>=c.minY()&&py<c.maxY());
+                return inBounds&&inClip;
+            });
+        }
     }
 
     private static Font font() { return new Font(null); }
@@ -152,6 +160,9 @@ class RenderClippingTest {
         assertEquals(13,cardChild.getX());
         assertEquals(94,cardChild.getWidth());
         assertEquals(contentClip,cardGraphics.paint(MARKER_B).clip());
+        assertTrue(cardGraphics.effectivelyCovers(MARKER_B,13,23));
+        assertFalse(cardGraphics.effectivelyCovers(MARKER_B,12,22),
+                "rounded Card corner/border arc must remain outside effective child paint");
 
         int background=0xFF112233, border=0xFFCCDDEE;
         PaintBox child=new PaintBox(MARKER_A);
@@ -190,6 +201,9 @@ class RenderClippingTest {
         assertEquals(15,child.getX());
         assertEquals(90,child.getWidth());
         assertEquals(contentClip,graphics.paint(MARKER_B).clip());
+        assertTrue(graphics.effectivelyCovers(MARKER_B,15,25));
+        assertFalse(graphics.effectivelyCovers(MARKER_B,14,24),
+                "rounded StyledBox border arc must remain outside effective child paint");
         assertTrue(graphics.colorCovers(background,15,25));
         assertFalse(graphics.colorCovers(background,14,24),
                 "styled content must not enter the rounded multi-pixel border arc");
