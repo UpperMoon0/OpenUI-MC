@@ -4,6 +4,8 @@ import com.nstut.openui.api.ScrollGrid;
 import com.nstut.openui.api.ScrollList;
 import com.nstut.openui.api.UIComponent;
 import com.nstut.openui.controls.ScrollView;
+import com.nstut.openui.layout.Constraints;
+import net.minecraft.client.gui.Font;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,10 +32,18 @@ public final class LayoutDiagnostics {
     }
 
     /**
-     * Warn once per parent/child instance when natural content height exceeds a bounded
-     * visual surface. Explicit scroll containers are intentionally excluded because they
-     * already provide accessible overflow.
+     * Measures natural child height only while diagnostics are enabled, then warns once
+     * when it exceeds a bounded visual surface. Explicit scroll containers are excluded
+     * before measurement because they already provide accessible overflow.
      */
+    public static void checkBoundedOverflow(UIComponent parent, UIComponent child,
+                                            int availableWidth, int availableHeight, Font font) {
+        if (!enabled() || parent == null || child == null || managesOverflow(child)) return;
+        int desiredHeight = child.measure(Constraints.loose(availableWidth, Constraints.INFINITY), font).height();
+        warnBoundedOverflow(parent, child, desiredHeight, availableHeight);
+    }
+
+    /** Retained for callers that already measured content while diagnostics are active. */
     public static void warnBoundedOverflow(UIComponent parent, UIComponent child,
                                            int desiredHeight, int availableHeight) {
         if (!enabled() || parent == null || child == null || desiredHeight <= availableHeight || managesOverflow(child)) {

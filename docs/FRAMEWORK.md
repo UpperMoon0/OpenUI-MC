@@ -67,7 +67,7 @@ Use `VirtualList` for large, fixed-height collections and `VirtualGrid` for virt
 
 Normal layout containers such as `VStack`, `HStack`, and `Stack` keep normal layout semantics: they do not become scroll views and do not gain surprise wheel capture or scrollbars. `ClipStack` remains the explicit low-level clipping primitive.
 
-Bounded visual surfaces such as `Card`, `Panel`, and `StyledBox` clip descendant **painting** to the surface bounds. This is a rendering safety boundary only; it does not make overflowing content accessible and it does not change layout into implicit scrolling. Surface shadows are painted outside the child clip, while dropdowns, popovers, tooltips, dialogs, toasts, and drag feedback use `OverlayManager` roots and therefore are not trapped by an ancestor surface clip.
+Bounded visual surfaces such as `Card`, `Panel`, and `StyledBox` clip descendant **painting** to their content interior, protecting surface padding and borders. This is a rendering safety boundary only; it does not make overflowing content accessible and it does not change layout into implicit scrolling. Surface shadows are painted outside the child clip, while dropdowns, popovers, tooltips, dialogs, toasts, and drag feedback use `OverlayManager` roots and therefore are not trapped by an ancestor surface clip.
 
 When content can legitimately exceed the available height, put the body inside an explicit `Ui.scroll(...)` and flex that viewport within the card:
 

@@ -1,13 +1,18 @@
 package com.nstut.openui.controls;
 
+import com.nstut.openui.api.Panel;
+import com.nstut.openui.api.StyledBox;
 import com.nstut.openui.api.UIComponent;
 import com.nstut.openui.api.Ui;
 import com.nstut.openui.api.VStack;
 import com.nstut.openui.debug.LayoutDiagnostics;
 import com.nstut.openui.layout.Constraints;
+import com.nstut.openui.layout.Size;
 import com.nstut.openui.overlay.OverlayHandle;
 import com.nstut.openui.runtime.NativeWidgetHost;
 import com.nstut.openui.runtime.UiRuntime;
+import com.nstut.openui.style.StateStyle;
+import com.nstut.openui.style.Style;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -19,7 +24,7 @@ import java.io.PrintStream;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BoundedOverflowTest {
-    private static final class FixedBox extends UIComponent {
+    private static class FixedBox extends UIComponent {
         private final int preferredWidth;
         private final int preferredHeight;
 
@@ -31,6 +36,30 @@ class BoundedOverflowTest {
         @Override public int preferredWidth(Font font) { return preferredWidth; }
         @Override public int preferredHeight(Font font) { return preferredHeight; }
         @Override public void render(GuiGraphicsExtractor g, Font font, int mx, int my, float pt) { }
+    }
+
+    private static final class CountingBox extends FixedBox {
+        private int measureCalls;
+
+        private CountingBox(int preferredWidth, int preferredHeight) {
+            super(preferredWidth, preferredHeight);
+        }
+
+        @Override public Size measure(Constraints constraints, Font font) {
+            measureCalls++;
+            return super.measure(constraints, font);
+        }
+    }
+
+    private static final class CountingScrollView extends ScrollView {
+        private int measureCalls;
+
+        private CountingScrollView(UIComponent content) { super(content); }
+
+        @Override public Size measure(Constraints constraints, Font font) {
+            measureCalls++;
+            return super.measure(constraints, font);
+        }
     }
 
     private static final class InspectableCard extends Card {
@@ -80,12 +109,38 @@ class BoundedOverflowTest {
         }
 
         assertTrue(card.clipsChildren());
-        assertEquals(10, card.clipX());
-        assertEquals(20, card.clipY());
-        assertEquals(100, card.clipWidth());
-        assertEquals(60, card.clipHeight());
+        assertEquals(14, card.clipX());
+        assertEquals(24, card.clipY());
+        assertEquals(92, card.clipWidth());
+        assertEquals(52, card.clipHeight());
         assertEquals(52, child.getHeight(), "layout remains bounded instead of silently growing the card");
         assertTrue(warning.toString().contains("Content height exceeds bounded parent; consider Ui.scroll(...)"));
+    }
+
+    @Test
+    void disabledDiagnosticsDoNotAddProductionMeasurementPasses() {
+        CountingBox cardChild = new CountingBox(80, 300);
+        new Card(cardChild).padding(4).layoutTree(font(), 0, 0, 100, 60);
+        assertEquals(0, cardChild.measureCalls);
+
+        CountingBox panelChild = new CountingBox(80, 300);
+        new Panel().padding(4).child(panelChild).layoutTree(font(), 0, 0, 100, 60);
+        assertEquals(0, panelChild.measureCalls);
+
+        CountingBox styledChild = new CountingBox(80, 300);
+        StyledBox styled = Ui.styled(StateStyle.of(Style.builder().padding(4).build()), styledChild);
+        styled.layoutTree(font(), 0, 0, 100, 60);
+        assertEquals(0, styledChild.measureCalls);
+
+        CountingScrollView explicitScroll = new CountingScrollView(new FixedBox(80, 300));
+        LayoutDiagnostics.openDebugSession();
+        try {
+            new Card(explicitScroll).padding(4).layoutTree(font(), 0, 0, 100, 60);
+        } finally {
+            LayoutDiagnostics.closeDebugSession();
+        }
+        assertEquals(0, explicitScroll.measureCalls,
+                "explicit scroll children must be excluded before diagnostic measurement");
     }
 
     @Test
@@ -158,14 +213,14 @@ class BoundedOverflowTest {
 
         assertTrue(outer.clipsChildren());
         assertTrue(inner.clipsChildren());
-        assertEquals(10, outer.clipX());
-        assertEquals(20, outer.clipY());
-        assertEquals(120, outer.clipWidth());
-        assertEquals(90, outer.clipHeight());
-        assertEquals(15, inner.clipX());
-        assertEquals(25, inner.clipY());
-        assertEquals(110, inner.clipWidth());
-        assertEquals(80, inner.clipHeight());
+        assertEquals(15, outer.clipX());
+        assertEquals(25, outer.clipY());
+        assertEquals(110, outer.clipWidth());
+        assertEquals(80, outer.clipHeight());
+        assertEquals(18, inner.clipX());
+        assertEquals(28, inner.clipY());
+        assertEquals(104, inner.clipWidth());
+        assertEquals(74, inner.clipHeight());
         assertTrue(inner.clipX() >= outer.clipX());
         assertTrue(inner.clipY() >= outer.clipY());
         assertTrue(inner.clipX() + inner.clipWidth() <= outer.clipX() + outer.clipWidth());

@@ -1,8 +1,6 @@
 package com.nstut.openui.api;
 
 import com.nstut.openui.debug.LayoutDiagnostics;
-import com.nstut.openui.layout.Constraints;
-import com.nstut.openui.layout.Size;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 
@@ -36,13 +34,17 @@ public class Panel extends UIComponent {
         setBounds(x,y,availableWidth,availableHeight); int padding=effectivePadding();
         int innerW=Math.max(0,availableWidth-padding*2), innerH=Math.max(0,availableHeight-padding*2);
         for (UIComponent c:children) {
-            Size desired=c.measure(Constraints.loose(innerW,Constraints.INFINITY),measureFont());
-            LayoutDiagnostics.warnBoundedOverflow(this,c,desired.height(),innerH);
+            LayoutDiagnostics.checkBoundedOverflow(this,c,innerW,innerH,measureFont());
             c.layout(x+padding,y+padding,innerW,innerH);
         }
     }
 
+    private int childClipInset() { return Math.max(effectivePadding(), effectiveBorder()!=0 ? 1 : 0); }
     @Override protected boolean clipsChildrenToBounds() { return true; }
+    @Override protected int childClipX() { return x + childClipInset(); }
+    @Override protected int childClipY() { return y + childClipInset(); }
+    @Override protected int childClipWidth() { int inset=childClipInset(); return Math.max(0,width-inset*2); }
+    @Override protected int childClipHeight() { int inset=childClipInset(); return Math.max(0,height-inset*2); }
 
     @Override public void render(GuiGraphics g, Font font, int mx, int my, float pt) {
         if (!visible) return;

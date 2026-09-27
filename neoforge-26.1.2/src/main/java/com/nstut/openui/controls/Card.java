@@ -67,12 +67,17 @@ public class Card extends UIComponent {
         int innerX=x+pad, innerY=y+pad;
         int innerW=Math.max(0,availableWidth-pad*2), innerH=Math.max(0,availableHeight-pad*2);
         for(UIComponent child:children) {
-            Size desired=child.measure(Constraints.loose(innerW,Constraints.INFINITY),measureFont());
-            LayoutDiagnostics.warnBoundedOverflow(this,child,desired.height(),innerH);
+            LayoutDiagnostics.checkBoundedOverflow(this,child,innerW,innerH,measureFont());
             child.layoutTree(measureFont(),innerX,innerY,innerW,innerH);
         }
     }
+    private int effectivePadding() { return customPadding>=0?customPadding:theme().cardTheme().padding(); }
+    private int childClipInset() { return Math.max(effectivePadding(), (outlined||selected||isFocused()) ? 1 : 0); }
     @Override protected boolean clipsChildrenToBounds() { return true; }
+    @Override protected int childClipX() { return x + childClipInset(); }
+    @Override protected int childClipY() { return y + childClipInset(); }
+    @Override protected int childClipWidth() { int inset=childClipInset(); return Math.max(0,width-inset*2); }
+    @Override protected int childClipHeight() { int inset=childClipInset(); return Math.max(0,height-inset*2); }
     @Override public void render(GuiGraphicsExtractor g,Font font,int mx,int my,float pt) {
         if(!visible) return;
         Theme t=theme(); ColorScheme colors=t.colors();

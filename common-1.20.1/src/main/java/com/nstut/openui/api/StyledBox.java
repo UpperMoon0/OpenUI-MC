@@ -2,8 +2,6 @@ package com.nstut.openui.api;
 
 import com.nstut.openui.debug.LayoutDiagnostics;
 import com.nstut.openui.graphics.UiCanvas;
-import com.nstut.openui.layout.Constraints;
-import com.nstut.openui.layout.Size;
 import com.nstut.openui.style.StateStyle;
 import com.nstut.openui.style.Style;
 import net.minecraft.client.gui.Font;
@@ -109,21 +107,32 @@ public final class StyledBox extends UIComponent {
         int childY = y + s.margin().top() + s.padding().top();
         int childWidth = Math.max(0, surfaceWidth - s.padding().left() - s.padding().right());
         int childHeight = Math.max(0, surfaceHeight - s.padding().top() - s.padding().bottom());
-        Size desired = child.measure(Constraints.loose(childWidth, Constraints.INFINITY), measureFont());
-        LayoutDiagnostics.warnBoundedOverflow(this, child, desired.height(), childHeight);
+        LayoutDiagnostics.checkBoundedOverflow(this, child, childWidth, childHeight, measureFont());
         child.layout(childX, childY, childWidth, childHeight);
     }
 
+    private static int clipInset(int padding, Style s) {
+        int border = s.borderColor() != null ? s.borderWidth() : 0;
+        return Math.max(padding, border);
+    }
     @Override protected boolean clipsChildrenToBounds() { return true; }
-    @Override protected int childClipX() { return x + resolved().margin().left(); }
-    @Override protected int childClipY() { return y + resolved().margin().top(); }
+    @Override protected int childClipX() {
+        Style s = resolved();
+        return x + s.margin().left() + clipInset(s.padding().left(), s);
+    }
+    @Override protected int childClipY() {
+        Style s = resolved();
+        return y + s.margin().top() + clipInset(s.padding().top(), s);
+    }
     @Override protected int childClipWidth() {
         Style s = resolved();
-        return Math.max(0, width - s.margin().left() - s.margin().right());
+        int left=clipInset(s.padding().left(),s), right=clipInset(s.padding().right(),s);
+        return Math.max(0, width - s.margin().left() - s.margin().right() - left - right);
     }
     @Override protected int childClipHeight() {
         Style s = resolved();
-        return Math.max(0, height - s.margin().top() - s.margin().bottom());
+        int top=clipInset(s.padding().top(),s), bottom=clipInset(s.padding().bottom(),s);
+        return Math.max(0, height - s.margin().top() - s.margin().bottom() - top - bottom);
     }
 
     @Override
