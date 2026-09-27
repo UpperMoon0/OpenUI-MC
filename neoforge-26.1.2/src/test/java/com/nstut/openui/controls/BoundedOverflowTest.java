@@ -144,6 +144,51 @@ class BoundedOverflowTest {
     }
 
     @Test
+    void flexScrollSubtreeDoesNotProduceOverflowWarning() {
+        UIComponent explicitScroll = Ui.scroll(new FixedBox(80, 300)).flex();
+        VStack body = Ui.column(new FixedBox(80, 20), explicitScroll).gap(6);
+        Card card = new Card(body).padding(4);
+
+        ByteArrayOutputStream warning = new ByteArrayOutputStream();
+        PrintStream previousErr = System.err;
+        System.setErr(new PrintStream(warning));
+        LayoutDiagnostics.openDebugSession();
+        try {
+            card.layoutTree(font(), 0, 0, 100, 100);
+        } finally {
+            LayoutDiagnostics.closeDebugSession();
+            System.setErr(previousErr);
+        }
+
+        assertFalse(warning.toString().contains("Content height exceeds bounded parent"),
+                "the documented column(header, scroll(tall).flex()) pattern must not be diagnosed as overflow");
+        assertTrue(explicitScroll.getHeight() < 300,
+                "the flex scroll viewport should consume bounded remaining height rather than its natural content height");
+    }
+
+    @Test
+    void directFillHeightChildDoesNotProduceOverflowWarning() {
+        FixedBox fillChild = new FixedBox(80, 300);
+        fillChild.fillHeight();
+        Card card = new Card(fillChild).padding(4);
+
+        ByteArrayOutputStream warning = new ByteArrayOutputStream();
+        PrintStream previousErr = System.err;
+        System.setErr(new PrintStream(warning));
+        LayoutDiagnostics.openDebugSession();
+        try {
+            card.layoutTree(font(), 0, 0, 100, 60);
+        } finally {
+            LayoutDiagnostics.closeDebugSession();
+            System.setErr(previousErr);
+        }
+
+        assertFalse(warning.toString().contains("Content height exceeds bounded parent"),
+                "fillHeight is constraint-driven and must not be treated as intrinsic overflow");
+        assertEquals(52, fillChild.getHeight());
+    }
+
+    @Test
     void unboundedNormalStackKeepsNaturalLayoutAndDoesNotClip() {
         FixedBox child = new FixedBox(80, 300);
         InspectableStack stack = new InspectableStack();

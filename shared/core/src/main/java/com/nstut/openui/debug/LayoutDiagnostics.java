@@ -1,5 +1,7 @@
 package com.nstut.openui.debug;
 
+import com.nstut.openui.api.PublicApi;
+import com.nstut.openui.api.Since;
 import com.nstut.openui.api.ScrollGrid;
 import com.nstut.openui.api.ScrollList;
 import com.nstut.openui.api.UIComponent;
@@ -11,7 +13,9 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/** Development-only diagnostics for layout failures that are otherwise visually subtle. */
+/** Public development diagnostics for layout failures that are otherwise visually subtle. */
+@PublicApi
+@Since("0.0.12")
 public final class LayoutDiagnostics {
     private static final boolean PROPERTY_ENABLED = Boolean.getBoolean("openui.debug.layout");
     private static final AtomicInteger DEBUG_SESSIONS = new AtomicInteger();
@@ -38,15 +42,20 @@ public final class LayoutDiagnostics {
      */
     public static void checkBoundedOverflow(UIComponent parent, UIComponent child,
                                             int availableWidth, int availableHeight, Font font) {
-        if (!enabled() || parent == null || child == null || managesOverflow(child)) return;
+        if (!enabled() || parent == null || child == null || usesConstraintManagedHeight(child)) return;
         int desiredHeight = child.measure(Constraints.loose(availableWidth, Constraints.INFINITY), font).height();
+        // fillHeight() resolves to the supplied maximum during measurement. Under an
+        // unbounded diagnostic probe that becomes the sentinel INFINITY rather than
+        // evidence that the child actually overflows its bounded layout allocation.
+        if (desiredHeight >= Constraints.INFINITY) return;
         warnBoundedOverflow(parent, child, desiredHeight, availableHeight);
     }
 
     /** Retained for callers that already measured content while diagnostics are active. */
     public static void warnBoundedOverflow(UIComponent parent, UIComponent child,
                                            int desiredHeight, int availableHeight) {
-        if (!enabled() || parent == null || child == null || desiredHeight <= availableHeight || managesOverflow(child)) {
+        if (!enabled() || parent == null || child == null || desiredHeight <= availableHeight
+                || desiredHeight >= Constraints.INFINITY || usesConstraintManagedHeight(child)) {
             return;
         }
         String key = System.identityHashCode(parent) + ":" + System.identityHashCode(child);
@@ -60,5 +69,18 @@ public final class LayoutDiagnostics {
 
     private static boolean managesOverflow(UIComponent child) {
         return child instanceof ScrollView || child instanceof ScrollList || child instanceof ScrollGrid;
+    }
+
+    /**
+     * Conservative diagnostic suppression for subtrees whose vertical size is
+     * intentionally resolved by bounded layout rather than intrinsic height. A false
+     * negative is preferable to telling a correct flex/scroll layout to add scrolling.
+     */
+    private static boolean usesConstraintManagedHeight(UIComponent component) {
+        if (managesOverflow(component) || component.isFlex()) return true;
+        for (UIComponent child : component.children()) {
+            if (child.isVisible() && usesConstraintManagedHeight(child)) return true;
+        }
+        return false;
     }
 }

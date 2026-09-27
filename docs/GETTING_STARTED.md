@@ -4,25 +4,31 @@ This guide takes a consuming mod from dependency setup to a working reactive scr
 
 ## 1. Add OpenUI MC
 
-Until a public Maven coordinate is published, use a Gradle composite build. Keep both repositories beside each other:
-
-```text
-projects/
-  OpenUI-MC/
-  Your-Mod/
-```
-
-In the consuming root `settings.gradle`:
+Released OpenUI artifacts are published to GitHub Packages. Add the repository in the consuming build (GitHub Packages requires credentials with package-read access):
 
 ```groovy
-includeBuild('../OpenUI-MC') {
-    dependencySubstitution {
-        substitute module('com.nstut:openui-mc') using project(':fabric-1.21.1')
+repositories {
+    maven {
+        url = uri("https://maven.pkg.github.com/UpperMoon0/OpenUI-MC")
+        credentials {
+            username = providers.gradleProperty("gpr.user").orNull
+            password = providers.gradleProperty("gpr.key").orNull
+        }
     }
 }
 ```
 
-Choose one of `fabric-1.20.1`, `forge-1.20.1`, `fabric-1.21.1`, `neoforge-1.21.1`, or `neoforge-26.1.2`. Add `com.nstut:openui-mc:0.0.4` to the consuming module with the loader's normal mod dependency configuration. The version participates in Gradle resolution even though the composite substitution selects the local project.
+Then depend on the artifact matching the exact loader/Minecraft target. For example:
+
+```groovy
+dependencies {
+    modImplementation "com.nstut:openui-mc-fabric-1.21.1:<version>"
+}
+```
+
+Available artifact ids are `openui-mc-fabric-1.20.1`, `openui-mc-forge-1.20.1`, `openui-mc-fabric-1.21.1`, `openui-mc-neoforge-1.21.1`, and `openui-mc-neoforge-26.1.2`. Use the loader's normal dependency configuration (`fg.deobf(...)` for Forge 1.20.1, `modImplementation` for Fabric, and the normal NeoForge mod dependency form).
+
+For OpenUI development, a Gradle composite build is still useful: keep `OpenUI-MC/` beside the consuming project and substitute the matching loader module in `settings.gradle`.
 
 Declare `openui_mc` as a required client-side runtime dependency in the consuming mod metadata. End users must install the matching OpenUI jar unless the consuming mod legally and technically bundles it.
 
@@ -98,7 +104,7 @@ Compose `Ui.row`, `Ui.column`, `Ui.stack`, `Ui.padding`, and `Ui.responsive`. Ap
 
 Every screen has a viewport. On `UiScreen`, override `uiLeft`, `uiTop`, `uiWidth`, or `uiHeight` when the UI should occupy a smaller region. `UiContainerScreen` instead derives its viewport directly from the menu bounds: `leftPos`, `topPos`, `imageWidth`, and `imageHeight`.
 
-Rows, columns, and stacks do not implicitly clip or scroll. Bounded visual surfaces (`Card`, `Panel`, `StyledBox`) clip descendant painting to their bounds as a safety boundary, but they still do not scroll. If overflow must remain reachable, use an explicit `Ui.scroll(body).flex()` inside the bounded surface. Floating controls should use OpenUI's overlay APIs rather than relying on child paint escaping an ancestor.
+Rows, columns, and stacks do not implicitly clip or scroll. Bounded visual surfaces (`Card`, `Panel`, `StyledBox`) clip descendant painting to their protected content interior so padding and borders cannot be painted over, but they still do not scroll. If overflow must remain reachable, use an explicit `Ui.scroll(body).flex()` inside the bounded surface. Floating controls should use OpenUI's overlay APIs rather than relying on child paint escaping an ancestor.
 
 ## 5. Input and focus
 

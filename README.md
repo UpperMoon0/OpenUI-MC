@@ -98,7 +98,7 @@ Build one target with, for example:
 ./gradlew :neoforge-26.1.2:build
 ```
 
-Output jars are written to each loader module's `build/libs/` directory. Pull requests build all five loader targets. Pushes to `main` create a GitHub release and publish each matching artifact to CurseForge project `1661978` when `CURSEFORGE_API_TOKEN` is configured.
+Output jars are written to each loader module's `build/libs/` directory. Pull requests build all five loader targets. A push to `main` that changes `mod_version` triggers the release path: GitHub/CurseForge artifacts are published after the required compatibility jobs pass, and the published GitHub Release then triggers GitHub Packages Maven publication.
 
 ## Links
 

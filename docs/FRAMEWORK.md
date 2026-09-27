@@ -80,7 +80,7 @@ return Ui.card(
 ).padding(8).height(140).fillWidth();
 ```
 
-With the OpenUI inspector active, bounded non-scroll overflow emits a deduplicated development warning (`Content height exceeds bounded parent; consider Ui.scroll(...)`). The same diagnostic can be enabled without the inspector with `-Dopenui.debug.layout=true`.
+With the OpenUI inspector active, bounded non-scroll overflow emits a deduplicated development warning (`Content height exceeds bounded parent; consider Ui.scroll(...)`). The same diagnostic can be enabled without the inspector with `-Dopenui.debug.layout=true`. Constraint-managed subtrees (for example a flexed explicit scroll viewport) are conservatively excluded so a correct bounded layout is not told to add scrolling. `LayoutDiagnostics` is a public development API for tooling that needs to enable or query these diagnostics programmatically; ordinary screens can just use the inspector/property.
 
 ### Flex semantics
 

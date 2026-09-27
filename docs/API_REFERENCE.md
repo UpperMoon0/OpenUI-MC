@@ -87,16 +87,21 @@ Overlay geometry has its own dirty path. Overlay implementations that change onl
 
 `Navigator` manages typed `Route<T>` values with push, replace, and pop operations. Route builders return component trees; application state stays outside the navigator.
 
+## Development diagnostics
+
+`LayoutDiagnostics` is public development API since 0.0.12. Inspector/debug tooling can use `openDebugSession()`, `closeDebugSession()`, and `enabled()` to control/query bounded-overflow diagnostics programmatically. Normal application screens do not need to call it; the inspector and `-Dopenui.debug.layout=true` cover the common cases. The lower-level overflow-check helpers exist for custom bounded framework surfaces.
+
 ## Custom component checklist
 
 1. Extend `UIComponent` and implement `render` with the version's GUI rendering type.
 2. Override preferred size or layout only when composition cannot express the geometry.
 3. Render visible children with `renderChildren` when the component owns a subtree.
-4. Use semantic colors from `theme()`.
-5. Acquire subscriptions/resources in `onMount()` and release them in `onUnmount()`.
-6. Call `invalidatePaint`, `invalidateLayout`, or structural invalidation at the narrowest correct level.
-7. Return `true` from a legacy handler only when it actually handled the input.
-8. Avoid mutating the tree during rendering.
+4. For a custom bounded visual surface, override `clipsChildrenToBounds()` and the `childClipX/Y/Width/Height()` hooks so the child clip describes the drawable content interior, not the outer shadow/border box. Do not use clipping as a substitute for `Ui.scroll(...)` when overflowing content must remain reachable.
+5. Use semantic colors from `theme()`.
+6. Acquire subscriptions/resources in `onMount()` and release them in `onUnmount()`.
+7. Call `invalidatePaint`, `invalidateLayout`, or structural invalidation at the narrowest correct level.
+8. Return `true` from a legacy handler only when it actually handled the input.
+9. Avoid mutating the tree during rendering.
 
 ## Compatibility warning
 

@@ -338,10 +338,15 @@ public abstract class UIComponent {
      * component's child clip rectangle. Layout containers remain non-clipping by default;
      * bounded visual surfaces opt in explicitly.
      */
+    @Since("0.0.12")
     protected boolean clipsChildrenToBounds() { return false; }
+    @Since("0.0.12")
     protected int childClipX() { return x; }
+    @Since("0.0.12")
     protected int childClipY() { return y; }
+    @Since("0.0.12")
     protected int childClipWidth() { return width; }
+    @Since("0.0.12")
     protected int childClipHeight() { return height; }
 
     protected final void renderChildren(GuiGraphicsExtractor g, Font font, int mx, int my, float pt) {
