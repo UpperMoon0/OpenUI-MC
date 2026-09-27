@@ -223,11 +223,15 @@ public final class FocusManager {
     }
 
     private void setFocusedInternal(UIComponent next) {
-        if (this.focused == next) return;
+        if (this.focused==next) {
+            if (next!=null) next.revealForFocusNavigation();
+            return;
+        }
         UIComponent prev = this.focused;
         List<UIComponent> previousAncestors = ancestors(prev);
         List<UIComponent> nextAncestors = ancestors(next);
         this.focused = next;
+        if (next!=null) next.revealForFocusNavigation();
         if (prev != null) prev.onFocusLost();
         notifyFocusWithinLost(previousAncestors, nextAncestors);
         if (next != null) next.onFocusGained();

@@ -279,6 +279,22 @@ public abstract class UIComponent {
         return null;
     }
 
+    /** Whether this clipping component is a keyboard-focus viewport whose off-screen descendants remain navigable. */
+    @Internal
+    protected boolean isFocusNavigationViewport() { return false; }
+
+    /** Gives focus viewports a chance to reveal a newly focused descendant. */
+    @Internal
+    protected void revealFocusedDescendant(UIComponent descendant) { }
+
+    /** Internal focus hook used by FocusManager after accepting a target. */
+    @Internal
+    public final void revealForFocusNavigation() {
+        for (UIComponent cursor=parent; cursor!=null; cursor=cursor.parent) {
+            cursor.revealFocusedDescendant(this);
+        }
+    }
+
     /**
      * Internal interaction-eligibility check used by focus traversal. Before first layout, zero-sized
      * components remain eligible so callers can request initial focus; once geometry exists, a component
@@ -298,6 +314,13 @@ public abstract class UIComponent {
             long clipLeft=cursor.childClipX(), clipTop=cursor.childClipY();
             long clipRight=clipLeft+Math.max(0,cursor.childClipWidth());
             long clipBottom=clipTop+Math.max(0,cursor.childClipHeight());
+            if (clipLeft>=clipRight||clipTop>=clipBottom) return false;
+            if (cursor.isFocusNavigationViewport()) {
+                // A scroll viewport represents its off-screen descendant to outer clips by the viewport
+                // itself. The target remains keyboard-reachable and will be revealed when focused.
+                left=clipLeft; top=clipTop; right=clipRight; bottom=clipBottom;
+                continue;
+            }
             left=Math.max(left,clipLeft); top=Math.max(top,clipTop);
             right=Math.min(right,clipRight); bottom=Math.min(bottom,clipBottom);
             if (left>=right||top>=bottom) return false;

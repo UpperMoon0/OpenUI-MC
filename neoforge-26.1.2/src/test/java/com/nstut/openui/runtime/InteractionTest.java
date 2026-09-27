@@ -166,6 +166,57 @@ class InteractionTest {
     }
 
     @Test
+    void scrollViewKeepsOffscreenControlsInFocusOrderAndRevealsNewFocus() {
+        Font font=new Font(null);
+        UiRuntime runtime=new UiRuntime(font,dummyHost);
+        try {
+            AtomicBoolean activated=new AtomicBoolean();
+            ButtonWidget first=Ui.button("First",()->{});
+            ButtonWidget second=Ui.button("Second",()->activated.set(true));
+            VStack content=Ui.column(first,Ui.spacer().height(90),second).gap(0);
+            var scroll=Ui.scroll(content);
+            Card root=new Card(scroll).padding(0).radius(0).elevated(false);
+            runtime.setViewport(0,0,100,50);
+            runtime.setRoot(root);
+
+            // Establish real layout: the second button starts fully below the scroll viewport.
+            assertFalse(runtime.mouseClicked(-10,-10,1));
+            assertTrue(second.getY()>=scroll.getY()+scroll.getHeight());
+            assertTrue(second.hasVisibleAreaWithinAncestorClips(),
+                    "ScrollView is a focus viewport, so off-screen content stays keyboard-reachable through outer Card clipping");
+
+            assertTrue(runtime.focus().requestFocus(first));
+            assertTrue(runtime.keyPressed(258,0,0),"Tab should advance to the off-screen second control");
+            assertSame(second,runtime.focus().focused());
+            assertTrue(runtime.isLayoutDirty(),"new ScrollView focus should request reveal layout");
+
+            // Input targeting flushes the pending layout without changing focus for a non-primary outside click.
+            assertFalse(runtime.mouseClicked(-10,-10,1));
+            assertTrue(second.getY()>=scroll.getY());
+            assertTrue(second.getY()+second.getHeight()<=scroll.getY()+scroll.getHeight(),
+                    "newly focused off-screen control should be scrolled fully into view");
+            assertSame(second,runtime.focus().focused());
+
+            // Manual wheel scrolling may move the focused control away, but must not invalidate keyboard focus.
+            assertTrue(scroll.mouseScrolled(scroll.getX()+1,scroll.getY()+1,100));
+            assertFalse(runtime.mouseClicked(-10,-10,1));
+            assertTrue(second.getY()>=scroll.getY()+scroll.getHeight(),
+                    "control should be off-screen again after scrolling to the top");
+            assertSame(second,runtime.focus().focused(),
+                    "ScrollView clipping must not clear an otherwise valid focused descendant");
+            assertTrue(runtime.keyPressed(257,0,0),"keyboard routing should still reach the off-screen focused button");
+            assertTrue(activated.get());
+
+            // Re-requesting the same focus target also reveals it again.
+            assertTrue(runtime.focus().requestFocus(second));
+            assertFalse(runtime.mouseClicked(-10,-10,1));
+            assertTrue(second.getY()+second.getHeight()<=scroll.getY()+scroll.getHeight());
+        } finally {
+            runtime.close();
+        }
+    }
+
+    @Test
     void simulatedButtonClickDispatchesAction() {
         UiRuntime runtime = new UiRuntime(new Font(null), dummyHost);
         AtomicBoolean clicked = new AtomicBoolean(false);

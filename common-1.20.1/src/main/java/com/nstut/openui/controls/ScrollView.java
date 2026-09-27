@@ -65,6 +65,23 @@ public class ScrollView extends UIComponent {
 
     @Override protected boolean clipsChildrenToBounds() { return true; }
 
+    @Override protected boolean isFocusNavigationViewport() { return maxScroll()>0; }
+
+    @Override protected void revealFocusedDescendant(UIComponent descendant) {
+        if (descendant==null||height<=0||maxScroll()<=0||descendant.getHeight()<=0) return;
+        double next=scrollOffset;
+        int targetTop=descendant.getY();
+        int targetBottom=targetTop+descendant.getHeight();
+        int viewportTop=y;
+        int viewportBottom=y+height;
+        if (targetTop<viewportTop) next-=viewportTop-targetTop;
+        else if (targetBottom>viewportBottom) next+=targetBottom-viewportBottom;
+        next=Math.max(0,Math.min(maxScroll(),next));
+        if (Double.compare(next,scrollOffset)==0) return;
+        scrollOffset=next;
+        invalidateLayout();
+    }
+
     @Override
     public void render(GuiGraphics g, Font font, int mx, int my, float pt) {
         renderChildren(g, font, mx, my, pt);
