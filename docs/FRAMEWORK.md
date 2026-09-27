@@ -63,6 +63,25 @@ return Ui.padding(12,
 
 Use `VirtualList` for large, fixed-height collections and `VirtualGrid` for virtualized grid collections. Their keyed cells are limited to the visible range plus configurable overscan. Use `DynamicGrid` when columns should adapt to UI scale for small/intrinsic collections.
 
+### Overflow, clipping, and scrolling
+
+Normal layout containers such as `VStack`, `HStack`, and `Stack` keep normal layout semantics: they do not become scroll views and do not gain surprise wheel capture or scrollbars. `ClipStack` remains the explicit low-level clipping primitive.
+
+Bounded visual surfaces such as `Card`, `Panel`, and `StyledBox` clip descendant **painting** to the surface bounds. This is a rendering safety boundary only; it does not make overflowing content accessible and it does not change layout into implicit scrolling. Surface shadows are painted outside the child clip, while dropdowns, popovers, tooltips, dialogs, toasts, and drag feedback use `OverlayManager` roots and therefore are not trapped by an ancestor surface clip.
+
+When content can legitimately exceed the available height, put the body inside an explicit `Ui.scroll(...)` and flex that viewport within the card:
+
+```java
+return Ui.card(
+    Ui.column(
+        Ui.heading("Details"),
+        Ui.scroll(Ui.text(longBody)).flex()
+    ).gap(6)
+).padding(8).height(140).fillWidth();
+```
+
+With the OpenUI inspector active, bounded non-scroll overflow emits a deduplicated development warning (`Content height exceeds bounded parent; consider Ui.scroll(...)`). The same diagnostic can be enabled without the inspector with `-Dopenui.debug.layout=true`.
+
 ### Flex semantics
 
 Flex applies from **parent → child**:

@@ -1,5 +1,8 @@
 package com.nstut.openui.api;
 
+import com.nstut.openui.debug.LayoutDiagnostics;
+import com.nstut.openui.layout.Constraints;
+import com.nstut.openui.layout.Size;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 
@@ -31,8 +34,15 @@ public class Panel extends UIComponent {
 
     @Override public void layout(int x,int y,int availableWidth,int availableHeight) {
         setBounds(x,y,availableWidth,availableHeight); int padding=effectivePadding();
-        for (UIComponent c:children) c.layout(x+padding,y+padding,Math.max(0,availableWidth-padding*2),Math.max(0,availableHeight-padding*2));
+        int innerW=Math.max(0,availableWidth-padding*2), innerH=Math.max(0,availableHeight-padding*2);
+        for (UIComponent c:children) {
+            Size desired=c.measure(Constraints.loose(innerW,Constraints.INFINITY),measureFont());
+            LayoutDiagnostics.warnBoundedOverflow(this,c,desired.height(),innerH);
+            c.layout(x+padding,y+padding,innerW,innerH);
+        }
     }
+
+    @Override protected boolean clipsChildrenToBounds() { return true; }
 
     @Override public void render(GuiGraphics g, Font font, int mx, int my, float pt) {
         if (!visible) return;

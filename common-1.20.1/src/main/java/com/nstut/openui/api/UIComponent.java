@@ -328,9 +328,31 @@ public abstract class UIComponent {
     public Component tooltip() { return tooltip; }
 
 
+    /**
+     * Whether descendants rendered through {@link #renderChildren} are clipped to this
+     * component's child clip rectangle. Layout containers remain non-clipping by default;
+     * bounded visual surfaces opt in explicitly.
+     */
+    protected boolean clipsChildrenToBounds() { return false; }
+    protected int childClipX() { return x; }
+    protected int childClipY() { return y; }
+    protected int childClipWidth() { return width; }
+    protected int childClipHeight() { return height; }
+
     protected final void renderChildren(GuiGraphics g, Font font, int mx, int my, float pt) {
-        for (UIComponent child : children) {
-            if (child.isVisible()) child.render(g, font, mx, my, pt);
+        if (!clipsChildrenToBounds()) {
+            for (UIComponent child : children) {
+                if (child.isVisible()) child.render(g, font, mx, my, pt);
+            }
+            return;
+        }
+        ClipStack.push(g, childClipX(), childClipY(), childClipWidth(), childClipHeight());
+        try {
+            for (UIComponent child : children) {
+                if (child.isVisible()) child.render(g, font, mx, my, pt);
+            }
+        } finally {
+            ClipStack.pop(g);
         }
     }
 

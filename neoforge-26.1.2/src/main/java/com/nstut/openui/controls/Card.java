@@ -3,6 +3,7 @@ package com.nstut.openui.controls;
 import com.nstut.openui.animation.Easing;
 import com.nstut.openui.api.UIComponent;
 import com.nstut.openui.api.UiRender;
+import com.nstut.openui.debug.LayoutDiagnostics;
 import com.nstut.openui.layout.Constraints;
 import com.nstut.openui.layout.Size;
 import com.nstut.openui.theme.ColorScheme;
@@ -65,8 +66,13 @@ public class Card extends UIComponent {
         int pad=customPadding>=0?customPadding:theme().cardTheme().padding();
         int innerX=x+pad, innerY=y+pad;
         int innerW=Math.max(0,availableWidth-pad*2), innerH=Math.max(0,availableHeight-pad*2);
-        for(UIComponent child:children) child.layoutTree(measureFont(),innerX,innerY,innerW,innerH);
+        for(UIComponent child:children) {
+            Size desired=child.measure(Constraints.loose(innerW,Constraints.INFINITY),measureFont());
+            LayoutDiagnostics.warnBoundedOverflow(this,child,desired.height(),innerH);
+            child.layoutTree(measureFont(),innerX,innerY,innerW,innerH);
+        }
     }
+    @Override protected boolean clipsChildrenToBounds() { return true; }
     @Override public void render(GuiGraphicsExtractor g,Font font,int mx,int my,float pt) {
         if(!visible) return;
         Theme t=theme(); ColorScheme colors=t.colors();
@@ -88,7 +94,7 @@ public class Card extends UIComponent {
         boolean elevated = elevatedOverride != null ? elevatedOverride : t.cardTheme().elevated();
         if(elevated) UiRender.shadow(g,x,y,width,height,radius,colors);
         UiRender.roundedOutline(g,x,y,width,height,radius,bg,border);
-        for(UIComponent child:children) child.render(g,font,mx,my,pt);
+        renderChildren(g,font,mx,my,pt);
     }
     @Override public boolean mouseClicked(double mx,double my,int btn) {
         if(clickable&&btn==0&&isHovered()&&onClick!=null) { onClick.run(); return true; }

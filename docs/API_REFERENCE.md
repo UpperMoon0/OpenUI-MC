@@ -24,7 +24,8 @@ This is a practical catalog of the public framework surface. The canonical signa
 - `Ui.grid(items, renderer)` / `DynamicGrid`: responsive repeated cards.
 - `Ui.list(items, renderer)` / `VirtualList`: virtualized, keyed list rows.
 - `Ui.virtualGrid(items, renderer)` / `VirtualGrid`: scrollable, row-virtualized responsive cells. Configure with `.key(...)`, `.minCellWidth(...)`, `.cellHeight(...)`, `.gap(...)`, `.overscanRows(...)`, and inspect/reset with `.columns()`, `.activeCellCount()`, `.scrollOffset()`, and `.resetScroll()`.
-- `Ui.card(a, b, c)`: decorates one logical content component; multiple arguments are automatically stacked vertically.
+- `Ui.card(a, b, c)`: decorates one logical content component; multiple arguments are automatically stacked vertically. Cards, panels, and styled surface boxes clip descendant paint to their surface bounds but never become implicit scroll views.
+- `Ui.scroll(content)` / `ScrollView`: explicit clipped scrolling for content that must remain reachable inside a bounded height. Pair with `.flex()` inside a column when it should consume the remaining height.
 - `ScrollList` and `ScrollGrid`: lower-level scrollable collections.
 
 ## Content and input controls
@@ -76,7 +77,7 @@ Events traverse ancestors in capture order, execute target listeners, then bubbl
 
 ## Overlays
 
-`OverlayManager.show` mounts a component into an `OverlayLayer` and returns an `OverlayHandle`. The handle closes and unmounts it. Layers include base UI, dropdown/popover, modal, toast, tooltip, and debug content. Blocking overlays participate in input targeting and may trap focus.
+`OverlayManager.show` mounts a component into an `OverlayLayer` and returns an `OverlayHandle`. The handle closes and unmounts it. Layers include base UI, dropdown/popover, modal, toast, tooltip, and debug content. Blocking overlays participate in input targeting and may trap focus. Overlay roots are rendered independently of the application component ancestry, so dropdowns/popovers/tooltips are not clipped by the bounded surface containing their anchor.
 
 Overlay geometry has its own dirty path. Overlay implementations that change only overlay bounds should call `UiRuntime.requestOverlayLayout()`; `requestLayout()` also invalidates the application root and should be reserved for root-tree or viewport geometry changes.
 

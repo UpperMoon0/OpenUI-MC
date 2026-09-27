@@ -1,6 +1,9 @@
 package com.nstut.openui.api;
 
+import com.nstut.openui.debug.LayoutDiagnostics;
 import com.nstut.openui.graphics.UiCanvas;
+import com.nstut.openui.layout.Constraints;
+import com.nstut.openui.layout.Size;
 import com.nstut.openui.style.StateStyle;
 import com.nstut.openui.style.Style;
 import net.minecraft.client.gui.Font;
@@ -106,7 +109,21 @@ public final class StyledBox extends UIComponent {
         int childY = y + s.margin().top() + s.padding().top();
         int childWidth = Math.max(0, surfaceWidth - s.padding().left() - s.padding().right());
         int childHeight = Math.max(0, surfaceHeight - s.padding().top() - s.padding().bottom());
+        Size desired = child.measure(Constraints.loose(childWidth, Constraints.INFINITY), measureFont());
+        LayoutDiagnostics.warnBoundedOverflow(this, child, desired.height(), childHeight);
         child.layout(childX, childY, childWidth, childHeight);
+    }
+
+    @Override protected boolean clipsChildrenToBounds() { return true; }
+    @Override protected int childClipX() { return x + resolved().margin().left(); }
+    @Override protected int childClipY() { return y + resolved().margin().top(); }
+    @Override protected int childClipWidth() {
+        Style s = resolved();
+        return Math.max(0, width - s.margin().left() - s.margin().right());
+    }
+    @Override protected int childClipHeight() {
+        Style s = resolved();
+        return Math.max(0, height - s.margin().top() - s.margin().bottom());
     }
 
     @Override
@@ -123,7 +140,7 @@ public final class StyledBox extends UIComponent {
         } else if (s.background() != null) {
             canvas.roundedRect(sx, sy, sw, sh, s.radius(), fill);
         }
-        child.render(g, font, mx, my, pt);
+        renderChildren(g, font, mx, my, pt);
     }
 
     private static int resolveAxis(int intrinsic, Integer exact, Integer min, Integer max, int available) {

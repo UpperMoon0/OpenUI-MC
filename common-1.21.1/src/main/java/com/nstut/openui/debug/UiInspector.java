@@ -51,8 +51,10 @@ public class UiInspector extends UIComponent {
                 false,
                 () -> {
                     inspector.setProfiling(false);
+                    LayoutDiagnostics.closeDebugSession();
                     inspector.handle = null;
                 });
+        LayoutDiagnostics.openDebugSession();
         return inspector.handle;
     }
 

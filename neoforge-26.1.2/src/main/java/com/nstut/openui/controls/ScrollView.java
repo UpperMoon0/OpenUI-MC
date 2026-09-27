@@ -1,6 +1,5 @@
 package com.nstut.openui.controls;
 
-import com.nstut.openui.api.ClipStack;
 import com.nstut.openui.api.UIComponent;
 import com.nstut.openui.api.UiRender;
 import com.nstut.openui.layout.Constraints;
@@ -70,14 +69,11 @@ public class ScrollView extends UIComponent {
         scrollOffset = Math.max(0, Math.min(max, scrollOffset));
     }
 
+    @Override protected boolean clipsChildrenToBounds() { return true; }
+
     @Override
     public void render(GuiGraphicsExtractor g, Font font, int mx, int my, float pt) {
-        ClipStack.push(g, x, y, width, height);
-        try {
-            renderChildren(g, font, mx, my, pt);
-        } finally {
-            ClipStack.pop(g);
-        }
+        renderChildren(g, font, mx, my, pt);
         drawScrollbar(g);
     }
 
