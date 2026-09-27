@@ -35,21 +35,22 @@ public class Card extends UIComponent {
     public Card padding(int padding) { this.customPadding = Math.max(0,padding); invalidateLayout(); return this; }
     public Card radius(int radius) { int next=Math.max(0,radius); if(this.customRadius==next) return this; this.customRadius=next; invalidateLayout(); return this; }
 
-    @Override public int preferredWidth(Font font) {
-        int inset=preferredContentInset();
-        int max=0; for(UIComponent child:children) max=Math.max(max,child.preferredWidth(font));
-        return max+inset*2;
-    }
+    @Override public int preferredWidth(Font font) { return intrinsicSurfaceSize(font).width(); }
     @Override public int preferredHeight(Font font) {
-        int inset=preferredContentInset();
-        int innerWidth=Math.max(0,width-inset*2);
-        int total=0;
-        for(UIComponent child:children) {
-            total+=width>0
-                    ? child.measure(Constraints.loose(innerWidth,Constraints.INFINITY),font).height()
-                    : child.preferredHeight(font);
+        if(width<=0) return intrinsicSurfaceSize(font).height();
+        int candidateHeight=Math.max(0,intrinsicContentHeight(font))+effectivePadding()*2;
+        for(int i=0;i<16;i++) {
+            int inset=contentInsetForBounds(width,candidateHeight);
+            int innerWidth=Math.max(0,width-inset*2);
+            int contentHeight=0;
+            for(UIComponent child:children) {
+                contentHeight+=child.measure(Constraints.loose(innerWidth,Constraints.INFINITY),font).height();
+            }
+            int next=Math.max(0,contentHeight+inset*2);
+            if(next==candidateHeight) break;
+            candidateHeight=next;
         }
-        return total+inset*2;
+        return candidateHeight;
     }
     @Override public Size measure(Constraints constraints, Font font) {
         Size initial=super.measure(constraints,font);
@@ -74,7 +75,27 @@ public class Card extends UIComponent {
     private static final int STATE_BORDER_WIDTH = 1;
     private int effectivePadding() { return customPadding>=0?customPadding:theme().cardTheme().padding(); }
     private int effectiveRadius() { return customRadius>=0?customRadius:theme().cardTheme().radius(); }
-    private int preferredContentInset() { return Math.max(effectivePadding(),roundedContentInset(effectiveRadius(),STATE_BORDER_WIDTH,0,0)); }
+    private Size intrinsicSurfaceSize(Font font) {
+        int contentWidth=0;
+        for(UIComponent child:children) contentWidth=Math.max(contentWidth,child.preferredWidth(font));
+        int contentHeight=intrinsicContentHeight(font);
+        int candidateWidth=Math.max(0,contentWidth+effectivePadding()*2);
+        int candidateHeight=Math.max(0,contentHeight+effectivePadding()*2);
+        for(int i=0;i<16;i++) {
+            int inset=contentInsetForBounds(candidateWidth,candidateHeight);
+            int nextWidth=Math.max(0,contentWidth+inset*2);
+            int nextHeight=Math.max(0,contentHeight+inset*2);
+            if(nextWidth==candidateWidth&&nextHeight==candidateHeight) break;
+            candidateWidth=nextWidth;
+            candidateHeight=nextHeight;
+        }
+        return new Size(candidateWidth,candidateHeight);
+    }
+    private int intrinsicContentHeight(Font font) {
+        int total=0;
+        for(UIComponent child:children) total+=child.preferredHeight(font);
+        return total;
+    }
     private int contentInsetForBounds(int surfaceWidth,int surfaceHeight) { return Math.max(effectivePadding(),roundedContentInset(effectiveRadius(),STATE_BORDER_WIDTH,surfaceWidth,surfaceHeight)); }
     private static int roundedContentInset(int radius,int borderWidth,int surfaceWidth,int surfaceHeight) {
         int border=Math.max(0,borderWidth);
@@ -83,9 +104,8 @@ public class Card extends UIComponent {
         return border+cornerSafeInset(innerRadius);
     }
     private static int clampRadius(int radius,int width,int height) {
-        int r=Math.max(0,radius);
-        if(width<=0||height<=0) return r;
-        return Math.min(r,Math.min(width,height)/2);
+        int maxRadius=Math.max(0,Math.min(width,height)/2);
+        return Math.min(Math.max(0,radius),maxRadius);
     }
     private static int cornerSafeInset(int radius) {
         int r=Math.max(0,radius);

@@ -77,19 +77,15 @@ public final class StyledBox extends UIComponent {
     }
 
     @Override public int preferredWidth(Font font) {
-        Style s = resolved();
-        int safe=surfaceSafeInset(s);
-        int intrinsicSurface = child.preferredWidth(font) + Math.max(s.padding().left(),safe) + Math.max(s.padding().right(),safe);
-        int surface = resolveAxis(intrinsicSurface, s.width(), s.minWidth(), s.maxWidth(), Integer.MAX_VALUE);
-        return safeAdd(surface, s.margin().left() + s.margin().right());
+        Style s=resolved();
+        int[] surface=preferredSurfaceSize(font,s);
+        return safeAdd(surface[0],s.margin().left()+s.margin().right());
     }
 
     @Override public int preferredHeight(Font font) {
-        Style s = resolved();
-        int safe=surfaceSafeInset(s);
-        int intrinsicSurface = child.preferredHeight(font) + Math.max(s.padding().top(),safe) + Math.max(s.padding().bottom(),safe);
-        int surface = resolveAxis(intrinsicSurface, s.height(), s.minHeight(), s.maxHeight(), Integer.MAX_VALUE);
-        return safeAdd(surface, s.margin().top() + s.margin().bottom());
+        Style s=resolved();
+        int[] surface=preferredSurfaceSize(font,s);
+        return safeAdd(surface[1],s.margin().top()+s.margin().bottom());
     }
 
     @Override
@@ -116,13 +112,25 @@ public final class StyledBox extends UIComponent {
         child.layout(childX, childY, childWidth, childHeight);
     }
 
+    private int[] preferredSurfaceSize(Font font,Style s) {
+        int contentWidth=child.preferredWidth(font), contentHeight=child.preferredHeight(font);
+        int candidateWidth=resolveAxis(contentWidth+s.padding().left()+s.padding().right(),s.width(),s.minWidth(),s.maxWidth(),Integer.MAX_VALUE);
+        int candidateHeight=resolveAxis(contentHeight+s.padding().top()+s.padding().bottom(),s.height(),s.minHeight(),s.maxHeight(),Integer.MAX_VALUE);
+        for(int i=0;i<16;i++) {
+            int safe=surfaceSafeInset(s,candidateWidth,candidateHeight);
+            int intrinsicWidth=contentWidth+Math.max(s.padding().left(),safe)+Math.max(s.padding().right(),safe);
+            int intrinsicHeight=contentHeight+Math.max(s.padding().top(),safe)+Math.max(s.padding().bottom(),safe);
+            int nextWidth=resolveAxis(intrinsicWidth,s.width(),s.minWidth(),s.maxWidth(),Integer.MAX_VALUE);
+            int nextHeight=resolveAxis(intrinsicHeight,s.height(),s.minHeight(),s.maxHeight(),Integer.MAX_VALUE);
+            if(nextWidth==candidateWidth&&nextHeight==candidateHeight) break;
+            candidateWidth=nextWidth;
+            candidateHeight=nextHeight;
+        }
+        return new int[]{candidateWidth,candidateHeight};
+    }
+
     private static int clipInset(int padding,Style s,int surfaceWidth,int surfaceHeight) {
         return Math.max(padding,surfaceSafeInset(s,surfaceWidth,surfaceHeight));
-    }
-    private static int surfaceSafeInset(Style s) {
-        int border=s.borderColor()!=null?Math.max(0,s.borderWidth()):0;
-        int innerRadius=Math.max(0,s.radius()-border);
-        return border+cornerSafeInset(innerRadius);
     }
     private static int surfaceSafeInset(Style s,int surfaceWidth,int surfaceHeight) {
         int maxThickness=Math.max(0,Math.min(surfaceWidth,surfaceHeight)/2);

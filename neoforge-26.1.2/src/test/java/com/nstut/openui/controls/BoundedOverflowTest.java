@@ -263,6 +263,40 @@ class BoundedOverflowTest {
     }
 
     @Test
+    void autoSizedHighRadiusSurfacesConvergeOnRendererClampedGeometry() {
+        FixedBox cardChild=new FixedBox(10,10);
+        Card card=new Card(cardChild).padding(0).radius(20).elevated(false);
+        Size cardSize=card.measure(Constraints.loose(100,100),font());
+        assertEquals(new Size(16,16),cardSize,
+                "auto-sized Card must converge using its renderer-clamped radius instead of raw radius(20)");
+        card.layoutTree(font(),0,0,cardSize.width(),cardSize.height());
+        assertEquals(10,cardChild.getWidth());
+        assertEquals(10,cardChild.getHeight());
+
+        FixedBox panelChild=new FixedBox(10,10);
+        Panel panel=new Panel(0xFF111111,0xFFEEEEEE).padding(0).radius(20).child(panelChild);
+        Size panelSize=panel.measure(Constraints.loose(100,100),font());
+        assertEquals(new Size(16,16),panelSize);
+        panel.layoutTree(font(),0,0,panelSize.width(),panelSize.height());
+        assertEquals(10,panelChild.getWidth());
+        assertEquals(10,panelChild.getHeight());
+
+        FixedBox styledChild=new FixedBox(10,10);
+        Style highRadius=Style.builder().padding(0).background(0xFF111111).radius(20).build();
+        StyledBox styled=Ui.styled(StateStyle.of(highRadius),styledChild);
+        Size styledSize=styled.measure(Constraints.loose(100,100),font());
+        assertEquals(new Size(14,14),styledSize);
+        styled.layoutTree(font(),0,0,styledSize.width(),styledSize.height());
+        assertEquals(10,styledChild.getWidth());
+        assertEquals(10,styledChild.getHeight());
+
+        FixedBox sibling=new FixedBox(10,10);
+        var row=Ui.row(card,sibling);
+        assertEquals(26,row.preferredWidth(font()),
+                "radius configuration alone must not steal raw-radius space from stack siblings");
+    }
+
+    @Test
     void unboundedNormalStackKeepsNaturalLayoutAndDoesNotClip() {
         FixedBox child = new FixedBox(80, 300);
         InspectableStack stack = new InspectableStack();

@@ -4,7 +4,9 @@ import com.nstut.openui.api.ButtonWidget;
 import com.nstut.openui.api.UIComponent;
 import com.nstut.openui.api.Ui;
 import com.nstut.openui.api.VStack;
+import com.nstut.openui.controls.Card;
 import com.nstut.openui.controls.Checkbox;
+import com.nstut.openui.controls.TextField;
 import com.nstut.openui.controls.Select;
 import com.nstut.openui.controls.SwitchControl;
 import com.nstut.openui.input.EventType;
@@ -16,6 +18,8 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -27,6 +31,60 @@ class InteractionTest {
         @Override public void add(AbstractWidget widget) {}
         @Override public void remove(AbstractWidget widget) {}
     };
+
+    @Test
+    void clippedTextFieldCannotReceiveVanillaFallbackClick() {
+        Font font=new Font(null, false);
+        List<AbstractWidget> mounted=new ArrayList<>();
+        NativeWidgetHost host=new NativeWidgetHost() {
+            @Override public void add(AbstractWidget widget) { mounted.add(widget); }
+            @Override public void remove(AbstractWidget widget) { mounted.remove(widget); }
+        };
+        UiRuntime runtime=new UiRuntime(font,host);
+        try {
+            TextField field=new TextField(Signals.of(""),font);
+            Card card=new Card(Ui.column(Ui.spacer().height(24),field))
+                    .padding(0).radius(0).elevated(false);
+            runtime.setViewport(0,0,100,30);
+            runtime.setRoot(card);
+
+            // Trigger the real runtime layout path without clicking the UI.
+            assertFalse(runtime.mouseClicked(-10,-10,1));
+            assertTrue(mounted.contains(field.getEditBox()),"TextField native EditBox must be mounted on the screen host");
+
+            // Match EditBoxWrapper.render() native bounds so vanilla Screen fallback sees this pixel.
+            var editBox=field.getEditBox();
+            editBox.setX(field.getX()+4);
+            editBox.setY(field.getY()+(field.getHeight()-font.lineHeight)/2);
+            editBox.setWidth(Math.max(10,field.getWidth()-8));
+            double clickX=field.getX()+5;
+            double clippedY=card.getY()+card.getHeight()-1;
+
+            java.util.function.BooleanSupplier vanillaWouldDispatchToEditBox=() ->
+                    editBox.active&&editBox.visible
+                            &&clickX>=editBox.getX()&&clickX<editBox.getX()+editBox.getWidth()
+                            &&clippedY>=editBox.getY()&&clippedY<editBox.getY()+editBox.getHeight();
+            assertTrue(vanillaWouldDispatchToEditBox.getAsBoolean(),
+                    "control case: the native EditBox is eligible for Screen fallback at the clipped-away pixel");
+            assertFalse(runtime.mouseClicked(clickX,clippedY,0),
+                    "OpenUI hit-testing must reject the field outside Card's protected child clip");
+
+            boolean vanillaOwnedResult=runtime.nativeWidgets().withMouseClickFallbackSuppressed(
+                    vanillaWouldDispatchToEditBox);
+            assertFalse(vanillaOwnedResult,
+                    "screen fallback must make the OpenUI-owned native EditBox ineligible for direct dispatch");
+            assertTrue(editBox.active,"native widget active state must be restored after fallback routing");
+
+            AtomicBoolean unrelatedVanilla=new AtomicBoolean();
+            assertTrue(runtime.nativeWidgets().withMouseClickFallbackSuppressed(() -> {
+                unrelatedVanilla.set(true);
+                return true;
+            }),"unrelated vanilla fallback must remain available");
+            assertTrue(unrelatedVanilla.get());
+        } finally {
+            runtime.close();
+        }
+    }
 
     @Test
     void simulatedButtonClickDispatchesAction() {

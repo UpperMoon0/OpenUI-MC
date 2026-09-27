@@ -104,7 +104,7 @@ Compose `Ui.row`, `Ui.column`, `Ui.stack`, `Ui.padding`, and `Ui.responsive`. Ap
 
 Every screen has a viewport. On `UiScreen`, override `uiLeft`, `uiTop`, `uiWidth`, or `uiHeight` when the UI should occupy a smaller region. `UiContainerScreen` instead derives its viewport directly from the menu bounds: `leftPos`, `topPos`, `imageWidth`, and `imageHeight`.
 
-Rows, columns, and stacks do not implicitly clip or scroll. Bounded visual surfaces (`Card`, `Panel`, `StyledBox`) use one protected content rectangle for child layout, painting, and descendant input. It preserves padding/borders and stays inside rounded inner corners even at low padding, but these surfaces still do not scroll. If overflow must remain reachable, use an explicit `Ui.scroll(body).flex()` inside the bounded surface. Floating controls should use OpenUI's overlay APIs rather than relying on child paint escaping an ancestor.
+Rows, columns, and stacks do not implicitly clip or scroll. Bounded visual surfaces (`Card`, `Panel`, `StyledBox`) use one protected content rectangle for child layout, painting, and descendant input. It preserves padding/borders, stays inside rounded inner corners even at low padding, and auto-sized high-radius/pill surfaces converge on the same dimension-clamped geometry used by rendering instead of inflating from the raw radius. These surfaces still do not scroll. If overflow must remain reachable, use an explicit `Ui.scroll(body).flex()` inside the bounded surface. Floating controls should use OpenUI's overlay APIs rather than relying on child paint escaping an ancestor.
 
 ## 5. Input and focus
 
@@ -120,7 +120,7 @@ component.on(EventType.MOUSE_DOWN, event -> {
 
 `preventDefault()` suppresses legacy/default handling. In the current OpenUI compatibility contract, `stopPropagation()` stops listener traversal and also suppresses the legacy/default-handler bridge. Focus automatically selects the nearest focusable ancestor of the hit component. Tab and Shift+Tab traverse focus.
 
-Do not register an OpenUI `TextField`'s `EditBox` yourself. The runtime owns its mounting, bounds, focus, and removal.
+Do not register an OpenUI `TextField`'s `EditBox` yourself. The runtime owns its mounting, bounds, focus, and removal. Screen mouse-down fallback also suppresses direct dispatch to those OpenUI-owned native widgets, so clipped-away portions of a field cannot remain interactive through Minecraft's vanilla child list.
 
 ## 6. Overlays and dialogs
 

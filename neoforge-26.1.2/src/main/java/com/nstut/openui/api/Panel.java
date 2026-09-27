@@ -27,8 +27,8 @@ public class Panel extends UIComponent {
     int effectiveBackground() { return backgroundOverride != null ? backgroundOverride : theme().colors().surfaceRaised(); }
     int effectiveBorder() { return borderOverride != null ? borderOverride : (elevated ? theme().colors().border() : 0); }
 
-    @Override public int preferredWidth(Font font) { int inset=preferredContentInset(), max=0; for (UIComponent c:children) max=Math.max(max,c.preferredWidth(font)); return max+inset*2; }
-    @Override public int preferredHeight(Font font) { int inset=preferredContentInset(), max=0; for (UIComponent c:children) max=Math.max(max,c.preferredHeight(font)); return max+inset*2; }
+    @Override public int preferredWidth(Font font) { return intrinsicSurfaceSize(font).width(); }
+    @Override public int preferredHeight(Font font) { return intrinsicSurfaceSize(font).height(); }
 
     @Override public void layout(int x,int y,int availableWidth,int availableHeight) {
         setBounds(x,y,availableWidth,availableHeight); int inset=contentInsetForBounds(availableWidth,availableHeight);
@@ -39,7 +39,24 @@ public class Panel extends UIComponent {
         }
     }
 
-    private int preferredContentInset() { return Math.max(effectivePadding(),roundedContentInset(effectiveRadius(),effectiveBorder()!=0?1:0,0,0)); }
+    private com.nstut.openui.layout.Size intrinsicSurfaceSize(Font font) {
+        int contentWidth=0,contentHeight=0;
+        for(UIComponent child:children) {
+            contentWidth=Math.max(contentWidth,child.preferredWidth(font));
+            contentHeight=Math.max(contentHeight,child.preferredHeight(font));
+        }
+        int candidateWidth=Math.max(0,contentWidth+effectivePadding()*2);
+        int candidateHeight=Math.max(0,contentHeight+effectivePadding()*2);
+        for(int i=0;i<16;i++) {
+            int inset=contentInsetForBounds(candidateWidth,candidateHeight);
+            int nextWidth=Math.max(0,contentWidth+inset*2);
+            int nextHeight=Math.max(0,contentHeight+inset*2);
+            if(nextWidth==candidateWidth&&nextHeight==candidateHeight) break;
+            candidateWidth=nextWidth;
+            candidateHeight=nextHeight;
+        }
+        return new com.nstut.openui.layout.Size(candidateWidth,candidateHeight);
+    }
     private int contentInsetForBounds(int surfaceWidth,int surfaceHeight) { return Math.max(effectivePadding(),roundedContentInset(effectiveRadius(),effectiveBorder()!=0?1:0,surfaceWidth,surfaceHeight)); }
     private static int roundedContentInset(int radius,int borderWidth,int surfaceWidth,int surfaceHeight) {
         int border=Math.max(0,borderWidth);
@@ -48,9 +65,8 @@ public class Panel extends UIComponent {
         return border+cornerSafeInset(innerRadius);
     }
     private static int clampRadius(int radius,int width,int height) {
-        int r=Math.max(0,radius);
-        if(width<=0||height<=0) return r;
-        return Math.min(r,Math.min(width,height)/2);
+        int maxRadius=Math.max(0,Math.min(width,height)/2);
+        return Math.min(Math.max(0,radius),maxRadius);
     }
     private static int cornerSafeInset(int radius) {
         int r=Math.max(0,radius);

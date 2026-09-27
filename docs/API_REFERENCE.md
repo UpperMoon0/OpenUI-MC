@@ -71,7 +71,7 @@ Events traverse ancestors in capture order, execute target listeners, then bubbl
 
 ## Focus and native widgets
 
-`FocusManager` tracks the focused component, traverses focusable components, and traps focus for modal overlays. `NativeWidgetManager` mounts, removes, and synchronizes `NativeWidgetOwner` controls through the active `NativeWidgetHost`. A click focuses the nearest focusable ancestor, which allows non-focusable labels/icons inside a button or card.
+`FocusManager` tracks the focused component, traverses focusable components, and traps focus for modal overlays. `NativeWidgetManager` mounts, removes, and synchronizes `NativeWidgetOwner` controls through the active `NativeWidgetHost`. A click focuses the nearest focusable ancestor, which allows non-focusable labels/icons inside a button or card. `UiScreen`/`UiContainerScreen` give the runtime first chance to route mouse-down; if vanilla fallback is still needed, registered OpenUI native widgets are temporarily inactive during that fallback so the vanilla child list cannot bypass OpenUI clipping.
 
 `NativeWidgetHost` is implemented by the screen adapter. Consumer screens should not separately add OpenUI-owned widgets to Minecraft.
 
