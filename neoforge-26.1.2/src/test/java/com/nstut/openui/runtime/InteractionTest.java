@@ -87,6 +87,47 @@ class InteractionTest {
     }
 
     @Test
+    void fullyClippedTextFieldCannotKeepOrReceiveKeyboardFocus() {
+        Font font=new Font(null);
+        UiRuntime runtime=new UiRuntime(font,dummyHost);
+        try {
+            Signal<String> value=Signals.of("");
+            TextField field=new TextField(value,font) {
+                @Override public void onFocusGained() { }
+                @Override public void onFocusLost() { }
+                @Override public boolean charTyped(char character,int modifiers) {
+                    value.set(value.get()+character);
+                    return true;
+                }
+            };
+            Card card=new Card(field).padding(0).radius(0).elevated(false);
+            runtime.setViewport(0,0,100,30);
+            runtime.setRoot(card);
+
+            // Force real runtime layout, then establish a valid focus before moving the field out of the clip.
+            assertFalse(runtime.mouseClicked(-10,-10,1));
+            assertTrue(runtime.focus().requestFocus(field));
+            assertSame(field,runtime.focus().focused());
+
+            field.layout(5,40,80,18);
+            assertFalse(field.hasVisibleAreaWithinAncestorClips(),
+                    "field rectangle is fully removed by the Card child clip");
+
+            assertFalse(runtime.charTyped('x',0),
+                    "keyboard routing must clear focus rather than typing into a fully clipped field");
+            assertEquals("",value.get());
+            assertNull(runtime.focus().focused());
+            assertFalse(runtime.focus().requestFocus(field),
+                    "programmatic focus must reject a fully clipped descendant");
+            assertFalse(runtime.keyPressed(258,0,0),
+                    "Tab traversal must skip the only fully clipped focusable descendant");
+            assertNull(runtime.focus().focused());
+        } finally {
+            runtime.close();
+        }
+    }
+
+    @Test
     void simulatedButtonClickDispatchesAction() {
         UiRuntime runtime = new UiRuntime(new Font(null), dummyHost);
         AtomicBoolean clicked = new AtomicBoolean(false);

@@ -278,6 +278,31 @@ public abstract class UIComponent {
         return null;
     }
 
+    /**
+     * Internal interaction-eligibility check used by focus traversal. Before first layout, zero-sized
+     * components remain eligible so callers can request initial focus; once geometry exists, a component
+     * whose entire rectangle is removed by an ancestor child clip is not focusable.
+     */
+    @Internal
+    public final boolean hasVisibleAreaWithinAncestorClips() {
+        if (!visible) return false;
+        for (UIComponent cursor=parent; cursor!=null; cursor=cursor.parent) {
+            if (!cursor.visible) return false;
+        }
+        if (width<=0||height<=0) return true;
+        long left=x, top=y, right=(long)x+width, bottom=(long)y+height;
+        for (UIComponent cursor=parent; cursor!=null; cursor=cursor.parent) {
+            if (!cursor.clipsChildrenToBounds()) continue;
+            long clipLeft=cursor.childClipX(), clipTop=cursor.childClipY();
+            long clipRight=clipLeft+Math.max(0,cursor.childClipWidth());
+            long clipBottom=clipTop+Math.max(0,cursor.childClipHeight());
+            left=Math.max(left,clipLeft); top=Math.max(top,clipTop);
+            right=Math.min(right,clipRight); bottom=Math.min(bottom,clipBottom);
+            if (left>=right||top>=bottom) return false;
+        }
+        return true;
+    }
+
     public void onFocusGained() {
         invalidatePaint();
         if (runtime != null) {
@@ -298,15 +323,24 @@ public abstract class UIComponent {
     /** Called when focus leaves this component's descendant tree. */
     public void onFocusWithinLost() { invalidatePaint(); }
 
-    public void preRender(int mx, int my) {
+    public void preRender(int mx, int my) { preRender(mx,my,true); }
+
+    private void preRender(int mx,int my,boolean pointerWithinAncestorClips) {
         if (!visible) return;
-        boolean nextHovered = mx >= x && mx < x + width && my >= y && my < y + height;
-        if (hovered != nextHovered) {
-            hovered = nextHovered;
+        boolean nextHovered=pointerWithinAncestorClips
+                && mx>=x&&mx<x+width&&my>=y&&my<y+height;
+        if (hovered!=nextHovered) {
+            hovered=nextHovered;
             if (hovered) onHoverEnter();
             else onHoverLeave();
         }
-        for (UIComponent c : children) c.preRender(mx, my);
+        boolean childPointerVisible=pointerWithinAncestorClips;
+        if (childPointerVisible&&clipsChildrenToBounds()) {
+            int clipX=childClipX(), clipY=childClipY();
+            int clipWidth=childClipWidth(), clipHeight=childClipHeight();
+            childPointerVisible=mx>=clipX&&mx<clipX+clipWidth&&my>=clipY&&my<clipY+clipHeight;
+        }
+        for (UIComponent child:children) child.preRender(mx,my,childPointerVisible);
     }
 
     protected void onHoverEnter() {
