@@ -43,6 +43,7 @@ public abstract class UIComponent {
     private boolean fillWidth;
     private boolean fillHeight;
     private boolean focusable;
+    private boolean boundsEstablished;
     private String key;
     private Theme localTheme;
     private Component tooltip;
@@ -160,6 +161,7 @@ public abstract class UIComponent {
 
     protected void setBounds(int x, int y, int w, int h) {
         this.x = x; this.y = y; this.width = w; this.height = h;
+        this.boundsEstablished = true;
     }
 
     public final void mount(UiRuntime runtime) {
@@ -288,7 +290,8 @@ public abstract class UIComponent {
         for (UIComponent cursor=parent; cursor!=null; cursor=cursor.parent) {
             if (!cursor.visible) return false;
         }
-        if (width<=0||height<=0) return true;
+        if (!boundsEstablished) return true;
+        if (width<=0||height<=0) return false;
         long left=x, top=y, right=(long)x+width, bottom=(long)y+height;
         for (UIComponent cursor=parent; cursor!=null; cursor=cursor.parent) {
             if (!cursor.clipsChildrenToBounds()) continue;
@@ -403,7 +406,15 @@ public abstract class UIComponent {
         }
     }
 
+    private boolean isPointInsideChildClip(double mx,double my) {
+        if (!clipsChildrenToBounds()) return true;
+        int clipX=childClipX(), clipY=childClipY();
+        int clipWidth=Math.max(0,childClipWidth()), clipHeight=Math.max(0,childClipHeight());
+        return mx>=clipX&&mx<clipX+clipWidth&&my>=clipY&&my<clipY+clipHeight;
+    }
+
     protected final boolean childrenMouseClicked(double mx, double my, int button) {
+        if (!isPointInsideChildClip(mx,my)) return false;
         for (int i = children.size() - 1; i >= 0; i--) {
             UIComponent child = children.get(i);
             if (child.isVisible() && child.mouseClicked(mx, my, button)) return true;
@@ -412,6 +423,7 @@ public abstract class UIComponent {
     }
 
     protected final boolean childrenMouseScrolled(double mx, double my, double delta) {
+        if (!isPointInsideChildClip(mx,my)) return false;
         for (UIComponent child : children) {
             if (child.isVisible() && child.mouseScrolled(mx, my, delta)) return true;
         }
@@ -419,6 +431,7 @@ public abstract class UIComponent {
     }
 
     protected final boolean childrenMouseDragged(double mx, double my, int button, double dragX, double dragY) {
+        if (!isPointInsideChildClip(mx,my)) return false;
         for (UIComponent child : children) {
             if (child.isVisible() && child.mouseDragged(mx, my, button, dragX, dragY)) return true;
         }
@@ -426,6 +439,7 @@ public abstract class UIComponent {
     }
 
     protected final boolean childrenMouseReleased(double mx, double my, int button) {
+        if (!isPointInsideChildClip(mx,my)) return false;
         for (UIComponent child : children) {
             if (child.isVisible() && child.mouseReleased(mx, my, button)) return true;
         }

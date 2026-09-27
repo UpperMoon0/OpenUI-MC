@@ -128,6 +128,44 @@ class InteractionTest {
     }
 
     @Test
+    void laidOutZeroSizedTextFieldCannotReceiveFocusOrKeyboardInput() {
+        Font font=new Font(null, false);
+        UiRuntime runtime=new UiRuntime(font,dummyHost);
+        try {
+            Signal<String> value=Signals.of("");
+            TextField field=new TextField(value,font) {
+                @Override public void onFocusGained() { }
+                @Override public void onFocusLost() { }
+                @Override public boolean charTyped(char character,int modifiers) {
+                    value.set(value.get()+character);
+                    return true;
+                }
+            };
+            runtime.setRoot(field);
+
+            assertTrue(runtime.focus().requestFocus(field),
+                    "pre-layout zero-size controls remain eligible for initial focus setup");
+            runtime.focus().clearFocus();
+
+            field.layout(0,0,0,18);
+            assertFalse(field.hasVisibleAreaWithinAncestorClips(),
+                    "a genuinely laid-out zero-width control has no focusable visible area");
+            assertFalse(runtime.focus().requestFocus(field));
+            assertFalse(runtime.focus().focusNext());
+            assertNull(runtime.focus().focused());
+
+            field.layout(0,0,80,0);
+            assertFalse(field.hasVisibleAreaWithinAncestorClips(),
+                    "a genuinely laid-out zero-height control has no focusable visible area");
+            assertFalse(runtime.focus().requestFocus(field));
+            assertFalse(runtime.charTyped('x',0));
+            assertEquals("",value.get());
+        } finally {
+            runtime.close();
+        }
+    }
+
+    @Test
     void simulatedButtonClickDispatchesAction() {
         UiRuntime runtime = new UiRuntime(new Font(null, false), dummyHost);
         AtomicBoolean clicked = new AtomicBoolean(false);

@@ -118,7 +118,7 @@ component.on(EventType.MOUSE_DOWN, event -> {
 });
 ```
 
-`preventDefault()` suppresses legacy/default handling. In the current OpenUI compatibility contract, `stopPropagation()` stops listener traversal and also suppresses the legacy/default-handler bridge. Focus automatically selects the nearest focusable ancestor of the hit component. Tab and Shift+Tab traverse only focusable components with visible area inside all ancestor clips; a control fully clipped after layout also loses keyboard eligibility. Hover uses the same ancestor clip boundary, so invisible overflow does not receive hover state or hover events.
+`preventDefault()` suppresses legacy/default handling. In the current OpenUI compatibility contract, `stopPropagation()` stops listener traversal and also suppresses the legacy/default-handler bridge. Focus automatically selects the nearest focusable ancestor of the hit component. Tab and Shift+Tab traverse only focusable components with visible area inside all ancestor clips; a control fully clipped after layout also loses keyboard eligibility. A real 0-width or 0-height layout is not considered pre-layout and is skipped by focus as well. Hover uses the same ancestor clip boundary, so invisible overflow does not receive hover state or hover events.
 
 Do not register an OpenUI `TextField`'s `EditBox` yourself. The runtime owns its mounting, bounds, focus, and removal. Screen mouse-down fallback also suppresses direct dispatch to those OpenUI-owned native widgets, so clipped-away portions of a field cannot remain interactive through Minecraft's vanilla child list.
 

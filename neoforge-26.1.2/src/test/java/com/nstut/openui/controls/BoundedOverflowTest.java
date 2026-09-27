@@ -51,6 +51,15 @@ class BoundedOverflowTest {
         }
     }
 
+    private static final class LegacyPointerProbe extends FixedBox {
+        int clicks, scrolls, drags, releases;
+        private LegacyPointerProbe() { super(20,20); }
+        @Override public boolean mouseClicked(double mx,double my,int button) { clicks++; return true; }
+        @Override public boolean mouseScrolled(double mx,double my,double delta) { scrolls++; return true; }
+        @Override public boolean mouseDragged(double mx,double my,int button,double dragX,double dragY) { drags++; return true; }
+        @Override public boolean mouseReleased(double mx,double my,int button) { releases++; return true; }
+    }
+
     private static final class CountingScrollView extends ScrollView {
         private int measureCalls;
 
@@ -221,6 +230,36 @@ class BoundedOverflowTest {
         assertEquals(12, styledChild.getWidth());
         assertSame(styled, styled.hitTest(3, 10), "styled border width must be excluded from child input");
         assertSame(styledChild, styled.hitTest(4, 10));
+    }
+
+    @Test
+    void panelLegacyPointerForwardingRespectsProtectedChildClip() {
+        LegacyPointerProbe child=new LegacyPointerProbe();
+        Panel panel=new Panel(0xFF111111,0xFFEEEEEE).padding(0).radius(0).child(child);
+        panel.layoutTree(font(),0,0,20,20);
+
+        // Simulate overflow into the one-pixel protected border strip. Direct legacy forwarding used to
+        // reach the child here even though hitTest() correctly returns the Panel itself.
+        child.layout(0,0,20,20);
+        assertSame(panel,panel.hitTest(0,10));
+        assertFalse(panel.mouseClicked(0,10,0));
+        assertFalse(panel.mouseScrolled(0,10,-1));
+        assertFalse(panel.mouseDragged(0,10,0,1,0));
+        assertFalse(panel.mouseReleased(0,10,0));
+        assertEquals(0,child.clicks);
+        assertEquals(0,child.scrolls);
+        assertEquals(0,child.drags);
+        assertEquals(0,child.releases);
+
+        assertSame(child,panel.hitTest(1,10));
+        assertTrue(panel.mouseClicked(1,10,0));
+        assertTrue(panel.mouseScrolled(1,10,-1));
+        assertTrue(panel.mouseDragged(1,10,0,1,0));
+        assertTrue(panel.mouseReleased(1,10,0));
+        assertEquals(1,child.clicks);
+        assertEquals(1,child.scrolls);
+        assertEquals(1,child.drags);
+        assertEquals(1,child.releases);
     }
 
     @Test
