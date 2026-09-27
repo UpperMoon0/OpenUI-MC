@@ -78,14 +78,16 @@ public final class StyledBox extends UIComponent {
 
     @Override public int preferredWidth(Font font) {
         Style s = resolved();
-        int intrinsicSurface = child.preferredWidth(font) + s.padding().left() + s.padding().right();
+        int safe=surfaceSafeInset(s);
+        int intrinsicSurface = child.preferredWidth(font) + Math.max(s.padding().left(),safe) + Math.max(s.padding().right(),safe);
         int surface = resolveAxis(intrinsicSurface, s.width(), s.minWidth(), s.maxWidth(), Integer.MAX_VALUE);
         return safeAdd(surface, s.margin().left() + s.margin().right());
     }
 
     @Override public int preferredHeight(Font font) {
         Style s = resolved();
-        int intrinsicSurface = child.preferredHeight(font) + s.padding().top() + s.padding().bottom();
+        int safe=surfaceSafeInset(s);
+        int intrinsicSurface = child.preferredHeight(font) + Math.max(s.padding().top(),safe) + Math.max(s.padding().bottom(),safe);
         int surface = resolveAxis(intrinsicSurface, s.height(), s.minHeight(), s.maxHeight(), Integer.MAX_VALUE);
         return safeAdd(surface, s.margin().top() + s.margin().bottom());
     }
@@ -103,17 +105,28 @@ public final class StyledBox extends UIComponent {
         int outerHeight = Math.min(availableHeight, safeAdd(surfaceHeight, verticalMargin));
         setBounds(x, y, outerWidth, outerHeight);
 
-        int childX = x + s.margin().left() + s.padding().left();
-        int childY = y + s.margin().top() + s.padding().top();
-        int childWidth = Math.max(0, surfaceWidth - s.padding().left() - s.padding().right());
-        int childHeight = Math.max(0, surfaceHeight - s.padding().top() - s.padding().bottom());
+        int safe=surfaceSafeInset(s);
+        int left=Math.max(s.padding().left(),safe), right=Math.max(s.padding().right(),safe);
+        int top=Math.max(s.padding().top(),safe), bottom=Math.max(s.padding().bottom(),safe);
+        int childX = x + s.margin().left() + left;
+        int childY = y + s.margin().top() + top;
+        int childWidth = Math.max(0, surfaceWidth - left - right);
+        int childHeight = Math.max(0, surfaceHeight - top - bottom);
         LayoutDiagnostics.checkBoundedOverflow(this, child, childWidth, childHeight, measureFont());
         child.layout(childX, childY, childWidth, childHeight);
     }
 
-    private static int clipInset(int padding, Style s) {
-        int border = s.borderColor() != null ? s.borderWidth() : 0;
-        return Math.max(padding, border);
+    private static int clipInset(int padding, Style s) { return Math.max(padding,surfaceSafeInset(s)); }
+    private static int surfaceSafeInset(Style s) {
+        int border=s.borderColor()!=null?Math.max(0,s.borderWidth()):0;
+        int innerRadius=Math.max(0,s.radius()-border);
+        return border+cornerSafeInset(innerRadius);
+    }
+    private static int cornerSafeInset(int radius) {
+        int r=Math.max(0,radius);
+        if(r<=1) return 0;
+        double rr=(double)r*r;
+        return Math.max(0,(int)Math.ceil(r-(1.0D+Math.sqrt(8.0D*rr-1.0D))/4.0D));
     }
     @Override protected boolean clipsChildrenToBounds() { return true; }
     @Override protected int childClipX() {

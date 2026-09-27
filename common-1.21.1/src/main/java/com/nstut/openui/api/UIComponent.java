@@ -260,9 +260,17 @@ public abstract class UIComponent {
     public UIComponent hitTest(int mx, int my) {
         if (!visible) return null;
         if (mx >= x && mx < x + width && my >= y && my < y + height) {
-            for (int i = children.size() - 1; i >= 0; i--) {
-                UIComponent hit = children.get(i).hitTest(mx, my);
-                if (hit != null) return hit;
+            boolean testChildren=true;
+            if(clipsChildrenToBounds()) {
+                int clipX=childClipX(), clipY=childClipY();
+                int clipWidth=childClipWidth(), clipHeight=childClipHeight();
+                testChildren=mx>=clipX&&mx<clipX+clipWidth&&my>=clipY&&my<clipY+clipHeight;
+            }
+            if (testChildren) {
+                for (int i = children.size() - 1; i >= 0; i--) {
+                    UIComponent hit = children.get(i).hitTest(mx, my);
+                    if (hit != null) return hit;
+                }
             }
             return this;
         }

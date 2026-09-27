@@ -24,7 +24,7 @@ This is a practical catalog of the public framework surface. The canonical signa
 - `Ui.grid(items, renderer)` / `DynamicGrid`: responsive repeated cards.
 - `Ui.list(items, renderer)` / `VirtualList`: virtualized, keyed list rows.
 - `Ui.virtualGrid(items, renderer)` / `VirtualGrid`: scrollable, row-virtualized responsive cells. Configure with `.key(...)`, `.minCellWidth(...)`, `.cellHeight(...)`, `.gap(...)`, `.overscanRows(...)`, and inspect/reset with `.columns()`, `.activeCellCount()`, `.scrollOffset()`, and `.resetScroll()`.
-- `Ui.card(a, b, c)`: decorates one logical content component; multiple arguments are automatically stacked vertically. Cards, panels, and styled surface boxes clip descendant paint to their content interior so padding/borders stay protected, but they never become implicit scroll views.
+- `Ui.card(a, b, c)`: decorates one logical content component; multiple arguments are automatically stacked vertically. Cards, panels, and styled surface boxes use a protected content rectangle for child layout, paint clipping, and descendant hit-testing. The rectangle respects padding/borders and is radius-safe for rounded surfaces, but these surfaces never become implicit scroll views.
 - `Ui.scroll(content)` / `ScrollView`: explicit clipped scrolling for content that must remain reachable inside a bounded height. Pair with `.flex()` inside a column when it should consume the remaining height.
 - `ScrollList` and `ScrollGrid`: lower-level scrollable collections.
 
@@ -96,7 +96,7 @@ Overlay geometry has its own dirty path. Overlay implementations that change onl
 1. Extend `UIComponent` and implement `render` with the version's GUI rendering type.
 2. Override preferred size or layout only when composition cannot express the geometry.
 3. Render visible children with `renderChildren` when the component owns a subtree.
-4. For a custom bounded visual surface, override `clipsChildrenToBounds()` and the `childClipX/Y/Width/Height()` hooks so the child clip describes the drawable content interior, not the outer shadow/border box. Do not use clipping as a substitute for `Ui.scroll(...)` when overflowing content must remain reachable.
+4. For a custom bounded visual surface, override `clipsChildrenToBounds()` and the `childClipX/Y/Width/Height()` hooks so the child clip describes the drawable content interior, not the outer shadow/border box. OpenUI also restricts descendant hit-testing to that same rectangle. If the surface is rounded, choose a rectangle fully contained by the rounded inner fill rather than merely the rectangular border inset. Do not use clipping as a substitute for `Ui.scroll(...)` when overflowing content must remain reachable.
 5. Use semantic colors from `theme()`.
 6. Acquire subscriptions/resources in `onMount()` and release them in `onUnmount()`.
 7. Call `invalidatePaint`, `invalidateLayout`, or structural invalidation at the narrowest correct level.

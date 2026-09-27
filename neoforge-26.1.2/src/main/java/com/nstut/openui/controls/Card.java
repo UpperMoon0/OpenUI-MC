@@ -28,28 +28,28 @@ public class Card extends UIComponent {
     public Card hoverable(boolean hoverable) { this.hoverable = hoverable; return this; }
     public Card clickable(boolean clickable) { this.clickable = clickable; focusable(clickable); return this; }
     public Card onClick(Runnable onClick) { this.onClick = onClick; return clickable(true); }
-    public Card selected(boolean selected) { this.selected = selected; invalidatePaint(); return this; }
+    public Card selected(boolean selected) { if (this.selected == selected) return this; this.selected = selected; invalidateLayout(); return this; }
     public Card elevated(boolean elevated) { if (java.util.Objects.equals(elevatedOverride, elevated)) return this; elevatedOverride = elevated; invalidatePaint(); return this; }
     public Card themeElevation() { if (elevatedOverride == null) return this; elevatedOverride = null; invalidatePaint(); return this; }
-    public Card outlined(boolean outlined) { this.outlined = outlined; invalidatePaint(); return this; }
+    public Card outlined(boolean outlined) { if (this.outlined == outlined) return this; this.outlined = outlined; invalidateLayout(); return this; }
     public Card padding(int padding) { this.customPadding = Math.max(0,padding); invalidateLayout(); return this; }
-    public Card radius(int radius) { this.customRadius = Math.max(0,radius); invalidatePaint(); return this; }
+    public Card radius(int radius) { int next=Math.max(0,radius); if(this.customRadius==next) return this; this.customRadius=next; invalidateLayout(); return this; }
 
     @Override public int preferredWidth(Font font) {
-        int pad=customPadding>=0?customPadding:theme().cardTheme().padding();
+        int inset=contentInset();
         int max=0; for(UIComponent child:children) max=Math.max(max,child.preferredWidth(font));
-        return max+pad*2;
+        return max+inset*2;
     }
     @Override public int preferredHeight(Font font) {
-        int pad=customPadding>=0?customPadding:theme().cardTheme().padding();
-        int innerWidth=Math.max(0,width-pad*2);
+        int inset=contentInset();
+        int innerWidth=Math.max(0,width-inset*2);
         int total=0;
         for(UIComponent child:children) {
             total+=width>0
                     ? child.measure(Constraints.loose(innerWidth,Constraints.INFINITY),font).height()
                     : child.preferredHeight(font);
         }
-        return total+pad*2;
+        return total+inset*2;
     }
     @Override public Size measure(Constraints constraints, Font font) {
         Size initial=super.measure(constraints,font);
@@ -63,16 +63,29 @@ public class Card extends UIComponent {
     }
     @Override public void layout(int x,int y,int availableWidth,int availableHeight) {
         setBounds(x,y,availableWidth,availableHeight);
-        int pad=customPadding>=0?customPadding:theme().cardTheme().padding();
-        int innerX=x+pad, innerY=y+pad;
-        int innerW=Math.max(0,availableWidth-pad*2), innerH=Math.max(0,availableHeight-pad*2);
+        int inset=contentInset();
+        int innerX=x+inset, innerY=y+inset;
+        int innerW=Math.max(0,availableWidth-inset*2), innerH=Math.max(0,availableHeight-inset*2);
         for(UIComponent child:children) {
             LayoutDiagnostics.checkBoundedOverflow(this,child,innerW,innerH,measureFont());
             child.layoutTree(measureFont(),innerX,innerY,innerW,innerH);
         }
     }
     private int effectivePadding() { return customPadding>=0?customPadding:theme().cardTheme().padding(); }
-    private int childClipInset() { return Math.max(effectivePadding(), (outlined||selected||isFocused()) ? 1 : 0); }
+    private int effectiveRadius() { return customRadius>=0?customRadius:theme().cardTheme().radius(); }
+    private int activeBorderWidth() { return (outlined||selected||isFocused()) ? 1 : 0; }
+    private int contentInset() { return Math.max(effectivePadding(), roundedContentInset(effectiveRadius(),activeBorderWidth())); }
+    private static int roundedContentInset(int radius,int borderWidth) {
+        int border=Math.max(0,borderWidth), innerRadius=Math.max(0,radius-border);
+        return border+cornerSafeInset(innerRadius);
+    }
+    private static int cornerSafeInset(int radius) {
+        int r=Math.max(0,radius);
+        if(r<=1) return 0;
+        double rr=(double)r*r;
+        return Math.max(0,(int)Math.ceil(r-(1.0D+Math.sqrt(8.0D*rr-1.0D))/4.0D));
+    }
+    private int childClipInset() { return contentInset(); }
     @Override protected boolean clipsChildrenToBounds() { return true; }
     @Override protected int childClipX() { return x + childClipInset(); }
     @Override protected int childClipY() { return y + childClipInset(); }
@@ -89,7 +102,7 @@ public class Card extends UIComponent {
             if(hoverProgress<target) hoverProgress=Math.min(target,hoverProgress+step);
             else if(hoverProgress>target) hoverProgress=Math.max(target,hoverProgress-step); }
         float eased=Easing.EASE_OUT.apply(hoverProgress);
-        int radius=customRadius>=0?customRadius:t.cardTheme().radius();
+        int radius=effectiveRadius();
         int baseBg=selected?colors.surfaceVariant():colors.surfaceRaised();
         int bg=UiRender.mix(baseBg,colors.surfaceVariant(),eased);
         int baseBorder=selected?colors.primary():(outlined?colors.border():0);
@@ -101,6 +114,8 @@ public class Card extends UIComponent {
         UiRender.roundedOutline(g,x,y,width,height,radius,bg,border);
         renderChildren(g,font,mx,my,pt);
     }
+    @Override public void onFocusGained() { invalidateLayout(); super.onFocusGained(); }
+    @Override public void onFocusLost() { invalidateLayout(); super.onFocusLost(); }
     @Override public boolean mouseClicked(double mx,double my,int btn) {
         if(clickable&&btn==0&&isHovered()&&onClick!=null) { onClick.run(); return true; }
         return super.mouseClicked(mx,my,btn);

@@ -24,7 +24,7 @@ class RenderClippingTest {
     private static final int MARKER_B = 0x2468ACE0;
 
     private record Rect(int minX, int minY, int maxX, int maxY) { }
-    private record Paint(int color, Rect clip) { }
+    private record Paint(int color, Rect bounds, Rect clip) { }
 
     private static final class PaintBox extends UIComponent {
         private final int markerColor;
@@ -65,12 +65,18 @@ class RenderClippingTest {
         }
 
         @Override public void fill(int minX, int minY, int maxX, int maxY, int color) {
-            paints.add(new Paint(color, currentClip()));
+            paints.add(new Paint(color, new Rect(minX,minY,maxX,maxY), currentClip()));
         }
 
         Rect currentClip() { return activeScissors.peek(); }
         Paint paint(int color) {
             return paints.stream().filter(paint -> paint.color() == color).findFirst().orElseThrow();
+        }
+        boolean colorCovers(int color,int px,int py) {
+            return paints.stream().filter(paint -> paint.color()==color).anyMatch(paint -> {
+                Rect b=paint.bounds();
+                return px>=b.minX()&&px<b.maxX()&&py>=b.minY()&&py<b.maxY();
+            });
         }
     }
 
@@ -131,6 +137,64 @@ class RenderClippingTest {
         assertEquals(List.of(new Rect(17, 27, 103, 73)), styledGraphics.enabledScissors);
         assertEquals(new Rect(17, 27, 103, 73), styledGraphics.paint(MARKER_B).clip());
         assertNull(styledGraphics.currentClip());
+    }
+
+    @Test
+    void lowPaddingRoundedSurfaceUsesRadiusSafeContentRectangle() {
+        PaintBox cardChild=new PaintBox(MARKER_B);
+        Card card=new Card(cardChild).padding(0).radius(6).elevated(false);
+        card.layoutTree(font(),10,20,100,60);
+        RecordingGraphics cardGraphics=RecordingGraphics.create();
+        card.render(cardGraphics,font(),0,0,0);
+        Rect contentClip=new Rect(13,23,107,77);
+        assertEquals(List.of(contentClip),cardGraphics.enabledScissors,
+                "zero-padding rounded Card must reserve a radius-safe content rectangle");
+        assertEquals(13,cardChild.getX());
+        assertEquals(94,cardChild.getWidth());
+        assertEquals(contentClip,cardGraphics.paint(MARKER_B).clip());
+
+        int background=0xFF112233, border=0xFFCCDDEE;
+        PaintBox child=new PaintBox(MARKER_A);
+        Panel panel=new Panel(background,border).padding(0).radius(6).child(child);
+        panel.layoutTree(font(),10,20,100,60);
+        RecordingGraphics graphics=RecordingGraphics.create();
+        panel.render(graphics,font(),0,0,0);
+
+        assertEquals(List.of(contentClip),graphics.enabledScissors);
+        assertEquals(13,child.getX());
+        assertEquals(23,child.getY());
+        assertEquals(94,child.getWidth());
+        assertEquals(54,child.getHeight());
+        assertEquals(contentClip,graphics.paint(MARKER_A).clip());
+        assertTrue(graphics.colorCovers(background,contentClip.minX(),contentClip.minY()),
+                "top-left child clip corner must lie inside the rounded inner fill");
+        assertTrue(graphics.colorCovers(background,contentClip.maxX()-1,contentClip.minY()));
+        assertTrue(graphics.colorCovers(background,contentClip.minX(),contentClip.maxY()-1));
+        assertTrue(graphics.colorCovers(background,contentClip.maxX()-1,contentClip.maxY()-1));
+        assertFalse(graphics.colorCovers(background,12,22),
+                "pixel just outside the radius-safe rectangle remains rounded border/corner territory");
+    }
+
+    @Test
+    void styledBorderWidthAndRoundedContentRegionAgree() {
+        int background=0xFF223344, border=0xFFABCDEF;
+        Style style=Style.builder().padding(0).background(background).border(4,border).radius(8).build();
+        PaintBox child=new PaintBox(MARKER_B);
+        StyledBox styled=Ui.styled(StateStyle.of(style),child);
+        styled.layoutTree(font(),10,20,100,60);
+        RecordingGraphics graphics=RecordingGraphics.create();
+        styled.render(graphics,font(),0,0,0);
+
+        Rect contentClip=new Rect(15,25,105,75);
+        assertEquals(List.of(contentClip),graphics.enabledScissors);
+        assertEquals(15,child.getX());
+        assertEquals(90,child.getWidth());
+        assertEquals(contentClip,graphics.paint(MARKER_B).clip());
+        assertTrue(graphics.colorCovers(background,15,25));
+        assertFalse(graphics.colorCovers(background,14,24),
+                "styled content must not enter the rounded multi-pixel border arc");
+        assertTrue(graphics.colorCovers(border,14,24),
+                "configured StyledBox border width must actually be rendered");
     }
 
     @Test

@@ -189,6 +189,41 @@ class BoundedOverflowTest {
     }
 
     @Test
+    void zeroPaddingBorderedSurfacesAlignChildBoundsAndHitTestingWithProtectedRegion() {
+        FixedBox cardChild = new FixedBox(10, 10);
+        Card card = new Card(cardChild).padding(0).radius(0).elevated(false);
+        card.layoutTree(font(), 0, 0, 20, 20);
+        assertEquals(1, cardChild.getX());
+        assertEquals(1, cardChild.getY());
+        assertEquals(18, cardChild.getWidth());
+        assertEquals(18, cardChild.getHeight());
+        assertSame(card, card.hitTest(0, 10), "clipped card border strip must not target its child");
+        assertSame(cardChild, card.hitTest(1, 10));
+
+        FixedBox panelChild = new FixedBox(10, 10);
+        Panel panel = new Panel(0xFF111111, 0xFFEEEEEE).padding(0).radius(0).child(panelChild);
+        panel.layoutTree(font(), 0, 0, 20, 20);
+        assertEquals(1, panelChild.getX());
+        assertEquals(18, panelChild.getWidth());
+        assertSame(panel, panel.hitTest(0, 10), "clipped panel border strip must not target its child");
+        assertSame(panelChild, panel.hitTest(1, 10));
+
+        FixedBox styledChild = new FixedBox(10, 10);
+        Style style = Style.builder()
+                .padding(0)
+                .background(0xFF111111)
+                .border(4, 0xFFEEEEEE)
+                .radius(0)
+                .build();
+        StyledBox styled = Ui.styled(StateStyle.of(style), styledChild);
+        styled.layoutTree(font(), 0, 0, 20, 20);
+        assertEquals(4, styledChild.getX());
+        assertEquals(12, styledChild.getWidth());
+        assertSame(styled, styled.hitTest(3, 10), "styled border width must be excluded from child input");
+        assertSame(styledChild, styled.hitTest(4, 10));
+    }
+
+    @Test
     void unboundedNormalStackKeepsNaturalLayoutAndDoesNotClip() {
         FixedBox child = new FixedBox(80, 300);
         InspectableStack stack = new InspectableStack();

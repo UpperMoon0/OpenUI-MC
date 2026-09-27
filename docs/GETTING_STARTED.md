@@ -104,7 +104,7 @@ Compose `Ui.row`, `Ui.column`, `Ui.stack`, `Ui.padding`, and `Ui.responsive`. Ap
 
 Every screen has a viewport. On `UiScreen`, override `uiLeft`, `uiTop`, `uiWidth`, or `uiHeight` when the UI should occupy a smaller region. `UiContainerScreen` instead derives its viewport directly from the menu bounds: `leftPos`, `topPos`, `imageWidth`, and `imageHeight`.
 
-Rows, columns, and stacks do not implicitly clip or scroll. Bounded visual surfaces (`Card`, `Panel`, `StyledBox`) clip descendant painting to their protected content interior so padding and borders cannot be painted over, but they still do not scroll. If overflow must remain reachable, use an explicit `Ui.scroll(body).flex()` inside the bounded surface. Floating controls should use OpenUI's overlay APIs rather than relying on child paint escaping an ancestor.
+Rows, columns, and stacks do not implicitly clip or scroll. Bounded visual surfaces (`Card`, `Panel`, `StyledBox`) use one protected content rectangle for child layout, painting, and descendant input. It preserves padding/borders and stays inside rounded inner corners even at low padding, but these surfaces still do not scroll. If overflow must remain reachable, use an explicit `Ui.scroll(body).flex()` inside the bounded surface. Floating controls should use OpenUI's overlay APIs rather than relying on child paint escaping an ancestor.
 
 ## 5. Input and focus
 
