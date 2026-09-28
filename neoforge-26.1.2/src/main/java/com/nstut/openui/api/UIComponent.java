@@ -317,9 +317,13 @@ public abstract class UIComponent {
             long clipBottom=clipTop+Math.max(0,cursor.childClipHeight());
             if (clipLeft>=clipRight||clipTop>=clipBottom) return false;
             if (cursor.isFocusNavigationViewport()) {
-                // A scroll viewport represents its off-screen descendant to outer clips by the viewport
-                // itself. The target remains keyboard-reachable and will be revealed when focused.
-                left=clipLeft; top=clipTop; right=clipRight; bottom=clipBottom;
+                // ScrollView can reveal descendants vertically only. Preserve real horizontal
+                // intersection with the viewport, while representing vertical position by the
+                // viewport itself so off-screen rows remain keyboard-reachable.
+                left=Math.max(left,clipLeft);
+                right=Math.min(right,clipRight);
+                if (left>=right) return false;
+                top=clipTop; bottom=clipBottom;
                 continue;
             }
             left=Math.max(left,clipLeft); top=Math.max(top,clipTop);

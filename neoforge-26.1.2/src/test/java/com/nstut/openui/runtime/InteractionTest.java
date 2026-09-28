@@ -166,6 +166,36 @@ class InteractionTest {
     }
 
     @Test
+    void scrollViewDoesNotExemptFullyHorizontalOffscreenFocusTargets() {
+        Font font=new Font(null);
+        UiRuntime runtime=new UiRuntime(font,dummyHost);
+        try {
+            ButtonWidget visible=Ui.button("Visible",()->{});
+            ButtonWidget offscreen=Ui.button("Offscreen",()->{});
+            UIComponent shifted=Ui.positioned(offscreen).left(150).height(18);
+            var scroll=Ui.scroll(Ui.column(visible,shifted,Ui.spacer().height(90)));
+            Card root=new Card(scroll).padding(0).radius(0).elevated(false);
+            runtime.setViewport(0,0,100,50);
+            runtime.setRoot(root);
+
+            assertFalse(runtime.mouseClicked(-10,-10,1));
+            assertTrue(offscreen.getX()>=scroll.getX()+scroll.getWidth(),
+                    "control case: Positioned.left places the target fully to the right of the vertical ScrollView");
+            assertFalse(offscreen.hasVisibleAreaWithinAncestorClips(),
+                    "vertical focus viewport semantics must still require horizontal intersection");
+            assertFalse(runtime.focus().requestFocus(offscreen),
+                    "programmatic focus must reject a target the ScrollView cannot reveal horizontally");
+
+            assertTrue(runtime.focus().requestFocus(visible));
+            assertTrue(runtime.keyPressed(258,0,0),"Tab should remain handled by the focus manager");
+            assertSame(visible,runtime.focus().focused(),
+                    "Tab traversal must skip the fully horizontal-offscreen target and wrap to the visible control");
+        } finally {
+            runtime.close();
+        }
+    }
+
+    @Test
     void preLayoutFocusedScrollDescendantIsRevealedOnFirstLayout() {
         Font font=new Font(null);
         UiRuntime runtime=new UiRuntime(font,dummyHost);
