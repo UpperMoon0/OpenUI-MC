@@ -1,6 +1,5 @@
 package com.nstut.openui.controls;
 
-import com.nstut.openui.api.ClipStack;
 import com.nstut.openui.api.UIComponent;
 import com.nstut.openui.api.UiRender;
 import com.nstut.openui.layout.Constraints;
@@ -23,6 +22,7 @@ public class ScrollView extends UIComponent {
 
     private double scrollOffset;
     private int contentHeight;
+    private boolean focusRevealPending;
 
     public ScrollView(UIComponent content) {
         addChild(content);
@@ -61,6 +61,17 @@ public class ScrollView extends UIComponent {
         contentHeight = Math.max(measured.height(), availableHeight);
         clampScroll();
         content.layout(x, y - (int) scrollOffset, contentWidth, contentHeight);
+        if (focusRevealPending) {
+            focusRevealPending=false;
+            UIComponent focused=runtime()!=null?runtime().focus().focused():null;
+            if (focused!=null&&isDescendant(focused)) {
+                double next=scrollOffsetForReveal(focused);
+                if (Double.compare(next,scrollOffset)!=0) {
+                    scrollOffset=next;
+                    content.layout(x,y-(int)scrollOffset,contentWidth,contentHeight);
+                }
+            }
+        }
     }
 
     private double maxScroll() { return Math.max(0, contentHeight - height); }
@@ -70,14 +81,38 @@ public class ScrollView extends UIComponent {
         scrollOffset = Math.max(0, Math.min(max, scrollOffset));
     }
 
+    @Override protected boolean clipsChildrenToBounds() { return true; }
+
+    @Override protected boolean isFocusNavigationViewport() { return maxScroll()>0; }
+
+    @Override protected void revealFocusedDescendant(UIComponent descendant) {
+        if (descendant==null||!isDescendant(descendant)) return;
+        focusRevealPending=true;
+        invalidateLayout();
+    }
+
+    private boolean isDescendant(UIComponent component) {
+        for (UIComponent cursor=component; cursor!=null; cursor=cursor.parent()) {
+            if (cursor==this) return true;
+        }
+        return false;
+    }
+
+    private double scrollOffsetForReveal(UIComponent descendant) {
+        if (height<=0||maxScroll()<=0||descendant.getHeight()<=0) return scrollOffset;
+        double next=scrollOffset;
+        int targetTop=descendant.getY();
+        int targetBottom=targetTop+descendant.getHeight();
+        int viewportTop=y;
+        int viewportBottom=y+height;
+        if (targetTop<viewportTop) next-=viewportTop-targetTop;
+        else if (targetBottom>viewportBottom) next+=targetBottom-viewportBottom;
+        return Math.max(0,Math.min(maxScroll(),next));
+    }
+
     @Override
     public void render(GuiGraphicsExtractor g, Font font, int mx, int my, float pt) {
-        ClipStack.push(g, x, y, width, height);
-        try {
-            renderChildren(g, font, mx, my, pt);
-        } finally {
-            ClipStack.pop(g);
-        }
+        renderChildren(g, font, mx, my, pt);
         drawScrollbar(g);
     }
 

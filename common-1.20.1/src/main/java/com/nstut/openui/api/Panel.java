@@ -1,5 +1,6 @@
 package com.nstut.openui.api;
 
+import com.nstut.openui.debug.LayoutDiagnostics;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 
@@ -13,26 +14,72 @@ public class Panel extends UIComponent {
     public Panel(int bgColor, int borderColor) { this.backgroundOverride = bgColor; this.borderOverride = borderColor; }
     public Panel(int bgColor) { this.backgroundOverride = bgColor; }
     public Panel() { }
-    public Panel radius(int radius) { int next = Math.max(0, radius); if (customRadius == next) return this; customRadius = next; invalidatePaint(); return this; }
-    public Panel themeRadius() { if (customRadius < 0) return this; customRadius = -1; invalidatePaint(); return this; }
+    public Panel radius(int radius) { int next = Math.max(0, radius); if (customRadius == next) return this; customRadius = next; invalidateLayout(); return this; }
+    public Panel themeRadius() { if (customRadius < 0) return this; customRadius = -1; invalidateLayout(); return this; }
     public Panel padding(int padding) { int next = Math.max(0, padding); if (customPadding == next) return this; customPadding = next; invalidateLayout(); return this; }
     public Panel themePadding() { if (customPadding < 0) return this; customPadding = -1; invalidateLayout(); return this; }
-    public Panel elevated() { this.elevated = true; invalidatePaint(); return this; }
+    public Panel elevated() { if (this.elevated) return this; this.elevated = true; invalidateLayout(); return this; }
     public Panel child(UIComponent child) { addChild(child); return this; }
-    public Panel colors(int background, int border) { this.backgroundOverride = background; this.borderOverride = border; invalidatePaint(); return this; }
-    public Panel themeColors() { backgroundOverride = null; borderOverride = null; invalidatePaint(); return this; }
+    public Panel colors(int background, int border) { this.backgroundOverride = background; this.borderOverride = border; invalidateLayout(); return this; }
+    public Panel themeColors() { backgroundOverride = null; borderOverride = null; invalidateLayout(); return this; }
     private int effectiveRadius() { return customRadius >= 0 ? customRadius : theme().radii().medium(); }
     private int effectivePadding() { return customPadding >= 0 ? customPadding : theme().spacing().sm(); }
     int effectiveBackground() { return backgroundOverride != null ? backgroundOverride : theme().colors().surfaceRaised(); }
     int effectiveBorder() { return borderOverride != null ? borderOverride : (elevated ? theme().colors().border() : 0); }
 
-    @Override public int preferredWidth(Font font) { int padding=effectivePadding(), max=0; for (UIComponent c:children) max=Math.max(max,c.preferredWidth(font)); return max+padding*2; }
-    @Override public int preferredHeight(Font font) { int padding=effectivePadding(), max=0; for (UIComponent c:children) max=Math.max(max,c.preferredHeight(font)); return max+padding*2; }
+    @Override public int preferredWidth(Font font) { return intrinsicSurfaceSize(font).width(); }
+    @Override public int preferredHeight(Font font) { return intrinsicSurfaceSize(font).height(); }
 
     @Override public void layout(int x,int y,int availableWidth,int availableHeight) {
-        setBounds(x,y,availableWidth,availableHeight); int padding=effectivePadding();
-        for (UIComponent c:children) c.layout(x+padding,y+padding,Math.max(0,availableWidth-padding*2),Math.max(0,availableHeight-padding*2));
+        setBounds(x,y,availableWidth,availableHeight); int inset=contentInsetForBounds(availableWidth,availableHeight);
+        int innerW=Math.max(0,availableWidth-inset*2), innerH=Math.max(0,availableHeight-inset*2);
+        for (UIComponent c:children) {
+            LayoutDiagnostics.checkBoundedOverflow(this,c,innerW,innerH,measureFont());
+            c.layout(x+inset,y+inset,innerW,innerH);
+        }
     }
+
+    private com.nstut.openui.layout.Size intrinsicSurfaceSize(Font font) {
+        int contentWidth=0,contentHeight=0;
+        for(UIComponent child:children) {
+            contentWidth=Math.max(contentWidth,child.preferredWidth(font));
+            contentHeight=Math.max(contentHeight,child.preferredHeight(font));
+        }
+        int candidateWidth=Math.max(0,contentWidth+effectivePadding()*2);
+        int candidateHeight=Math.max(0,contentHeight+effectivePadding()*2);
+        for(int i=0;i<16;i++) {
+            int inset=contentInsetForBounds(candidateWidth,candidateHeight);
+            int nextWidth=Math.max(0,contentWidth+inset*2);
+            int nextHeight=Math.max(0,contentHeight+inset*2);
+            if(nextWidth==candidateWidth&&nextHeight==candidateHeight) break;
+            candidateWidth=nextWidth;
+            candidateHeight=nextHeight;
+        }
+        return new com.nstut.openui.layout.Size(candidateWidth,candidateHeight);
+    }
+    private int contentInsetForBounds(int surfaceWidth,int surfaceHeight) { return Math.max(effectivePadding(),roundedContentInset(effectiveRadius(),effectiveBorder()!=0?1:0,surfaceWidth,surfaceHeight)); }
+    private static int roundedContentInset(int radius,int borderWidth,int surfaceWidth,int surfaceHeight) {
+        int border=Math.max(0,borderWidth);
+        int clampedRadius=clampRadius(radius,surfaceWidth,surfaceHeight);
+        int innerRadius=Math.max(0,clampedRadius-border);
+        return border+cornerSafeInset(innerRadius);
+    }
+    private static int clampRadius(int radius,int width,int height) {
+        int maxRadius=Math.max(0,Math.min(width,height)/2);
+        return Math.min(Math.max(0,radius),maxRadius);
+    }
+    private static int cornerSafeInset(int radius) {
+        int r=Math.max(0,radius);
+        if(r<=1) return 0;
+        double rr=(double)r*r;
+        return Math.max(0,(int)Math.ceil(r-(1.0D+Math.sqrt(8.0D*rr-1.0D))/4.0D));
+    }
+    private int childClipInset() { return contentInsetForBounds(width,height); }
+    @Override protected boolean clipsChildrenToBounds() { return true; }
+    @Override protected int childClipX() { return x + childClipInset(); }
+    @Override protected int childClipY() { return y + childClipInset(); }
+    @Override protected int childClipWidth() { int inset=childClipInset(); return Math.max(0,width-inset*2); }
+    @Override protected int childClipHeight() { int inset=childClipInset(); return Math.max(0,height-inset*2); }
 
     @Override public void render(GuiGraphics g, Font font, int mx, int my, float pt) {
         if (!visible) return;

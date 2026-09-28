@@ -4,7 +4,9 @@ import com.nstut.openui.api.ButtonWidget;
 import com.nstut.openui.api.UIComponent;
 import com.nstut.openui.api.Ui;
 import com.nstut.openui.api.VStack;
+import com.nstut.openui.controls.Card;
 import com.nstut.openui.controls.Checkbox;
+import com.nstut.openui.controls.TextField;
 import com.nstut.openui.controls.Select;
 import com.nstut.openui.controls.SwitchControl;
 import com.nstut.openui.input.EventType;
@@ -16,6 +18,8 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -27,6 +31,282 @@ class InteractionTest {
         @Override public void add(AbstractWidget widget) {}
         @Override public void remove(AbstractWidget widget) {}
     };
+
+    @Test
+    void clippedTextFieldCannotReceiveVanillaFallbackClick() {
+        Font font=new Font(null);
+        List<AbstractWidget> mounted=new ArrayList<>();
+        NativeWidgetHost host=new NativeWidgetHost() {
+            @Override public void add(AbstractWidget widget) { mounted.add(widget); }
+            @Override public void remove(AbstractWidget widget) { mounted.remove(widget); }
+        };
+        UiRuntime runtime=new UiRuntime(font,host);
+        try {
+            TextField field=new TextField(Signals.of(""),font);
+            Card card=new Card(Ui.column(Ui.spacer().height(24),field))
+                    .padding(0).radius(0).elevated(false);
+            runtime.setViewport(0,0,100,30);
+            runtime.setRoot(card);
+
+            // Trigger the real runtime layout path without clicking the UI.
+            assertFalse(runtime.mouseClicked(-10,-10,1));
+            assertTrue(mounted.contains(field.getEditBox()),"TextField native EditBox must be mounted on the screen host");
+
+            // Match EditBoxWrapper.render() native bounds so vanilla Screen fallback sees this pixel.
+            var editBox=field.getEditBox();
+            editBox.setX(field.getX()+4);
+            editBox.setY(field.getY()+(field.getHeight()-font.lineHeight)/2);
+            editBox.setWidth(Math.max(10,field.getWidth()-8));
+            double clickX=field.getX()+5;
+            double clippedY=card.getY()+card.getHeight()-1;
+
+            java.util.function.BooleanSupplier vanillaWouldDispatchToEditBox=() ->
+                    editBox.active&&editBox.visible
+                            &&clickX>=editBox.getX()&&clickX<editBox.getX()+editBox.getWidth()
+                            &&clippedY>=editBox.getY()&&clippedY<editBox.getY()+editBox.getHeight();
+            assertTrue(vanillaWouldDispatchToEditBox.getAsBoolean(),
+                    "control case: the native EditBox is eligible for Screen fallback at the clipped-away pixel");
+            assertFalse(runtime.mouseClicked(clickX,clippedY,0),
+                    "OpenUI hit-testing must reject the field outside Card's protected child clip");
+
+            boolean vanillaOwnedResult=runtime.nativeWidgets().withMouseClickFallbackSuppressed(
+                    vanillaWouldDispatchToEditBox);
+            assertFalse(vanillaOwnedResult,
+                    "screen fallback must make the OpenUI-owned native EditBox ineligible for direct dispatch");
+            assertTrue(editBox.active,"native widget active state must be restored after fallback routing");
+
+            AtomicBoolean unrelatedVanilla=new AtomicBoolean();
+            assertTrue(runtime.nativeWidgets().withMouseClickFallbackSuppressed(() -> {
+                unrelatedVanilla.set(true);
+                return true;
+            }),"unrelated vanilla fallback must remain available");
+            assertTrue(unrelatedVanilla.get());
+        } finally {
+            runtime.close();
+        }
+    }
+
+    @Test
+    void fullyClippedTextFieldCannotKeepOrReceiveKeyboardFocus() {
+        Font font=new Font(null);
+        UiRuntime runtime=new UiRuntime(font,dummyHost);
+        try {
+            Signal<String> value=Signals.of("");
+            TextField field=new TextField(value,font) {
+                @Override public void onFocusGained() { }
+                @Override public void onFocusLost() { }
+                @Override public boolean charTyped(char character,int modifiers) {
+                    value.set(value.get()+character);
+                    return true;
+                }
+            };
+            Card card=new Card(field).padding(0).radius(0).elevated(false);
+            runtime.setViewport(0,0,100,30);
+            runtime.setRoot(card);
+
+            // Force real runtime layout, then establish a valid focus before moving the field out of the clip.
+            assertFalse(runtime.mouseClicked(-10,-10,1));
+            assertTrue(runtime.focus().requestFocus(field));
+            assertSame(field,runtime.focus().focused());
+
+            field.layout(5,40,80,18);
+            assertFalse(field.hasVisibleAreaWithinAncestorClips(),
+                    "field rectangle is fully removed by the Card child clip");
+
+            assertFalse(runtime.charTyped('x',0),
+                    "keyboard routing must clear focus rather than typing into a fully clipped field");
+            assertEquals("",value.get());
+            assertNull(runtime.focus().focused());
+            assertFalse(runtime.focus().requestFocus(field),
+                    "programmatic focus must reject a fully clipped descendant");
+            assertFalse(runtime.keyPressed(258,0,0),
+                    "Tab traversal must skip the only fully clipped focusable descendant");
+            assertNull(runtime.focus().focused());
+        } finally {
+            runtime.close();
+        }
+    }
+
+    @Test
+    void laidOutZeroSizedTextFieldCannotReceiveFocusOrKeyboardInput() {
+        Font font=new Font(null);
+        UiRuntime runtime=new UiRuntime(font,dummyHost);
+        try {
+            Signal<String> value=Signals.of("");
+            TextField field=new TextField(value,font) {
+                @Override public void onFocusGained() { }
+                @Override public void onFocusLost() { }
+                @Override public boolean charTyped(char character,int modifiers) {
+                    value.set(value.get()+character);
+                    return true;
+                }
+            };
+            runtime.setRoot(field);
+
+            assertTrue(runtime.focus().requestFocus(field),
+                    "pre-layout zero-size controls remain eligible for initial focus setup");
+            runtime.focus().clearFocus();
+
+            field.layout(0,0,0,18);
+            assertFalse(field.hasVisibleAreaWithinAncestorClips(),
+                    "a genuinely laid-out zero-width control has no focusable visible area");
+            assertFalse(runtime.focus().requestFocus(field));
+            assertFalse(runtime.focus().focusNext());
+            assertNull(runtime.focus().focused());
+
+            field.layout(0,0,80,0);
+            assertFalse(field.hasVisibleAreaWithinAncestorClips(),
+                    "a genuinely laid-out zero-height control has no focusable visible area");
+            assertFalse(runtime.focus().requestFocus(field));
+            assertFalse(runtime.charTyped('x',0));
+            assertEquals("",value.get());
+        } finally {
+            runtime.close();
+        }
+    }
+
+    @Test
+    void scrollViewDoesNotExemptFullyHorizontalOffscreenFocusTargets() {
+        Font font=new Font(null);
+        UiRuntime runtime=new UiRuntime(font,dummyHost);
+        try {
+            ButtonWidget visible=Ui.button("Visible",()->{});
+            ButtonWidget offscreen=Ui.button("Offscreen",()->{});
+            UIComponent shifted=Ui.positioned(offscreen).left(150).height(18);
+            var scroll=Ui.scroll(Ui.column(visible,shifted,Ui.spacer().height(90)));
+            Card root=new Card(scroll).padding(0).radius(0).elevated(false);
+            runtime.setViewport(0,0,100,50);
+            runtime.setRoot(root);
+
+            assertFalse(runtime.mouseClicked(-10,-10,1));
+            assertTrue(offscreen.getX()>=scroll.getX()+scroll.getWidth(),
+                    "control case: Positioned.left places the target fully to the right of the vertical ScrollView");
+            assertFalse(offscreen.hasVisibleAreaWithinAncestorClips(),
+                    "vertical focus viewport semantics must still require horizontal intersection");
+            assertFalse(runtime.focus().requestFocus(offscreen),
+                    "programmatic focus must reject a target the ScrollView cannot reveal horizontally");
+
+            assertTrue(runtime.focus().requestFocus(visible));
+            assertTrue(runtime.keyPressed(258,0,0),"Tab should remain handled by the focus manager");
+            assertSame(visible,runtime.focus().focused(),
+                    "Tab traversal must skip the fully horizontal-offscreen target and wrap to the visible control");
+        } finally {
+            runtime.close();
+        }
+    }
+
+    @Test
+    void preLayoutFocusedScrollDescendantIsRevealedOnFirstLayout() {
+        Font font=new Font(null);
+        UiRuntime runtime=new UiRuntime(font,dummyHost);
+        try {
+            AtomicBoolean activated=new AtomicBoolean();
+            ButtonWidget target=Ui.button("Initial",()->activated.set(true));
+            var scroll=Ui.scroll(Ui.column(Ui.spacer().height(90),target));
+            Card root=new Card(scroll).padding(0).radius(0).elevated(false);
+            runtime.setViewport(0,0,100,50);
+            runtime.setRoot(root);
+
+            assertTrue(runtime.focus().requestFocus(target),
+                    "initial form focus is valid before any bounds have been established");
+            assertSame(target,runtime.focus().focused());
+
+            // The first real layout must consume the pending reveal after it discovers scroll overflow.
+            assertFalse(runtime.mouseClicked(-10,-10,1));
+            assertSame(target,runtime.focus().focused());
+            assertTrue(target.getY()>=scroll.getY());
+            assertTrue(target.getY()+target.getHeight()<=scroll.getY()+scroll.getHeight(),
+                    "pre-layout focus should be revealed during the first ScrollView layout");
+            assertTrue(runtime.keyPressed(257,0,0));
+            assertTrue(activated.get(),"keyboard input must still route to the initially focused revealed target");
+        } finally {
+            runtime.close();
+        }
+    }
+
+    @Test
+    void nestedScrollViewsRevealFocusedDescendantUsingFreshInnerGeometry() {
+        Font font=new Font(null);
+        UiRuntime runtime=new UiRuntime(font,dummyHost);
+        try {
+            ButtonWidget target=Ui.button("Nested",()->{});
+            var inner=Ui.scroll(Ui.column(Ui.spacer().height(90),target)).height(50);
+            var outer=Ui.scroll(Ui.column(Ui.spacer().height(120),inner,Ui.spacer().height(120)));
+            Card root=new Card(outer).padding(0).radius(0).elevated(false);
+            runtime.setViewport(0,0,100,60);
+            runtime.setRoot(root);
+
+            // First layout establishes both scroll ranges with the target below the inner viewport,
+            // while the inner viewport itself is below the outer viewport.
+            assertFalse(runtime.mouseClicked(-10,-10,1));
+            assertTrue(target.getY()>=inner.getY()+inner.getHeight());
+            assertTrue(inner.getY()>=outer.getY()+outer.getHeight());
+            assertTrue(runtime.focus().requestFocus(target));
+
+            // Layout must reveal inner first, then let outer compute from those fresh coordinates.
+            assertFalse(runtime.mouseClicked(-10,-10,1));
+            assertSame(target,runtime.focus().focused());
+            assertTrue(target.getY()>=inner.getY());
+            assertTrue(target.getY()+target.getHeight()<=inner.getY()+inner.getHeight(),
+                    "inner ScrollView should reveal the target");
+            assertTrue(target.getY()>=outer.getY());
+            assertTrue(target.getY()+target.getHeight()<=outer.getY()+outer.getHeight(),
+                    "outer ScrollView must reveal from the inner viewport's updated geometry, not stale leaf coordinates");
+        } finally {
+            runtime.close();
+        }
+    }
+
+    @Test
+    void scrollViewKeepsOffscreenControlsInFocusOrderAndRevealsNewFocus() {
+        Font font=new Font(null);
+        UiRuntime runtime=new UiRuntime(font,dummyHost);
+        try {
+            AtomicBoolean activated=new AtomicBoolean();
+            ButtonWidget first=Ui.button("First",()->{});
+            ButtonWidget second=Ui.button("Second",()->activated.set(true));
+            VStack content=Ui.column(first,Ui.spacer().height(90),second).gap(0);
+            var scroll=Ui.scroll(content);
+            Card root=new Card(scroll).padding(0).radius(0).elevated(false);
+            runtime.setViewport(0,0,100,50);
+            runtime.setRoot(root);
+
+            // Establish real layout: the second button starts fully below the scroll viewport.
+            assertFalse(runtime.mouseClicked(-10,-10,1));
+            assertTrue(second.getY()>=scroll.getY()+scroll.getHeight());
+            assertTrue(second.hasVisibleAreaWithinAncestorClips(),
+                    "ScrollView is a focus viewport, so off-screen content stays keyboard-reachable through outer Card clipping");
+
+            assertTrue(runtime.focus().requestFocus(first));
+            assertTrue(runtime.keyPressed(258,0,0),"Tab should advance to the off-screen second control");
+            assertSame(second,runtime.focus().focused());
+            assertTrue(runtime.isLayoutDirty(),"new ScrollView focus should request reveal layout");
+
+            // Input targeting flushes the pending layout without changing focus for a non-primary outside click.
+            assertFalse(runtime.mouseClicked(-10,-10,1));
+            assertTrue(second.getY()>=scroll.getY());
+            assertTrue(second.getY()+second.getHeight()<=scroll.getY()+scroll.getHeight(),
+                    "newly focused off-screen control should be scrolled fully into view");
+            assertSame(second,runtime.focus().focused());
+
+            // Manual wheel scrolling may move the focused control away, but must not invalidate keyboard focus.
+            assertTrue(scroll.mouseScrolled(scroll.getX()+1,scroll.getY()+1,100));
+            assertFalse(runtime.mouseClicked(-10,-10,1));
+            assertTrue(second.getY()>=scroll.getY()+scroll.getHeight(),
+                    "control should be off-screen again after scrolling to the top");
+            assertSame(second,runtime.focus().focused(),
+                    "ScrollView clipping must not clear an otherwise valid focused descendant");
+            assertTrue(runtime.keyPressed(257,0,0),"keyboard routing should still reach the off-screen focused button");
+            assertTrue(activated.get());
+
+            // Re-requesting the same focus target also reveals it again.
+            assertTrue(runtime.focus().requestFocus(second));
+            assertFalse(runtime.mouseClicked(-10,-10,1));
+            assertTrue(second.getY()+second.getHeight()<=scroll.getY()+scroll.getHeight());
+        } finally {
+            runtime.close();
+        }
+    }
 
     @Test
     void simulatedButtonClickDispatchesAction() {

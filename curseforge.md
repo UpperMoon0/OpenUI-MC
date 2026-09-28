@@ -6,7 +6,7 @@ OpenUI MC is a client-side UI framework used by Minecraft mod developers to buil
 
 ## For players
 
-OpenUI MC is a library mod. It does not add blocks, items, recipes, or gameplay by itself. Install it when another mod lists OpenUI MC as a required dependency, and make sure the Minecraft version and loader match that mod.
+OpenUI MC is a library mod. It does not add blocks, items, recipes, or gameplay by itself. Install it when another mod lists OpenUI MC as a required dependency, and make sure the Minecraft version and loader match that mod. Dedicated servers normally do not need OpenUI MC because the framework is client-side; a modpack may still choose to distribute the jar on both sides.
 
 ## For mod developers
 

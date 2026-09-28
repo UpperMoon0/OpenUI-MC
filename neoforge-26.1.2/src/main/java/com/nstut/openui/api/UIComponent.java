@@ -43,6 +43,7 @@ public abstract class UIComponent {
     private boolean fillWidth;
     private boolean fillHeight;
     private boolean focusable;
+    private boolean boundsEstablished;
     private String key;
     private Theme localTheme;
     private Component tooltip;
@@ -161,6 +162,7 @@ public abstract class UIComponent {
 
     protected void setBounds(int x, int y, int w, int h) {
         this.x = x; this.y = y; this.width = w; this.height = h;
+        this.boundsEstablished = true;
     }
 
     public final void mount(UiRuntime runtime) {
@@ -261,13 +263,74 @@ public abstract class UIComponent {
     public UIComponent hitTest(int mx, int my) {
         if (!visible) return null;
         if (mx >= x && mx < x + width && my >= y && my < y + height) {
-            for (int i = children.size() - 1; i >= 0; i--) {
-                UIComponent hit = children.get(i).hitTest(mx, my);
-                if (hit != null) return hit;
+            boolean testChildren=true;
+            if(clipsChildrenToBounds()) {
+                int clipX=childClipX(), clipY=childClipY();
+                int clipWidth=childClipWidth(), clipHeight=childClipHeight();
+                testChildren=mx>=clipX&&mx<clipX+clipWidth&&my>=clipY&&my<clipY+clipHeight;
+            }
+            if (testChildren) {
+                for (int i = children.size() - 1; i >= 0; i--) {
+                    UIComponent hit = children.get(i).hitTest(mx, my);
+                    if (hit != null) return hit;
+                }
             }
             return this;
         }
         return null;
+    }
+
+    /** Whether this clipping component is a keyboard-focus viewport whose off-screen descendants remain navigable. */
+    @Internal
+    protected boolean isFocusNavigationViewport() { return false; }
+
+    /** Gives focus viewports a chance to schedule revealing a newly focused descendant. */
+    @Internal
+    protected void revealFocusedDescendant(UIComponent descendant) { }
+
+    /** Internal focus hook used by FocusManager after accepting a target. */
+    @Internal
+    public final void revealForFocusNavigation() {
+        for (UIComponent cursor=parent; cursor!=null; cursor=cursor.parent) {
+            cursor.revealFocusedDescendant(this);
+        }
+    }
+
+    /**
+     * Internal interaction-eligibility check used by focus traversal. Before first layout, zero-sized
+     * components remain eligible so callers can request initial focus; once geometry exists, a component
+     * whose entire rectangle is removed by an ancestor child clip is not focusable.
+     */
+    @Internal
+    public final boolean hasVisibleAreaWithinAncestorClips() {
+        if (!visible) return false;
+        for (UIComponent cursor=parent; cursor!=null; cursor=cursor.parent) {
+            if (!cursor.visible) return false;
+        }
+        if (!boundsEstablished) return true;
+        if (width<=0||height<=0) return false;
+        long left=x, top=y, right=(long)x+width, bottom=(long)y+height;
+        for (UIComponent cursor=parent; cursor!=null; cursor=cursor.parent) {
+            if (!cursor.clipsChildrenToBounds()) continue;
+            long clipLeft=cursor.childClipX(), clipTop=cursor.childClipY();
+            long clipRight=clipLeft+Math.max(0,cursor.childClipWidth());
+            long clipBottom=clipTop+Math.max(0,cursor.childClipHeight());
+            if (clipLeft>=clipRight||clipTop>=clipBottom) return false;
+            if (cursor.isFocusNavigationViewport()) {
+                // ScrollView can reveal descendants vertically only. Preserve real horizontal
+                // intersection with the viewport, while representing vertical position by the
+                // viewport itself so off-screen rows remain keyboard-reachable.
+                left=Math.max(left,clipLeft);
+                right=Math.min(right,clipRight);
+                if (left>=right) return false;
+                top=clipTop; bottom=clipBottom;
+                continue;
+            }
+            left=Math.max(left,clipLeft); top=Math.max(top,clipTop);
+            right=Math.min(right,clipRight); bottom=Math.min(bottom,clipBottom);
+            if (left>=right||top>=bottom) return false;
+        }
+        return true;
     }
 
     public void onFocusGained() {
@@ -290,15 +353,24 @@ public abstract class UIComponent {
     /** Called when focus leaves this component's descendant tree. */
     public void onFocusWithinLost() { invalidatePaint(); }
 
-    public void preRender(int mx, int my) {
+    public void preRender(int mx, int my) { preRender(mx,my,true); }
+
+    private void preRender(int mx,int my,boolean pointerWithinAncestorClips) {
         if (!visible) return;
-        boolean nextHovered = mx >= x && mx < x + width && my >= y && my < y + height;
-        if (hovered != nextHovered) {
-            hovered = nextHovered;
+        boolean nextHovered=pointerWithinAncestorClips
+                && mx>=x&&mx<x+width&&my>=y&&my<y+height;
+        if (hovered!=nextHovered) {
+            hovered=nextHovered;
             if (hovered) onHoverEnter();
             else onHoverLeave();
         }
-        for (UIComponent c : children) c.preRender(mx, my);
+        boolean childPointerVisible=pointerWithinAncestorClips;
+        if (childPointerVisible&&clipsChildrenToBounds()) {
+            int clipX=childClipX(), clipY=childClipY();
+            int clipWidth=childClipWidth(), clipHeight=childClipHeight();
+            childPointerVisible=mx>=clipX&&mx<clipX+clipWidth&&my>=clipY&&my<clipY+clipHeight;
+        }
+        for (UIComponent child:children) child.preRender(mx,my,childPointerVisible);
     }
 
     protected void onHoverEnter() {
@@ -333,13 +405,48 @@ public abstract class UIComponent {
     public Component tooltip() { return tooltip; }
 
 
+    /**
+     * Whether descendants rendered through {@link #renderChildren} are clipped to this
+     * component's child clip rectangle. Layout containers remain non-clipping by default;
+     * bounded visual surfaces opt in explicitly.
+     */
+    @Since("0.0.12")
+    protected boolean clipsChildrenToBounds() { return false; }
+    @Since("0.0.12")
+    protected int childClipX() { return x; }
+    @Since("0.0.12")
+    protected int childClipY() { return y; }
+    @Since("0.0.12")
+    protected int childClipWidth() { return width; }
+    @Since("0.0.12")
+    protected int childClipHeight() { return height; }
+
     protected final void renderChildren(GuiGraphicsExtractor g, Font font, int mx, int my, float pt) {
-        for (UIComponent child : children) {
-            if (child.isVisible()) child.render(g, font, mx, my, pt);
+        if (!clipsChildrenToBounds()) {
+            for (UIComponent child : children) {
+                if (child.isVisible()) child.render(g, font, mx, my, pt);
+            }
+            return;
+        }
+        ClipStack.push(g, childClipX(), childClipY(), childClipWidth(), childClipHeight());
+        try {
+            for (UIComponent child : children) {
+                if (child.isVisible()) child.render(g, font, mx, my, pt);
+            }
+        } finally {
+            ClipStack.pop(g);
         }
     }
 
+    private boolean isPointInsideChildClip(double mx,double my) {
+        if (!clipsChildrenToBounds()) return true;
+        int clipX=childClipX(), clipY=childClipY();
+        int clipWidth=Math.max(0,childClipWidth()), clipHeight=Math.max(0,childClipHeight());
+        return mx>=clipX&&mx<clipX+clipWidth&&my>=clipY&&my<clipY+clipHeight;
+    }
+
     protected final boolean childrenMouseClicked(double mx, double my, int button) {
+        if (!isPointInsideChildClip(mx,my)) return false;
         for (int i = children.size() - 1; i >= 0; i--) {
             UIComponent child = children.get(i);
             if (child.isVisible() && child.mouseClicked(mx, my, button)) return true;
@@ -348,6 +455,7 @@ public abstract class UIComponent {
     }
 
     protected final boolean childrenMouseScrolled(double mx, double my, double delta) {
+        if (!isPointInsideChildClip(mx,my)) return false;
         for (UIComponent child : children) {
             if (child.isVisible() && child.mouseScrolled(mx, my, delta)) return true;
         }
@@ -355,6 +463,7 @@ public abstract class UIComponent {
     }
 
     protected final boolean childrenMouseDragged(double mx, double my, int button, double dragX, double dragY) {
+        if (!isPointInsideChildClip(mx,my)) return false;
         for (UIComponent child : children) {
             if (child.isVisible() && child.mouseDragged(mx, my, button, dragX, dragY)) return true;
         }
@@ -362,6 +471,7 @@ public abstract class UIComponent {
     }
 
     protected final boolean childrenMouseReleased(double mx, double my, int button) {
+        if (!isPointInsideChildClip(mx,my)) return false;
         for (UIComponent child : children) {
             if (child.isVisible() && child.mouseReleased(mx, my, button)) return true;
         }

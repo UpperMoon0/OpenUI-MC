@@ -50,6 +50,9 @@ def class_names(jar: pathlib.Path) -> list[str]:
         return sorted(set(result))
 
 
+INTERNAL_ANNOTATION = "com.nstut.openui.api.Internal"
+
+
 def parse_class_api(output: str) -> tuple[bool, str | None, set[tuple[str, str]]]:
     lines = output.splitlines()
     declaration = next(
@@ -64,18 +67,33 @@ def parse_class_api(output: str) -> tuple[bool, str | None, set[tuple[str, str]]
     if declaration is None:
         return False, None, set()
 
+    closing_index = next((index for index, line in enumerate(lines) if line == "}"), len(lines))
+    if INTERNAL_ANNOTATION in "\n".join(lines[closing_index + 1:]):
+        return False, None, set()
+
+    starts = [
+        index
+        for index, line in enumerate(lines[:closing_index])
+        if line.startswith("  ")
+        and not line.startswith("    ")
+        and (line.strip().startswith("public ") or line.strip().startswith("protected "))
+    ]
     members: set[tuple[str, str]] = set()
-    pending: str | None = None
-    for line in lines:
-        stripped = line.strip()
-        if line.startswith("  ") and not line.startswith("    ") and (
-            stripped.startswith("public ") or stripped.startswith("protected ")
-        ):
-            pending = stripped
+    for offset, start in enumerate(starts):
+        end = starts[offset + 1] if offset + 1 < len(starts) else closing_index
+        block = lines[start:end]
+        if INTERNAL_ANNOTATION in "\n".join(block):
             continue
-        if pending is not None and stripped.startswith("descriptor:"):
-            members.add((pending, stripped.removeprefix("descriptor:").strip()))
-            pending = None
+        descriptor = next(
+            (
+                line.strip().removeprefix("descriptor:").strip()
+                for line in block
+                if line.strip().startswith("descriptor:")
+            ),
+            None,
+        )
+        if descriptor is not None:
+            members.add((lines[start].strip(), descriptor))
     return True, declaration, members
 
 
@@ -83,7 +101,7 @@ def class_api(
     javap: str, jar: pathlib.Path, class_name: str
 ) -> tuple[bool, str | None, set[tuple[str, str]]]:
     process = subprocess.run(
-        [javap, "-classpath", str(jar), "-protected", "-s", "-constants", class_name],
+        [javap, "-classpath", str(jar), "-protected", "-s", "-constants", "-v", class_name],
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

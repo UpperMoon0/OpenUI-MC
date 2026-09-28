@@ -63,6 +63,25 @@ return Ui.padding(12,
 
 Use `VirtualList` for large, fixed-height collections and `VirtualGrid` for virtualized grid collections. Their keyed cells are limited to the visible range plus configurable overscan. Use `DynamicGrid` when columns should adapt to UI scale for small/intrinsic collections.
 
+### Overflow, clipping, and scrolling
+
+Normal layout containers such as `VStack`, `HStack`, and `Stack` keep normal layout semantics: they do not become scroll views and do not gain surprise wheel capture or scrollbars. `ClipStack` remains the explicit low-level clipping primitive.
+
+Bounded visual surfaces such as `Card`, `Panel`, and `StyledBox` use one protected child-content rectangle for layout, descendant painting, and descendant hit-testing. The rectangle respects padding and the actually rendered border width and, for rounded surfaces, uses the renderer-clamped radius (`min(configuredRadius, min(width,height)/2)`) before choosing a conservative rectangle whose four corners stay inside the rounded inner fill. Auto-sized surfaces solve that inset against their candidate intrinsic width/height until it converges, so a large configured pill radius does not inflate preferred size merely because the raw radius is large. Descendants therefore cannot square off a low-padding rounded corner or receive input in pixels that their clip hides. The shared legacy `childrenMouse*` forwarding helpers enforce the same child clip for click, scroll, drag, and release, so a bounded container cannot bypass clip-aware hit-testing by forwarding directly to overflowing children. `Card` permanently reserves its one-pixel state-outline gutter, so focus/selection only repaint the outline and never reflow content. This is still only an overflow safety boundary: it does not make overflowing content accessible and it does not change layout into implicit scrolling. Surface shadows are painted outside the child clip, while dropdowns, popovers, tooltips, dialogs, toasts, and drag feedback use `OverlayManager` roots and therefore are not trapped by an ancestor surface clip.
+
+When content can legitimately exceed the available height, put the body inside an explicit `Ui.scroll(...)` and flex that viewport within the card. `ScrollView` remains a paint/pointer clip, but it is also a **vertical** keyboard-focus viewport: descendants clipped only above/below the viewport stay in Tab/programmatic focus order, newly focused descendants schedule a reveal that is resolved during layout from fresh geometry, and manually scrolling a focused descendant vertically off-screen does not invalidate its keyboard focus. Horizontal visibility is still required because ScrollView has no horizontal scroll/reveal capability. Because reveal is layout-time, initial focus requested before the first layout is revealed once overflow becomes known, and nested ScrollViews resolve inner-to-outer without using stale descendant coordinates:
+
+```java
+return Ui.card(
+    Ui.column(
+        Ui.heading("Details"),
+        Ui.scroll(Ui.text(longBody)).flex()
+    ).gap(6)
+).padding(8).height(140).fillWidth();
+```
+
+With the OpenUI inspector active, bounded non-scroll overflow emits a deduplicated development warning (`Content height exceeds bounded parent; consider Ui.scroll(...)`). The same diagnostic can be enabled without the inspector with `-Dopenui.debug.layout=true`. Constraint-managed subtrees (for example a flexed explicit scroll viewport) are conservatively excluded so a correct bounded layout is not told to add scrolling. `LayoutDiagnostics` is a public development API for tooling that needs to enable or query these diagnostics programmatically; ordinary screens can just use the inspector/property.
+
 ### Flex semantics
 
 Flex applies from **parent → child**:
@@ -88,7 +107,7 @@ root.addChild(Ui.list(...));
 
 ## Input, focus, and native fields
 
-Events travel capture → target → bubble and may stop propagation, prevent their default action, or capture the pointer. `preventDefault()` suppresses legacy/default handling. For compatibility with OpenUI's legacy handlers, `stopPropagation()` stops traversal and suppresses that default-handler bridge as well. Pointer capture should only be requested for a button/action the control actually begins. Standard controls are focusable and keyboard operable. Tab and Shift+Tab traverse focus; modal Escape handling is centralized. A `TextField` owns its vanilla `EditBox` through the runtime, so screens must not call `addRenderableWidget` or synchronize widget bounds themselves.
+Events travel capture → target → bubble and may stop propagation, prevent their default action, or capture the pointer. `preventDefault()` suppresses legacy/default handling. For compatibility with OpenUI's legacy handlers, `stopPropagation()` stops traversal and suppresses that default-handler bridge as well. Pointer capture should only be requested for a button/action the control actually begins. Standard controls are focusable and keyboard operable. Tab and Shift+Tab traverse focus, but descendants whose entire laid-out rectangle is removed by a bounded surface clip are excluded from traversal/programmatic focus and lose keyboard eligibility if later clipped away. Explicit `ScrollView` clips are different only on the vertical axis: descendants above/below the viewport remain in keyboard focus order and are revealed when focus moves to them, but a descendant fully clipped left/right is still ineligible because ScrollView cannot reveal it horizontally. Pre-layout components remain eligible for initial focus setup, while components that have actually been laid out to zero width or zero height are treated as having no focusable area. Hover propagation follows the same ancestor clip chain, so invisible overflow cannot enter or retain hover state or fire hover transitions. Modal Escape handling is centralized. A `TextField` owns its vanilla `EditBox` through the runtime, so screens must not call `addRenderableWidget` or synchronize widget bounds themselves. `UiScreen` and `UiContainerScreen` always route mouse-down through OpenUI first; when they fall back to vanilla Screen handling, OpenUI-owned native widgets are temporarily inactive so a registered `EditBox` cannot bypass ancestor clip-aware hit-testing while unrelated vanilla screen children can still receive the fallback click.
 
 ## Forms, navigation, overlays, and animation
 

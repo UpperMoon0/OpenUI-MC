@@ -17,12 +17,13 @@ public final class FocusManager {
     private UIComponent root;
     private Supplier<List<UIComponent>> overlayRoots = List::of;
     private UIComponent focused;
+    private boolean validatingFocus;
     private final Deque<UIComponent> focusHistory = new ArrayDeque<>();
     private final Deque<FocusTrap> traps = new ArrayDeque<>();
 
     void setRoot(UIComponent root) {
         this.root = root;
-        if (focused != null && !isCurrentFocusValid(focused)) setFocusedInternal(null);
+        revalidateFocused();
     }
 
     public void setOverlayRoots(Supplier<List<UIComponent>> overlayRoots) {
@@ -31,8 +32,18 @@ public final class FocusManager {
 
     /** Returns the active focus target, clearing detached, hidden or non-focusable references defensively. */
     public UIComponent focused() {
-        if (focused != null && !isCurrentFocusValid(focused)) setFocusedInternal(null);
+        revalidateFocused();
         return focused;
+    }
+
+    private void revalidateFocused() {
+        if (focused==null||validatingFocus) return;
+        validatingFocus=true;
+        try {
+            if (!isCurrentFocusValid(focused)) setFocusedInternal(null);
+        } finally {
+            validatingFocus=false;
+        }
     }
 
     private boolean isCurrentFocusValid(UIComponent component) {
@@ -44,7 +55,8 @@ public final class FocusManager {
 
     /** Returns whether the current focus target is this component or one of its descendants. */
     public boolean isFocusWithin(UIComponent component) {
-        return component != null && belongsToTree(focused(), component);
+        revalidateFocused();
+        return component!=null&&belongsToTree(focused,component);
     }
 
     /** Narration for the nearest semantic ancestor of the current focus target. */
@@ -62,10 +74,8 @@ public final class FocusManager {
 
     /** Revalidates focus immediately after visibility/focusability changes while ancestry is intact. */
     public void onFocusEligibilityChanged(UIComponent subtree) {
-        if (subtree == null || focused == null) return;
-        if (belongsToTree(focused, subtree) && !isEffectivelyFocusable(focused)) {
-            setFocusedInternal(null);
-        }
+        if (subtree==null||focused==null||!belongsToTree(focused,subtree)) return;
+        revalidateFocused();
     }
 
     /**
@@ -213,11 +223,15 @@ public final class FocusManager {
     }
 
     private void setFocusedInternal(UIComponent next) {
-        if (this.focused == next) return;
+        if (this.focused==next) {
+            if (next!=null) next.revealForFocusNavigation();
+            return;
+        }
         UIComponent prev = this.focused;
         List<UIComponent> previousAncestors = ancestors(prev);
         List<UIComponent> nextAncestors = ancestors(next);
         this.focused = next;
+        if (next!=null) next.revealForFocusNavigation();
         if (prev != null) prev.onFocusLost();
         notifyFocusWithinLost(previousAncestors, nextAncestors);
         if (next != null) next.onFocusGained();
@@ -253,7 +267,7 @@ public final class FocusManager {
 
     private void collect(UIComponent component, List<UIComponent> output) {
         if (!isEffectivelyVisible(component)) return;
-        if (component.isFocusable()) output.add(component);
+        if (component.isFocusable()&&component.hasVisibleAreaWithinAncestorClips()) output.add(component);
         for (UIComponent child : component.children()) collect(child, output);
     }
 
@@ -265,7 +279,8 @@ public final class FocusManager {
     }
 
     private static boolean isEffectivelyFocusable(UIComponent component) {
-        return component != null && component.isFocusable() && isEffectivelyVisible(component);
+        return component != null&&component.isFocusable()&&isEffectivelyVisible(component)
+                &&component.hasVisibleAreaWithinAncestorClips();
     }
 
     private static boolean isEffectivelyVisible(UIComponent component) {

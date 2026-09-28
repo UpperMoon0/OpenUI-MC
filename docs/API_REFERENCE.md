@@ -24,7 +24,8 @@ This is a practical catalog of the public framework surface. The canonical signa
 - `Ui.grid(items, renderer)` / `DynamicGrid`: responsive repeated cards.
 - `Ui.list(items, renderer)` / `VirtualList`: virtualized, keyed list rows.
 - `Ui.virtualGrid(items, renderer)` / `VirtualGrid`: scrollable, row-virtualized responsive cells. Configure with `.key(...)`, `.minCellWidth(...)`, `.cellHeight(...)`, `.gap(...)`, `.overscanRows(...)`, and inspect/reset with `.columns()`, `.activeCellCount()`, `.scrollOffset()`, and `.resetScroll()`.
-- `Ui.card(a, b, c)`: decorates one logical content component; multiple arguments are automatically stacked vertically.
+- `Ui.card(a, b, c)`: decorates one logical content component; multiple arguments are automatically stacked vertically. Cards, panels, and styled surface boxes use a protected content rectangle for child layout, paint clipping, and descendant hit-testing. Radius-safe geometry uses the same dimension-clamped radius as rendering; Card also reserves its one-pixel focus/selection outline gutter independent of transient state so focus cannot reflow content. These surfaces never become implicit scroll views.
+- `Ui.scroll(content)` / `ScrollView`: explicit clipped scrolling for content that must remain reachable inside a bounded height. Pair with `.flex()` inside a column when it should consume the remaining height. Focusable descendants clipped only vertically remain in keyboard traversal/programmatic focus order; moving focus to one schedules a vertical reveal that is applied after fresh child layout. Horizontal intersection with the viewport is still required because ScrollView does not scroll horizontally. This covers pre-layout initial focus and nested ScrollViews without stale-coordinate overshoot, while manual scrolling does not discard or automatically re-reveal an existing valid focus.
 - `ScrollList` and `ScrollGrid`: lower-level scrollable collections.
 
 ## Content and input controls
@@ -70,13 +71,13 @@ Events traverse ancestors in capture order, execute target listeners, then bubbl
 
 ## Focus and native widgets
 
-`FocusManager` tracks the focused component, traverses focusable components, and traps focus for modal overlays. `NativeWidgetManager` mounts, removes, and synchronizes `NativeWidgetOwner` controls through the active `NativeWidgetHost`. A click focuses the nearest focusable ancestor, which allows non-focusable labels/icons inside a button or card.
+`FocusManager` tracks the focused component, traverses focusable components, and traps focus for modal overlays. After layout, focus eligibility is clip-aware for bounded-surface safety clips: components fully removed by those clips are skipped by traversal, reject direct focus requests, and are cleared before keyboard routing. `ScrollView` is a vertical focus-navigation viewport rather than an invalid-overflow boundary, so descendants above/below the viewport remain eligible and are revealed when newly focused; descendants fully clipped on the horizontal axis remain ineligible. Components laid out to zero width or zero height are likewise ineligible; only components with no established layout bounds yet retain pre-layout focus eligibility. Hover propagation is clip-aware too, so descendants outside ancestor child clips cannot enter or retain hover state. `NativeWidgetManager` mounts, removes, and synchronizes `NativeWidgetOwner` controls through the active `NativeWidgetHost`. A click focuses the nearest focusable ancestor, which allows non-focusable labels/icons inside a button or card. `UiScreen`/`UiContainerScreen` give the runtime first chance to route mouse-down; if vanilla fallback is still needed, registered OpenUI native widgets are temporarily inactive during that fallback so the vanilla child list cannot bypass OpenUI clipping.
 
 `NativeWidgetHost` is implemented by the screen adapter. Consumer screens should not separately add OpenUI-owned widgets to Minecraft.
 
 ## Overlays
 
-`OverlayManager.show` mounts a component into an `OverlayLayer` and returns an `OverlayHandle`. The handle closes and unmounts it. Layers include base UI, dropdown/popover, modal, toast, tooltip, and debug content. Blocking overlays participate in input targeting and may trap focus.
+`OverlayManager.show` mounts a component into an `OverlayLayer` and returns an `OverlayHandle`. The handle closes and unmounts it. Layers include base UI, dropdown/popover, modal, toast, tooltip, and debug content. Blocking overlays participate in input targeting and may trap focus. Overlay roots are rendered independently of the application component ancestry, so dropdowns/popovers/tooltips are not clipped by the bounded surface containing their anchor.
 
 Overlay geometry has its own dirty path. Overlay implementations that change only overlay bounds should call `UiRuntime.requestOverlayLayout()`; `requestLayout()` also invalidates the application root and should be reserved for root-tree or viewport geometry changes.
 
@@ -86,16 +87,23 @@ Overlay geometry has its own dirty path. Overlay implementations that change onl
 
 `Navigator` manages typed `Route<T>` values with push, replace, and pop operations. Route builders return component trees; application state stays outside the navigator.
 
+## Development diagnostics
+
+`LayoutDiagnostics` is public development API since 0.0.12. Inspector/debug tooling can use `openDebugSession()`, `closeDebugSession()`, and `enabled()` to control/query bounded-overflow diagnostics programmatically. Calls to `openDebugSession()` and `closeDebugSession()` are reference-counted and should be balanced by the owning tool/session; the JVM property `-Dopenui.debug.layout=true` remains enabled independently.
+
+Custom bounded framework surfaces may call `checkBoundedOverflow(parent, child, availableWidth, availableHeight, font)` during layout. It performs the extra natural-height measurement only while diagnostics are enabled, suppresses known scroll/flex constraint-managed subtrees, and emits at most one warning per parent/child identity pair. `warnBoundedOverflow(parent, child, desiredHeight, availableHeight)` is the lower-level form for callers that already measured the child; it applies the same enabled/suppression/dedup rules. Normal application screens do not need either helper—the inspector or JVM property covers the common case.
+
 ## Custom component checklist
 
 1. Extend `UIComponent` and implement `render` with the version's GUI rendering type.
 2. Override preferred size or layout only when composition cannot express the geometry.
 3. Render visible children with `renderChildren` when the component owns a subtree.
-4. Use semantic colors from `theme()`.
-5. Acquire subscriptions/resources in `onMount()` and release them in `onUnmount()`.
-6. Call `invalidatePaint`, `invalidateLayout`, or structural invalidation at the narrowest correct level.
-7. Return `true` from a legacy handler only when it actually handled the input.
-8. Avoid mutating the tree during rendering.
+4. For a custom bounded visual surface, override `clipsChildrenToBounds()` and the `childClipX/Y/Width/Height()` hooks so the child clip describes the drawable content interior, not the outer shadow/border box. OpenUI also restricts descendant hit-testing to that same rectangle. If the surface is rounded, choose a rectangle fully contained by the rounded inner fill rather than merely the rectangular border inset. Do not use clipping as a substitute for `Ui.scroll(...)` when overflowing content must remain reachable.
+5. Use semantic colors from `theme()`.
+6. Acquire subscriptions/resources in `onMount()` and release them in `onUnmount()`.
+7. Call `invalidatePaint`, `invalidateLayout`, or structural invalidation at the narrowest correct level.
+8. Return `true` from a legacy handler only when it actually handled the input.
+9. Avoid mutating the tree during rendering.
 
 ## Compatibility warning
 

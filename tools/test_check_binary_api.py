@@ -80,6 +80,39 @@ class ClassCompatibilityTest(unittest.TestCase):
         _, _, candidate_members = parse_class_api(candidate)
         self.assertIn(('protected int state;', 'I'), baseline_members - candidate_members)
 
+
+    def test_internal_member_is_excluded_from_compatibility_surface(self):
+        output = """public class A {
+  public void stable();
+    descriptor: ()V
+    flags: (0x0001) ACC_PUBLIC
+  public void implementationHook();
+    descriptor: ()V
+    flags: (0x0001) ACC_PUBLIC
+    RuntimeInvisibleAnnotations:
+      0: #12()
+        com.nstut.openui.api.Internal
+}
+"""
+        public, _, members = parse_class_api(output)
+        self.assertTrue(public)
+        self.assertIn(('public void stable();', '()V'), members)
+        self.assertNotIn(('public void implementationHook();', '()V'), members)
+
+    def test_internal_class_is_excluded_from_compatibility_surface(self):
+        output = """public class A {
+  public A();
+    descriptor: ()V
+}
+RuntimeInvisibleAnnotations:
+  0: #10()
+    com.nstut.openui.api.Internal
+"""
+        public, declaration, members = parse_class_api(output)
+        self.assertFalse(public)
+        self.assertIsNone(declaration)
+        self.assertEqual(set(), members)
+
     @unittest.skipUnless(shutil.which('javac') and shutil.which('jar') and shutil.which('javap'), 'JDK tools required')
     def test_protected_member_break_is_detected_from_real_classfiles(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -115,6 +148,7 @@ class ClassCompatibilityTest(unittest.TestCase):
         class_api('javap', pathlib.Path('candidate.jar'), 'A')
         command = run.call_args.args[0]
         self.assertIn('-protected', command)
+        self.assertIn('-v', command)
         self.assertNotIn('-public', command)
 
 

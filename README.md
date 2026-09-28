@@ -27,7 +27,31 @@ It is a developer library: players install it when another mod declares OpenUI M
 
 ## Quick start
 
-Clone OpenUI MC next to the consuming project and substitute the matching loader module:
+Released OpenUI artifacts are loader/version-specific and are published to GitHub Packages. Add the repository with package-read credentials:
+
+```groovy
+repositories {
+    maven {
+        url = uri("https://maven.pkg.github.com/UpperMoon0/OpenUI-MC")
+        credentials {
+            username = providers.gradleProperty("gpr.user").orNull
+            password = providers.gradleProperty("gpr.key").orNull
+        }
+    }
+}
+```
+
+Then depend on the artifact matching the exact loader and Minecraft version. For example:
+
+```groovy
+dependencies {
+    modImplementation "com.nstut:openui-mc-neoforge-1.21.1:${openui_version}"
+}
+```
+
+Published artifact ids are `openui-mc-fabric-1.20.1`, `openui-mc-forge-1.20.1`, `openui-mc-fabric-1.21.1`, `openui-mc-neoforge-1.21.1`, and `openui-mc-neoforge-26.1.2`. Set `openui_version` to the release you use. For Forge 1.20.1, wrap the coordinate with `fg.deobf(...)`; for Fabric, use `modImplementation`.
+
+For local OpenUI development only, a composite build can substitute the generic `com.nstut:openui-mc` coordinate with the matching local loader module:
 
 ```groovy
 // settings.gradle
@@ -38,15 +62,7 @@ includeBuild('../OpenUI-MC') {
 }
 ```
 
-Then add the dependency in the consuming loader module:
-
-```groovy
-dependencies {
-    implementation "com.nstut:openui-mc:${openui_version}"
-}
-```
-
-Set `openui_version` to the release you use. For Forge 1.20.1, wrap the coordinate with `fg.deobf(...)`. For Fabric, use `modImplementation`. Ship the matching OpenUI MC jar with the consuming mod or declare it as a required runtime dependency.
+Ship the matching OpenUI MC jar with the consuming mod or declare it as a required runtime dependency. See [Getting Started](docs/GETTING_STARTED.md) for the full dependency matrix and integration details.
 
 High-level components own their layout, clipping, and semantic contrast. Custom `UiRender` code remains available when a screen needs exact Minecraft-native rendering; consumers using that escape hatch are responsible for bounds, clipping, contrast, and native slot collision avoidance.
 
@@ -98,7 +114,7 @@ Build one target with, for example:
 ./gradlew :neoforge-26.1.2:build
 ```
 
-Output jars are written to each loader module's `build/libs/` directory. Pull requests build all five loader targets. Pushes to `main` create a GitHub release and publish each matching artifact to CurseForge project `1661978` when `CURSEFORGE_API_TOKEN` is configured.
+Output jars are written to each loader module's `build/libs/` directory. Pull requests build all five loader targets. A push to `main` that changes `mod_version` triggers the release path: GitHub/CurseForge artifacts are published after the required compatibility jobs pass, and the published GitHub Release then triggers GitHub Packages Maven publication.
 
 ## Links
 

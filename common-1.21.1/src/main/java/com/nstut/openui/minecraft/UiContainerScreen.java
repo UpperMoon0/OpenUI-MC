@@ -59,7 +59,11 @@ public abstract class UiContainerScreen<T extends AbstractContainerMenu> extends
         }
     }
 
-    @Override public boolean mouseClicked(double x, double y, int button) { return uiRuntime != null && uiRuntime.mouseClicked(x, y, button) || super.mouseClicked(x, y, button); }
+    @Override public boolean mouseClicked(double x, double y, int button) {
+        if (uiRuntime == null) return super.mouseClicked(x, y, button);
+        if (uiRuntime.mouseClicked(x, y, button)) return true;
+        return uiRuntime.nativeWidgets().withMouseClickFallbackSuppressed(() -> super.mouseClicked(x, y, button));
+    }
     @Override public boolean mouseScrolled(double x, double y, double deltaX, double deltaY) { return uiRuntime != null && uiRuntime.mouseScrolled(x, y, deltaY) || super.mouseScrolled(x, y, deltaX, deltaY); }
     @Override public boolean mouseDragged(double x, double y, int button, double dx, double dy) { return uiRuntime != null && uiRuntime.mouseDragged(x, y, button, dx, dy) || super.mouseDragged(x, y, button, dx, dy); }
     @Override public boolean mouseReleased(double x, double y, int button) { return uiRuntime != null && uiRuntime.mouseReleased(x, y, button) || super.mouseReleased(x, y, button); }

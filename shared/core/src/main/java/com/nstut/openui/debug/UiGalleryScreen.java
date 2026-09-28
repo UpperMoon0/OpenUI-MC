@@ -17,7 +17,7 @@ import net.minecraft.network.chat.Component;
 import java.util.List;
 
 public class UiGalleryScreen extends UiScreen {
-    public enum Category { BUTTONS, INPUTS, DATA, CHARTS, FEEDBACK, DND, THEME }
+    public enum Category { BUTTONS, INPUTS, DATA, CHARTS, FEEDBACK, OVERFLOW, DND, THEME }
 
     private final Signal<Category> category = Signals.of(Category.BUTTONS);
     private final Signal<String> textInput = Signals.of("Hello OpenUI");
@@ -50,6 +50,7 @@ public class UiGalleryScreen extends UiScreen {
                         navButton("Data & Navigation", Category.DATA),
                         navButton("Charts", Category.CHARTS),
                         navButton("Feedback & States", Category.FEEDBACK),
+                        navButton("Overflow Safety", Category.OVERFLOW),
                         navButton("Drag & Drop", Category.DND),
                         navButton("Themes", Category.THEME),
                         Ui.spacer(),
@@ -73,14 +74,17 @@ public class UiGalleryScreen extends UiScreen {
 
     private UIComponent content() {
         return Ui.card(
-                Ui.switcher(category)
-                        .when(Category.BUTTONS, this::buttonsGallery)
-                        .when(Category.INPUTS, this::inputsGallery)
-                        .when(Category.DATA, this::dataGallery)
-                        .when(Category.CHARTS, this::chartsGallery)
-                        .when(Category.FEEDBACK, this::feedbackGallery)
-                        .when(Category.DND, this::dndGallery)
-                        .when(Category.THEME, this::themeGallery)
+                Ui.scroll(
+                        Ui.switcher(category)
+                                .when(Category.BUTTONS, this::buttonsGallery)
+                                .when(Category.INPUTS, this::inputsGallery)
+                                .when(Category.DATA, this::dataGallery)
+                                .when(Category.CHARTS, this::chartsGallery)
+                                .when(Category.FEEDBACK, this::feedbackGallery)
+                                .when(Category.OVERFLOW, this::overflowGallery)
+                                .when(Category.DND, this::dndGallery)
+                                .when(Category.THEME, this::themeGallery)
+                ).flex()
         ).padding(12).elevated(true);
     }
 
@@ -200,6 +204,41 @@ public class UiGalleryScreen extends UiScreen {
                             Toast.show(uiRuntime().overlays(), Toast.info("Notification", "This is a toast notification."));
                         }).small()
                 ).gap(6)
+        ).gap(8);
+    }
+
+    private UIComponent overflowGallery() {
+        UIComponent clippedPreview = Ui.card(
+                Ui.column(
+                        Ui.text("Line 1: bounded card"),
+                        Ui.text("Line 2: content keeps layout semantics"),
+                        Ui.text("Line 3: painting beyond the card is clipped"),
+                        Ui.text("Line 4: no scrollbar is created")
+                ).gap(2)
+        ).padding(5).width(190).height(42);
+
+        UIComponent scrollBody = Ui.scroll(
+                Ui.column(
+                        Ui.text("Scrollable line 1"),
+                        Ui.text("Scrollable line 2"),
+                        Ui.text("Scrollable line 3"),
+                        Ui.text("Scrollable line 4"),
+                        Ui.text("Scrollable line 5"),
+                        Ui.text("Scrollable line 6")
+                ).gap(2)
+        ).flex();
+        UIComponent accessiblePreview = Ui.card(
+                Ui.column(
+                        Ui.heading("Explicit scroll body"),
+                        scrollBody
+                ).gap(4)
+        ).padding(6).width(190).height(82);
+
+        return Ui.column(
+                Ui.title("Overflow Safety"),
+                Ui.text("Bounded surfaces clip escaped paint; scrolling remains explicit."),
+                Ui.row(clippedPreview, accessiblePreview).gap(10),
+                Ui.text("Use Ui.scroll(...).flex() when clipped content must remain reachable.")
         ).gap(8);
     }
 

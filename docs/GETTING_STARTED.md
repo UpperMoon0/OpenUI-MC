@@ -4,25 +4,31 @@ This guide takes a consuming mod from dependency setup to a working reactive scr
 
 ## 1. Add OpenUI MC
 
-Until a public Maven coordinate is published, use a Gradle composite build. Keep both repositories beside each other:
-
-```text
-projects/
-  OpenUI-MC/
-  Your-Mod/
-```
-
-In the consuming root `settings.gradle`:
+Released OpenUI artifacts are published to GitHub Packages. Add the repository in the consuming build (GitHub Packages requires credentials with package-read access):
 
 ```groovy
-includeBuild('../OpenUI-MC') {
-    dependencySubstitution {
-        substitute module('com.nstut:openui-mc') using project(':fabric-1.21.1')
+repositories {
+    maven {
+        url = uri("https://maven.pkg.github.com/UpperMoon0/OpenUI-MC")
+        credentials {
+            username = providers.gradleProperty("gpr.user").orNull
+            password = providers.gradleProperty("gpr.key").orNull
+        }
     }
 }
 ```
 
-Choose one of `fabric-1.20.1`, `forge-1.20.1`, `fabric-1.21.1`, `neoforge-1.21.1`, or `neoforge-26.1.2`. Add `com.nstut:openui-mc:0.0.4` to the consuming module with the loader's normal mod dependency configuration. The version participates in Gradle resolution even though the composite substitution selects the local project.
+Then depend on the artifact matching the exact loader/Minecraft target. For example:
+
+```groovy
+dependencies {
+    modImplementation "com.nstut:openui-mc-fabric-1.21.1:<version>"
+}
+```
+
+Available artifact ids are `openui-mc-fabric-1.20.1`, `openui-mc-forge-1.20.1`, `openui-mc-fabric-1.21.1`, `openui-mc-neoforge-1.21.1`, and `openui-mc-neoforge-26.1.2`. Use the loader's normal dependency configuration (`fg.deobf(...)` for Forge 1.20.1, `modImplementation` for Fabric, and the normal NeoForge mod dependency form).
+
+For OpenUI development, a Gradle composite build is still useful: keep `OpenUI-MC/` beside the consuming project and substitute the matching loader module in `settings.gradle`.
 
 Declare `openui_mc` as a required client-side runtime dependency in the consuming mod metadata. End users must install the matching OpenUI jar unless the consuming mod legally and technically bundles it.
 
@@ -98,6 +104,8 @@ Compose `Ui.row`, `Ui.column`, `Ui.stack`, `Ui.padding`, and `Ui.responsive`. Ap
 
 Every screen has a viewport. On `UiScreen`, override `uiLeft`, `uiTop`, `uiWidth`, or `uiHeight` when the UI should occupy a smaller region. `UiContainerScreen` instead derives its viewport directly from the menu bounds: `leftPos`, `topPos`, `imageWidth`, and `imageHeight`.
 
+Rows, columns, and stacks do not implicitly clip or scroll. Bounded visual surfaces (`Card`, `Panel`, `StyledBox`) use one protected content rectangle for child layout, painting, and descendant input. It preserves padding/borders, stays inside rounded inner corners even at low padding, and auto-sized high-radius/pill surfaces converge on the same dimension-clamped geometry used by rendering instead of inflating from the raw radius. These surfaces still do not scroll. If vertical overflow must remain reachable, use an explicit `Ui.scroll(body).flex()` inside the bounded surface; controls above/below that ScrollView viewport remain keyboard-reachable, while controls completely left/right of it are still excluded because ScrollView has no horizontal scrolling. Focus reveal is applied during layout, so an initially focused field is revealed on the first real layout and nested ScrollViews reveal correctly from inner to outer. Floating controls should use OpenUI's overlay APIs rather than relying on child paint escaping an ancestor.
+
 ## 5. Input and focus
 
 OpenUI dispatches capture, target, and bubble listeners. Pointer capture keeps drag and release events routed to the component that began a left-button interaction.
@@ -110,9 +118,9 @@ component.on(EventType.MOUSE_DOWN, event -> {
 });
 ```
 
-`preventDefault()` suppresses legacy/default handling. In the current OpenUI compatibility contract, `stopPropagation()` stops listener traversal and also suppresses the legacy/default-handler bridge. Focus automatically selects the nearest focusable ancestor of the hit component. Tab and Shift+Tab traverse focus.
+`preventDefault()` suppresses legacy/default handling. In the current OpenUI compatibility contract, `stopPropagation()` stops listener traversal and also suppresses the legacy/default-handler bridge. Focus automatically selects the nearest focusable ancestor of the hit component. Tab and Shift+Tab exclude controls fully hidden by bounded-surface overflow clips. Explicit ScrollView clipping relaxes this only for vertical overflow: controls above/below stay in keyboard order and are revealed on focus, but controls fully left/right of the viewport remain excluded. A control fully clipped by a non-scroll surface after layout loses keyboard eligibility. A real 0-width or 0-height layout is not considered pre-layout and is skipped by focus as well. Hover uses the same ancestor clip boundary, so invisible overflow does not receive hover state or hover events.
 
-Do not register an OpenUI `TextField`'s `EditBox` yourself. The runtime owns its mounting, bounds, focus, and removal.
+Do not register an OpenUI `TextField`'s `EditBox` yourself. The runtime owns its mounting, bounds, focus, and removal. Screen mouse-down fallback also suppresses direct dispatch to those OpenUI-owned native widgets, so clipped-away portions of a field cannot remain interactive through Minecraft's vanilla child list.
 
 ## 6. Overlays and dialogs
 

@@ -46,7 +46,11 @@ public abstract class UiScreen extends Screen {
         if (uiRuntime != null) uiRuntime.render(graphics, mouseX, mouseY, partialTick);
     }
 
-    @Override public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) { return uiRuntime != null && uiRuntime.mouseClicked(event.x(), event.y(), event.button()) || super.mouseClicked(event, doubleClick); }
+    @Override public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        if (uiRuntime == null) return super.mouseClicked(event, doubleClick);
+        if (uiRuntime.mouseClicked(event.x(), event.y(), event.button())) return true;
+        return uiRuntime.nativeWidgets().withMouseClickFallbackSuppressed(() -> super.mouseClicked(event, doubleClick));
+    }
     @Override public boolean mouseScrolled(double x, double y, double deltaX, double deltaY) { return uiRuntime != null && uiRuntime.mouseScrolled(x, y, deltaY) || super.mouseScrolled(x, y, deltaX, deltaY); }
     @Override public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) { return uiRuntime != null && uiRuntime.mouseDragged(event.x(), event.y(), event.button(), dx, dy) || super.mouseDragged(event, dx, dy); }
     @Override public boolean mouseReleased(MouseButtonEvent event) { return uiRuntime != null && uiRuntime.mouseReleased(event.x(), event.y(), event.button()) || super.mouseReleased(event); }
