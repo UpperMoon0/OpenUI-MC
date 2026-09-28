@@ -283,7 +283,7 @@ public abstract class UIComponent {
     @Internal
     protected boolean isFocusNavigationViewport() { return false; }
 
-    /** Gives focus viewports a chance to reveal a newly focused descendant. */
+    /** Gives focus viewports a chance to schedule revealing a newly focused descendant. */
     @Internal
     protected void revealFocusedDescendant(UIComponent descendant) { }
 

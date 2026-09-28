@@ -166,6 +166,68 @@ class InteractionTest {
     }
 
     @Test
+    void preLayoutFocusedScrollDescendantIsRevealedOnFirstLayout() {
+        Font font=new Font(null, false);
+        UiRuntime runtime=new UiRuntime(font,dummyHost);
+        try {
+            AtomicBoolean activated=new AtomicBoolean();
+            ButtonWidget target=Ui.button("Initial",()->activated.set(true));
+            var scroll=Ui.scroll(Ui.column(Ui.spacer().height(90),target));
+            Card root=new Card(scroll).padding(0).radius(0).elevated(false);
+            runtime.setViewport(0,0,100,50);
+            runtime.setRoot(root);
+
+            assertTrue(runtime.focus().requestFocus(target),
+                    "initial form focus is valid before any bounds have been established");
+            assertSame(target,runtime.focus().focused());
+
+            // The first real layout must consume the pending reveal after it discovers scroll overflow.
+            assertFalse(runtime.mouseClicked(-10,-10,1));
+            assertSame(target,runtime.focus().focused());
+            assertTrue(target.getY()>=scroll.getY());
+            assertTrue(target.getY()+target.getHeight()<=scroll.getY()+scroll.getHeight(),
+                    "pre-layout focus should be revealed during the first ScrollView layout");
+            assertTrue(runtime.keyPressed(257,0,0));
+            assertTrue(activated.get(),"keyboard input must still route to the initially focused revealed target");
+        } finally {
+            runtime.close();
+        }
+    }
+
+    @Test
+    void nestedScrollViewsRevealFocusedDescendantUsingFreshInnerGeometry() {
+        Font font=new Font(null, false);
+        UiRuntime runtime=new UiRuntime(font,dummyHost);
+        try {
+            ButtonWidget target=Ui.button("Nested",()->{});
+            var inner=Ui.scroll(Ui.column(Ui.spacer().height(90),target)).height(50);
+            var outer=Ui.scroll(Ui.column(Ui.spacer().height(120),inner,Ui.spacer().height(120)));
+            Card root=new Card(outer).padding(0).radius(0).elevated(false);
+            runtime.setViewport(0,0,100,60);
+            runtime.setRoot(root);
+
+            // First layout establishes both scroll ranges with the target below the inner viewport,
+            // while the inner viewport itself is below the outer viewport.
+            assertFalse(runtime.mouseClicked(-10,-10,1));
+            assertTrue(target.getY()>=inner.getY()+inner.getHeight());
+            assertTrue(inner.getY()>=outer.getY()+outer.getHeight());
+            assertTrue(runtime.focus().requestFocus(target));
+
+            // Layout must reveal inner first, then let outer compute from those fresh coordinates.
+            assertFalse(runtime.mouseClicked(-10,-10,1));
+            assertSame(target,runtime.focus().focused());
+            assertTrue(target.getY()>=inner.getY());
+            assertTrue(target.getY()+target.getHeight()<=inner.getY()+inner.getHeight(),
+                    "inner ScrollView should reveal the target");
+            assertTrue(target.getY()>=outer.getY());
+            assertTrue(target.getY()+target.getHeight()<=outer.getY()+outer.getHeight(),
+                    "outer ScrollView must reveal from the inner viewport's updated geometry, not stale leaf coordinates");
+        } finally {
+            runtime.close();
+        }
+    }
+
+    @Test
     void scrollViewKeepsOffscreenControlsInFocusOrderAndRevealsNewFocus() {
         Font font=new Font(null, false);
         UiRuntime runtime=new UiRuntime(font,dummyHost);

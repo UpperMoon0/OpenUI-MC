@@ -22,6 +22,7 @@ public class ScrollView extends UIComponent {
 
     private double scrollOffset;
     private int contentHeight;
+    private boolean focusRevealPending;
 
     public ScrollView(UIComponent content) {
         addChild(content);
@@ -60,6 +61,17 @@ public class ScrollView extends UIComponent {
         contentHeight = Math.max(measured.height(), availableHeight);
         clampScroll();
         content.layout(x, y - (int) scrollOffset, contentWidth, contentHeight);
+        if (focusRevealPending) {
+            focusRevealPending=false;
+            UIComponent focused=runtime()!=null?runtime().focus().focused():null;
+            if (focused!=null&&isDescendant(focused)) {
+                double next=scrollOffsetForReveal(focused);
+                if (Double.compare(next,scrollOffset)!=0) {
+                    scrollOffset=next;
+                    content.layout(x,y-(int)scrollOffset,contentWidth,contentHeight);
+                }
+            }
+        }
     }
 
     private double maxScroll() { return Math.max(0, contentHeight - height); }
@@ -74,7 +86,20 @@ public class ScrollView extends UIComponent {
     @Override protected boolean isFocusNavigationViewport() { return maxScroll()>0; }
 
     @Override protected void revealFocusedDescendant(UIComponent descendant) {
-        if (descendant==null||height<=0||maxScroll()<=0||descendant.getHeight()<=0) return;
+        if (descendant==null||!isDescendant(descendant)) return;
+        focusRevealPending=true;
+        invalidateLayout();
+    }
+
+    private boolean isDescendant(UIComponent component) {
+        for (UIComponent cursor=component; cursor!=null; cursor=cursor.parent()) {
+            if (cursor==this) return true;
+        }
+        return false;
+    }
+
+    private double scrollOffsetForReveal(UIComponent descendant) {
+        if (height<=0||maxScroll()<=0||descendant.getHeight()<=0) return scrollOffset;
         double next=scrollOffset;
         int targetTop=descendant.getY();
         int targetBottom=targetTop+descendant.getHeight();
@@ -82,10 +107,7 @@ public class ScrollView extends UIComponent {
         int viewportBottom=y+height;
         if (targetTop<viewportTop) next-=viewportTop-targetTop;
         else if (targetBottom>viewportBottom) next+=targetBottom-viewportBottom;
-        next=Math.max(0,Math.min(maxScroll(),next));
-        if (Double.compare(next,scrollOffset)==0) return;
-        scrollOffset=next;
-        invalidateLayout();
+        return Math.max(0,Math.min(maxScroll(),next));
     }
 
     @Override
