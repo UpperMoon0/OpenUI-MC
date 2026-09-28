@@ -1,5 +1,7 @@
 package com.nstut.openui.runtime;
 
+import com.nstut.openui.api.Internal;
+import com.nstut.openui.api.Since;
 import com.nstut.openui.api.UIComponent;
 import net.minecraft.client.gui.components.AbstractWidget;
 
@@ -45,6 +47,8 @@ public final class NativeWidgetManager implements AutoCloseable {
      * vanilla may still handle unrelated screen children, but it cannot dispatch the same click directly
      * to an EditBox/native widget and bypass an ancestor OpenUI clip.
      */
+    @Internal
+    @Since("0.0.12")
     public boolean withMouseClickFallbackSuppressed(BooleanSupplier fallback) {
         Map<AbstractWidget, Boolean> previousActive = new IdentityHashMap<>();
         for (AbstractWidget widget : registered) {

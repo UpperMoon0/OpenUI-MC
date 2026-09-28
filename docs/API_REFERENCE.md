@@ -89,7 +89,9 @@ Overlay geometry has its own dirty path. Overlay implementations that change onl
 
 ## Development diagnostics
 
-`LayoutDiagnostics` is public development API since 0.0.12. Inspector/debug tooling can use `openDebugSession()`, `closeDebugSession()`, and `enabled()` to control/query bounded-overflow diagnostics programmatically. Normal application screens do not need to call it; the inspector and `-Dopenui.debug.layout=true` cover the common cases. The lower-level overflow-check helpers exist for custom bounded framework surfaces.
+`LayoutDiagnostics` is public development API since 0.0.12. Inspector/debug tooling can use `openDebugSession()`, `closeDebugSession()`, and `enabled()` to control/query bounded-overflow diagnostics programmatically. Calls to `openDebugSession()` and `closeDebugSession()` are reference-counted and should be balanced by the owning tool/session; the JVM property `-Dopenui.debug.layout=true` remains enabled independently.
+
+Custom bounded framework surfaces may call `checkBoundedOverflow(parent, child, availableWidth, availableHeight, font)` during layout. It performs the extra natural-height measurement only while diagnostics are enabled, suppresses known scroll/flex constraint-managed subtrees, and emits at most one warning per parent/child identity pair. `warnBoundedOverflow(parent, child, desiredHeight, availableHeight)` is the lower-level form for callers that already measured the child; it applies the same enabled/suppression/dedup rules. Normal application screens do not need either helper—the inspector or JVM property covers the common case.
 
 ## Custom component checklist
 
