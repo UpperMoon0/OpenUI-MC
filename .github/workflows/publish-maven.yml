@@ -1,8 +1,8 @@
 name: Publish OpenUI Maven packages
 
 on:
-  release:
-    types: [published]
+  # Normal releases publish Maven packages inside release.yml. Keep this
+  # standalone workflow only for explicit repair/retry runs.
   workflow_dispatch:
 
 permissions:

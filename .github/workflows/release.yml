@@ -243,10 +243,48 @@ jobs:
     name: Consumer real client/server compatibility
     uses: ./.github/workflows/consumer-live-e2e.yml
 
+  publish-maven:
+    name: Publish ${{ matrix.project }} to GitHub Packages
+    if: needs.release-gate.outputs.should_release == 'true'
+    needs: [release-gate, test-common, consumer-binary-smoke, build, consumer-live-e2e]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: fabric-1.20.1
+            java: 21
+          - project: forge-1.20.1
+            java: 21
+          - project: fabric-1.21.1
+            java: 21
+          - project: neoforge-1.21.1
+            java: 21
+          - project: neoforge-26.1.2
+            java: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: gradle
+      - run: chmod +x gradlew
+      - name: Verify and publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ./gradlew :${{ matrix.project }}:test :${{ matrix.project }}:build \
+            :${{ matrix.project }}:publishMavenJavaPublicationToGitHubPackagesRepository \
+            --no-daemon
+
   publish-curseforge:
     name: Publish ${{ matrix.platform }} ${{ matrix.version }} to CurseForge
     if: needs.release-gate.outputs.should_release == 'true'
-    needs: [release-gate, test-common, consumer-binary-smoke, build, consumer-live-e2e]
+    needs: [release-gate, test-common, consumer-binary-smoke, build, consumer-live-e2e, publish-maven]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -389,7 +427,7 @@ jobs:
   publish-github-release:
     name: Publish GitHub Release
     if: needs.release-gate.outputs.should_release == 'true'
-    needs: [release-gate, test-common, consumer-binary-smoke, build, consumer-live-e2e]
+    needs: [release-gate, test-common, consumer-binary-smoke, build, consumer-live-e2e, publish-maven]
     runs-on: ubuntu-latest
     permissions:
       contents: write
