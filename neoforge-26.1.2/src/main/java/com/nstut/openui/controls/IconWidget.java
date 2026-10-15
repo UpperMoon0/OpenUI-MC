@@ -17,6 +17,7 @@ public class IconWidget extends UIComponent {
     private ItemStack itemStack;
     private Identifier texture;
     private int u, v, texWidth, texHeight;
+    private int sourceTextureWidth,sourceTextureHeight;
     private String glyph;
     private Integer glyphColor;
     private int iconSize = 16;
@@ -44,6 +45,14 @@ public class IconWidget extends UIComponent {
         return w;
     }
 
+    /** A complete raster image, with explicit source dimensions and independent display size. */
+    public static IconWidget texture(String namespace,String path,int sourceWidth,int sourceHeight) {
+        if(sourceWidth<=0 || sourceHeight<=0) throw new IllegalArgumentException("Invalid texture dimensions");
+        IconWidget icon=new IconWidget(Type.TEXTURE);
+        icon.texture=Identifier.fromNamespaceAndPath(namespace,path);
+        icon.sourceTextureWidth=sourceWidth; icon.sourceTextureHeight=sourceHeight;
+        return icon;
+    }
     public static IconWidget of(String glyph, int color) {
         IconWidget w = new IconWidget(Type.GLYPH);
         w.glyph = Objects.requireNonNull(glyph);
@@ -90,7 +99,8 @@ public class IconWidget extends UIComponent {
             }
             case TEXTURE -> {
                 if (texture != null) {
-                    g.blit(RenderPipelines.GUI_TEXTURED, texture, drawX, drawY,
+                    if(sourceTextureWidth>0) g.blit(RenderPipelines.GUI_TEXTURED,texture,drawX,drawY,0,0,iconSize,iconSize,sourceTextureWidth,sourceTextureHeight,sourceTextureWidth,sourceTextureHeight,0xFFFFFFFF);
+                    else g.blit(RenderPipelines.GUI_TEXTURED, texture, drawX, drawY,
                             u, v, texWidth, texHeight, 256, 256);
                 }
             }

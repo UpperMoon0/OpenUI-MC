@@ -153,6 +153,7 @@ tasks.register('checkLegacySourceParity') {
         def rightRoot = file('common-1.21.1/src/main/java')
         def allowedDifferences = [
             'com/nstut/openui/api/EditBoxWrapper.java',
+            'com/nstut/openui/controls/IconWidget.java',
             'com/nstut/openui/minecraft/UiContainerScreen.java',
             'com/nstut/openui/minecraft/UiScreen.java'
         ] as Set
@@ -177,3 +178,12 @@ tasks.register('checkLegacySourceParity') {
         }
     }
 }
+
+// The Java 8 ForgeGradle port runs independently from the modern Loom projects.
+tasks.register('buildLegacy', Exec) {
+    group='build'
+    workingDir file('forge-1.16.5')
+    commandLine(System.getProperty('os.name').toLowerCase().contains('windows') ? ['cmd','/c','gradlew.bat','build'] : ['sh','gradlew','build'])
+}
+tasks.named('buildAll') { dependsOn 'buildLegacy' }
+tasks.named('testAllVersions') { dependsOn 'buildLegacy' }

@@ -15,6 +15,9 @@ public class TextField extends EditBoxWrapper {
     private Subscription subscription = Subscription.EMPTY;
     private Predicate<String> validator = ignored -> true;
     private boolean numeric;
+    private java.util.function.Consumer<String> onCommit;
+    private String lastSubmitted;
+    private boolean submitting;
 
     public TextField(Signal<String> value) {
         this(value, Objects.requireNonNull(Minecraft.getInstance().font, "Minecraft font is not initialized"));
@@ -35,7 +38,32 @@ public class TextField extends EditBoxWrapper {
     public TextField validator(Predicate<String> validator) { this.validator = Objects.requireNonNull(validator); return this; }
     public boolean isValid() { return validator.test(getValue()); }
 
+    /** Submit on Enter or when edited text loses focus; validation remains consumer policy. */
+    public TextField onCommit(java.util.function.Consumer<String> action) {
+        onCommit=Objects.requireNonNull(action); lastSubmitted=getValue(); return this;
+    }
+    private void submit(boolean explicit) {
+        if (onCommit == null || submitting) return;
+        String current=getValue();
+        if (explicit || !Objects.equals(current,lastSubmitted)) {
+            submitting=true;
+            try {
+                onCommit.accept(current);
+                // Callbacks may normalize the value and blur or unmount the field.
+                // Only a successful callback establishes the settled baseline.
+                lastSubmitted=getValue();
+            } finally {
+                submitting=false;
+            }
+        }
+    }
+    @Override public void onFocusLost() { super.onFocusLost(); submit(false); }
+    @Override public boolean keyPressed(int key,int scanCode,int modifiers) {
+        if(onCommit!=null && (key==257 || key==335)) { submit(true); return true; }
+        return super.keyPressed(key,scanCode,modifiers);
+    }
     @Override protected void onMount() {
+        if (!Objects.equals(getValue(), value.get())) setValue(value.get());
         subscription = value.subscribe(text -> {
             if (!Objects.equals(getValue(), text)) setValue(text);
         });

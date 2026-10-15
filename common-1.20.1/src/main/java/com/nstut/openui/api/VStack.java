@@ -45,7 +45,7 @@ public class VStack extends UIComponent {
         for (UIComponent c : vc) {
             total += width > 0
                     ? c.measure(Constraints.loose(width, Constraints.INFINITY), font).height()
-                    : c.preferredHeight(font);
+                    : c.intrinsicHeight(font);
         }
         if (!vc.isEmpty()) total += gap * (vc.size() - 1);
         return total;
