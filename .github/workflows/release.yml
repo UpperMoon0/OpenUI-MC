@@ -77,6 +77,29 @@ jobs:
       - run: chmod +x gradlew
       - run: ./gradlew checkLegacySourceParity :common-1.20.1:test :common-1.21.1:test
 
+  build-legacy:
+    name: Forge 1.16.5 Java 8 compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '8,17,21'
+          cache: gradle
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: chmod +x forge-1.16.5/gradlew
+      - run: cd forge-1.16.5 && ./gradlew build --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openui-mc-forge-1.16.5
+          path: |
+            forge-1.16.5/build/libs/*.jar
+            !forge-1.16.5/build/libs/*-sources.jar
+          if-no-files-found: error
+
   consumer-binary-smoke:
     name: Simply Speakers released binary compatibility
     runs-on: ubuntu-24.04
@@ -246,7 +269,7 @@ jobs:
   publish-maven:
     name: Publish ${{ matrix.project }} to GitHub Packages
     if: needs.release-gate.outputs.should_release == 'true'
-    needs: [release-gate, test-common, consumer-binary-smoke, build, consumer-live-e2e]
+    needs: [release-gate, test-common, consumer-binary-smoke, build, build-legacy, consumer-live-e2e]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -281,15 +304,43 @@ jobs:
             :${{ matrix.project }}:publishMavenJavaPublicationToGitHubPackagesRepository \
             --no-daemon
 
+  publish-legacy-maven:
+    if: needs.release-gate.outputs.should_release == 'true'
+    needs: [release-gate, test-common, consumer-binary-smoke, build, build-legacy, consumer-live-e2e]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '8,17,21'
+          cache: gradle
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: chmod +x forge-1.16.5/gradlew
+      - working-directory: forge-1.16.5
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./gradlew build publishMavenJavaPublicationToGitHubPackagesRepository --no-daemon
+
   publish-curseforge:
     name: Publish ${{ matrix.platform }} ${{ matrix.version }} to CurseForge
     if: needs.release-gate.outputs.should_release == 'true'
-    needs: [release-gate, test-common, consumer-binary-smoke, build, consumer-live-e2e, publish-maven]
+    needs: [release-gate, test-common, consumer-binary-smoke, build, consumer-live-e2e, build-legacy, publish-maven, publish-legacy-maven]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
+          - version: '1.16.5'
+            platform: forge
+            loader_name: Forge
+            java_version_name: Java 8
           - version: '1.20.1'
             platform: fabric
             loader_name: Fabric
@@ -427,7 +478,7 @@ jobs:
   publish-github-release:
     name: Publish GitHub Release
     if: needs.release-gate.outputs.should_release == 'true'
-    needs: [release-gate, test-common, consumer-binary-smoke, build, consumer-live-e2e, publish-maven]
+    needs: [release-gate, test-common, consumer-binary-smoke, build, consumer-live-e2e, build-legacy, publish-maven, publish-legacy-maven]
     runs-on: ubuntu-latest
     permissions:
       contents: write

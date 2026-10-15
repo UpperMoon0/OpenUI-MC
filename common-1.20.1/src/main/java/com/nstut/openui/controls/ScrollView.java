@@ -29,6 +29,12 @@ public class ScrollView extends UIComponent {
         content.fillWidth();
     }
 
+    /** Scroll position can be retained across consumer screen resizing/rebuilds. */
+    public double scrollOffset() { return scrollOffset; }
+    public ScrollView scrollTo(double offset) {
+        if(!Double.isFinite(offset)) throw new IllegalArgumentException("Invalid scroll offset");
+        scrollOffset=Math.max(0,offset);invalidateLayout();return this;
+    }
     public UIComponent content() { return childCount() > 0 ? child(0) : null; }
 
     @Override public int preferredWidth(Font font) {

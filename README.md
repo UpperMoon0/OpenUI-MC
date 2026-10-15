@@ -122,3 +122,20 @@ Output jars are written to each loader module's `build/libs/` directory. Pull re
 - [Issue tracker](https://github.com/UpperMoon0/OpenUI-MC/issues)
 - [Source](https://github.com/UpperMoon0/OpenUI-MC)
 - License: MIT
+
+### Forge 1.16.5 (Java 8)
+
+The native Forge 36.2.42 port is an independent build: `cd forge-1.16.5 && ./gradlew build`.
+Gradle runs on Java 17 or newer; compilation uses JDK 17 plus Jabel and emits Java 8 bytecode.
+Its tests run on Java 8. `tools/legacy_sources.py` derives the core and controls from the modern
+source of truth; only Minecraft drawing, screen and widget adapters are handwritten.
+Modern consumers retain the existing record-based API and binary compatibility.
+Install the matching `openui-mc-forge-1.16.5` jar on the client. Servers do not require OpenUI.
+
+### Consumer profile controls
+
+`TextField.onCommit` submits edited text on blur and allows explicit Enter retries. Validation
+remains consumer policy, so incomplete numeric drafts can survive resize. `ButtonWidget.content`
+adds icons or composite content while preserving normal button input/focus. `IconWidget.texture`
+accepts source dimensions independent of display size. `Radial` arranges ordinary controls in a
+wheel. `ScrollView.scrollOffset/scrollTo` preserve the viewport across screen rebuilds.

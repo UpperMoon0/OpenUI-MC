@@ -29,6 +29,7 @@ public class ButtonWidget extends UIComponent {
     private Integer customHoverColor;
     private Integer customTextColor;
     private Runnable onClick;
+    private UIComponent content;
 
     // Time-based animation state
     private float currentHoverProgress;
@@ -53,6 +54,15 @@ public class ButtonWidget extends UIComponent {
         focusable(true);
     }
 
+    /** Optional icon/composite content, retaining this button's input and accessibility semantics. */
+    public ButtonWidget content(UIComponent child) {
+        if(content!=null) removeChild(content);
+        content=Objects.requireNonNull(child); addChild(content); invalidateLayout(); return this;
+    }
+    @Override public void layout(int x,int y,int width,int height) {
+        super.layout(x,y,width,height);
+        if(content!=null) content.layout(x+4,y+4,Math.max(0,width-8),Math.max(0,height-8));
+    }
     public ButtonWidget onPress(Runnable r) { this.onClick = r; return this; }
     public void setActive(boolean a) { this.active = a; invalidatePaint(); }
     public void setLabel(String label) { setLabel(Component.literal(label != null ? label : "")); }
@@ -106,6 +116,7 @@ public class ButtonWidget extends UIComponent {
 
     @Override
     public int preferredWidth(Font font) {
+        if(content!=null) return content.preferredWidth(font)+8;
         if (font == null) return 60;
         int basePadding = switch (size) {
             case SMALL -> 8;
@@ -221,6 +232,7 @@ public class ButtonWidget extends UIComponent {
             UiRender.roundedRect(g, x + 2, y + 3, 2, Math.max(2, height - 6), 1, colors.primary());
         }
 
+        if(content!=null) { content.render(g,font,mx,my,pt); return; }
         Component comp = getLabel();
         String str = comp.getString();
         String[] lines = str.split("\n", -1);

@@ -8,3 +8,6 @@ out/
 .vscode/
 .architectury-transformer/
 
+
+local-*.log
+__pycache__/

@@ -125,7 +125,9 @@ public final class UiRuntime implements AutoCloseable {
             overlayLayoutDirty = false;
         }
         root.render(graphics, font, mouseX, mouseY, partialTick);
+        graphics.flush();
         overlays.render(graphics, font, mouseX, mouseY, partialTick);
+        graphics.flush();
         root.markPainted();
         paintDirty = false;
     }
