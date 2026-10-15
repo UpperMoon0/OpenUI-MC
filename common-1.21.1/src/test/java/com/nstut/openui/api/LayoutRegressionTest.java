@@ -24,6 +24,21 @@ class LayoutRegressionTest {
     }
 
     @Test
+    void firstLayoutReservesExplicitFieldHeightInsideCoordinateColumns() {
+        UIComponent field=new FixedBox(80,18).height(24);
+        VStack coordinate=Ui.column(new FixedBox(6,9),field).gap(3);
+        HStack axes=Ui.row(coordinate.flex()).gap(4);
+        UIComponent nextLabel=new FixedBox(30,9);
+        VStack form=Ui.column(axes,nextLabel).gap(4);
+        form.layoutTree(null,0,0,180,240);
+        assertEquals(36,axes.getHeight(),"initial intrinsic measurement must honor the requested field height");
+        assertTrue(nextLabel.getY()>=field.getY()+field.getHeight()+4,"next row overlaps the field on first layout");
+        int initial=nextLabel.getY();
+        form.layoutTree(null,0,0,180,240);
+        assertEquals(initial,nextLabel.getY(),"first and subsequent layout must agree");
+    }
+
+    @Test
     void hStackFixedChildrenDoNotShrinkAndFlexTakesRemaining() {
         HStack row = new HStack().gap(10);
         UIComponent fixed1 = new FixedBox(50, 20);

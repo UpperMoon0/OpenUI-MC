@@ -43,7 +43,7 @@ public class HStack extends UIComponent {
     @Override
     public int preferredHeight(Font font) {
         int max = 0;
-        for (UIComponent c : visibleChildren()) max = Math.max(max, c.preferredHeight(font));
+        for (UIComponent c : visibleChildren()) max = Math.max(max, c.intrinsicHeight(font));
         return max;
     }
 

@@ -124,6 +124,12 @@ public abstract class UIComponent {
     public UIComponent fillWidth() { fillWidth = true; invalidateLayout(); return this; }
     public UIComponent fillHeight() { fillHeight = true; invalidateLayout(); return this; }
 
+    // Parent containers need the explicit/min/max height even before a child has bounds.
+    // Keep fill-height out of intrinsic sizing: it only applies to finite allocated space.
+    final int intrinsicHeight(Font font) {
+        return Math.max(minHeight, Math.min(maxHeight, requestedHeight >= 0 ? requestedHeight : preferredHeight(font)));
+    }
+
     public Size measure(Constraints constraints, Font font) {
         int desiredWidth = requestedWidth >= 0 ? requestedWidth : preferredWidth(font);
         int desiredHeight = requestedHeight >= 0 ? requestedHeight : preferredHeight(font);
