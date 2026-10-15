@@ -47,6 +47,63 @@ class ConsumerControlsTest {
         assertNull(old.parent()); assertEquals(1,button.children().size());
         runtime.close();
     }
+    @Test void radialRemovalAndReparentingReleaseLayoutOwnership() {
+        UIComponent first=new Panel(), second=new Panel(), center=new Panel();
+        Radial radial=new Radial(40,24).item(first).item(second).center(center,30);
+        radial.layout(0,0,120,120);
+        assertTrue(radial.removeChild(first));
+        first.layout(200,200,10,10);
+        radial.layout(0,0,120,120);
+        assertEquals(200,first.getX());
+        assertEquals(8,second.getY()); // The remaining item moves to the top.
+        Panel newParent=new Panel();
+        newParent.addChild(second); newParent.addChild(center);
+        second.layout(300,300,10,10); center.layout(400,400,10,10);
+        radial.layout(0,0,120,120);
+        assertEquals(300,second.getX()); assertEquals(400,center.getX());
+        radial.item(first); radial.clearChildren(); first.layout(500,500,10,10);
+        radial.layout(0,0,120,120); assertEquals(500,first.getX());
+    }
+    @Test void compositeButtonReleasesDetachedContent() {
+        UIComponent icon=IconWidget.of("+",0xFFFFFFFF);
+        ButtonWidget button=new ButtonWidget("Label").content(icon);
+        Panel other=new Panel(); other.addChild(icon);
+        icon.layout(200,200,16,16); button.layout(0,0,40,24);
+        assertEquals(200,icon.getX()); assertEquals(60,button.preferredWidth(null));
+        button.content(icon); button.clearChildren(); icon.layout(300,300,16,16);
+        button.layout(0,0,40,24); assertEquals(300,icon.getX());
+    }
+    @Test void replacementTransfersRadialAndButtonRoles() {
+        UIComponent oldItem=new Panel(), item=new Panel(), oldCenter=new Panel(), center=new Panel();
+        Radial radial=new Radial(40,24).item(oldItem).center(oldCenter,30);
+        radial.replaceChild(0,item); radial.replaceChild(1,center);
+        oldItem.layout(200,200,10,10); oldCenter.layout(300,300,10,10);
+        radial.layout(0,0,120,120);
+        assertEquals(8,item.getY()); assertEquals(45,center.getY());
+        assertEquals(200,oldItem.getY()); assertEquals(300,oldCenter.getY());
+        UIComponent oldIcon=IconWidget.of("+",0xFFFFFFFF), icon=IconWidget.of("-",0xFFFFFFFF);
+        ButtonWidget button=new ButtonWidget("Label").content(oldIcon);
+        button.replaceChild(0,icon); oldIcon.layout(400,400,16,16);
+        button.layout(0,0,40,24);
+        assertEquals(4,icon.getX()); assertEquals(400,oldIcon.getX());
+    }
+    @Test void removalReleasesContentBeforeUnmountCallbacks() {
+        ButtonWidget button=new ButtonWidget("Label");
+        AtomicInteger callbacks=new AtomicInteger();
+        UIComponent content=new Panel() {
+            @Override protected void onUnmount() {
+                layout(200,200,10,10);
+                button.layout(0,0,40,24);
+                assertEquals(200,getX());
+                assertEquals(60,button.preferredWidth(null));
+                callbacks.incrementAndGet();
+            }
+        };
+        button.content(content);
+        UiRuntime runtime=new UiRuntime(font(),new NativeWidgetHost() { public void add(net.minecraft.client.gui.components.AbstractWidget w) {} public void remove(net.minecraft.client.gui.components.AbstractWidget w) {} });
+        runtime.setRoot(button); button.removeChild(content);
+        assertEquals(1,callbacks.get()); runtime.close();
+    }
     @Test void expandedDescendantCanBeRevealedWithoutFocus() {
         UIComponent before=new Panel().height(200), target=new Panel().height(24);
         ScrollView scroll=new ScrollView(Ui.column(before,target));

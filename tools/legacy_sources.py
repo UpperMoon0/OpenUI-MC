@@ -123,9 +123,15 @@ def convert(text):
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--output',required=True,type=Path);args=parser.parse_args()
+    generated = set()
     for source in [ROOT/'shared/core/src/main/java',ROOT/'common-1.20.1/src/main/java']:
         for path in source.rglob('*.java'):
             relative=path.relative_to(source)
             if relative.name in ['UiScreen.java','UiContainerScreen.java']:continue
-            target=args.output/relative;target.parent.mkdir(parents=True,exist_ok=True);target.write_text(convert(path.read_text()),encoding='utf-8')
+            target=args.output/relative;generated.add(target);target.parent.mkdir(parents=True,exist_ok=True);target.write_text(convert(path.read_text()),encoding='utf-8')
+    # Synchronize the dedicated generated source tree after successful conversion.
+    # Incremental builds must not compile classes deleted or renamed upstream.
+    for obsolete in args.output.rglob('*.java'):
+        if obsolete not in generated:
+            obsolete.unlink()
 if __name__=='__main__':main()

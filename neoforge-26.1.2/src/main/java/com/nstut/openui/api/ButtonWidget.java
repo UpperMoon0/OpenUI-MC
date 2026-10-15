@@ -56,8 +56,19 @@ public class ButtonWidget extends UIComponent {
 
     /** Optional icon/composite content, retaining this button's input and accessibility semantics. */
     public ButtonWidget content(UIComponent child) {
+        Objects.requireNonNull(child);
         if(content!=null) removeChild(content);
-        content=Objects.requireNonNull(child); addChild(content); invalidateLayout(); return this;
+        addChild(child); content=child; invalidateLayout(); return this;
+    }
+    @Override public boolean removeChild(UIComponent child) {
+        if (!children().contains(child)) return false;
+        if (content == child) content = null;
+        return super.removeChild(child);
+    }
+    @Override public void replaceChild(int index, UIComponent replacement) {
+        Objects.requireNonNull(replacement);
+        if (child(index) == content) content = replacement;
+        super.replaceChild(index, replacement);
     }
     @Override public void layout(int x,int y,int width,int height) {
         super.layout(x,y,width,height);
