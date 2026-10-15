@@ -53,4 +53,45 @@ class TextFieldCommitTest {
         assertTrue(field.keyPressed(257,0,0)); assertEquals(2,commits.get());
         field.onFocusLost(); assertEquals(2,commits.get());
     }
+
+    @Test void normalizationCanClearFocusDuringCommit() { assertCallbackFocusChange(false); }
+    @Test void normalizationCanCloseRuntimeDuringCommit() { assertCallbackFocusChange(true); }
+
+    private void assertCallbackFocusChange(boolean close) {
+        Signal<String> value=Signals.of("1");
+        TextField field=new TextField(value,font());
+        AtomicInteger commits=new AtomicInteger();
+        UiRuntime runtime=new UiRuntime(font(),new NativeWidgetHost() {
+            public void add(Widget widget) {}
+            public void remove(Widget widget) {}
+        });
+        field.onCommit(text -> {
+            commits.incrementAndGet();
+            value.set(Integer.toString(Integer.parseInt(text)));
+            if (close) runtime.close(); else runtime.focus().clearFocus();
+        });
+        try {
+            runtime.setRoot(field); runtime.setViewport(0,0,100,24); field.requestFocus();
+            field.setValue("02"); assertTrue(runtime.keyPressed(257,0,0));
+            assertEquals("2",field.getValue()); assertEquals(1,commits.get());
+            field.onFocusLost(); assertEquals(1,commits.get());
+            assertTrue(field.keyPressed(335,0,0)); assertEquals(2,commits.get());
+        } finally { runtime.close(); }
+    }
+
+    @Test void failedCallbackReleasesGuardAndDoesNotMarkValueSubmitted() {
+        TextField field=new TextField(Signals.of("first"),font());
+        AtomicInteger commits=new AtomicInteger();
+        field.onCommit(text -> {
+            int attempt=commits.incrementAndGet();
+            field.setValue(text.trim());
+            field.onFocusLost();
+            if (attempt==1) throw new IllegalStateException("commit failed");
+        });
+        field.setValue(" second ");
+        assertThrows(IllegalStateException.class,()->field.keyPressed(257,0,0));
+        assertEquals("second",field.getValue()); assertEquals(1,commits.get());
+        field.onFocusLost(); assertEquals(2,commits.get());
+        field.onFocusLost(); assertEquals(2,commits.get());
+    }
 }

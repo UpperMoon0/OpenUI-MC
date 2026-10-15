@@ -17,6 +17,7 @@ public class TextField extends EditBoxWrapper {
     private boolean numeric;
     private java.util.function.Consumer<String> onCommit;
     private String lastSubmitted;
+    private boolean submitting;
 
     public TextField(Signal<String> value) {
         this(value, Objects.requireNonNull(Minecraft.getInstance().font, "Minecraft font is not initialized"));
@@ -42,13 +43,18 @@ public class TextField extends EditBoxWrapper {
         onCommit=Objects.requireNonNull(action); lastSubmitted=getValue(); return this;
     }
     private void submit(boolean explicit) {
+        if (onCommit == null || submitting) return;
         String current=getValue();
-        if(onCommit!=null && (explicit || !Objects.equals(current,lastSubmitted))) {
-            lastSubmitted=current;
-            onCommit.accept(current);
-            // A consumer may normalize the field directly or through its signal.
-            // The settled value is already committed, so unchanged blur is a no-op.
-            lastSubmitted=getValue();
+        if (explicit || !Objects.equals(current,lastSubmitted)) {
+            submitting=true;
+            try {
+                onCommit.accept(current);
+                // Callbacks may normalize the value and blur or unmount the field.
+                // Only a successful callback establishes the settled baseline.
+                lastSubmitted=getValue();
+            } finally {
+                submitting=false;
+            }
         }
     }
     @Override public void onFocusLost() { super.onFocusLost(); submit(false); }
