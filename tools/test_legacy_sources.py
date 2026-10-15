@@ -21,6 +21,14 @@ class LegacySourcesTest(unittest.TestCase):
                 legacy_sources.main()
                 self.assertFalse((output / 'example/Removed.java').exists())
                 self.assertTrue((output / 'example/Renamed.java').exists())
+    def test_clip_stack_leaves_transformation_and_intersection_to_legacy_graphics(self):
+        source = legacy_sources.ROOT / 'common-1.20.1/src/main/java/com/nstut/openui/api/ClipStack.java'
+        text = convert(source.read_text())
+        self.assertIn('graphics.enableScissor(x, y, x + width, y + height)', text)
+        self.assertIn('graphics.disableScissor()', text)
+        self.assertNotIn('ScissorRect', text)
+        self.assertNotIn('STACK', text)
+        self.assertIn('LegacyGuiGraphics graphics', text)
     def test_nested_methods_do_not_suppress_outer_record_contract(self):
         text=convert('public record Outer(int value) { public record Inner(int x) { public boolean equals(Object other) { return false; } } }')
         self.assertIn('Outer __v=(Outer)__other',text)

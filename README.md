@@ -114,7 +114,7 @@ Build one target with, for example:
 ./gradlew :neoforge-26.1.2:build
 ```
 
-Output jars are written to each loader module's `build/libs/` directory. Pull requests build all five loader targets. A push to `main` that changes `mod_version` triggers the release path: GitHub/CurseForge artifacts are published after the required compatibility jobs pass, and the published GitHub Release then triggers GitHub Packages Maven publication.
+Output jars are written to each loader module's `build/libs/` directory. Pull requests build all six loader targets. A push to `main` that changes `mod_version` triggers the release path: GitHub/CurseForge artifacts are published after the required compatibility jobs pass, and the same release workflow publishes matching GitHub Packages Maven artifacts.
 
 ## Links
 
@@ -135,7 +135,8 @@ Install the matching `openui-mc-forge-1.16.5` jar on the client. Servers do not 
 ### Consumer profile controls
 
 `TextField.onCommit` submits edited text on blur and allows explicit Enter retries. Validation
-remains consumer policy, so incomplete numeric drafts can survive resize. `ButtonWidget.content`
+remains consumer policy, so incomplete numeric drafts can survive resize. A value normalized
+by the commit callback is already submitted and does not commit again on unchanged blur. `ButtonWidget.content`
 adds icons or composite content while preserving normal button input/focus. `IconWidget.texture`
 accepts source dimensions independent of display size. `Radial` arranges ordinary controls in a
 wheel. `ScrollView.scrollOffset/scrollTo` preserve the viewport across screen rebuilds.

@@ -81,6 +81,23 @@ def lower_records(text, nested_context=False):
         text=text[:match.start()]+'\n'+prefix+generated+body+'}'+text[body_end+1:]
 
 def convert(text):
+    if 'public class ClipStack extends Stack {' in text:
+        # LegacyGuiGraphics transforms each local rectangle before intersecting
+        # its native stack. Modern ClipStack's pre-intersection mixes local
+        # coordinate spaces when parent and child have different poses.
+        text, count = re.subn(r'    private static final Deque<ScissorRect> STACK.*?(?=    @Override)',
+            """    public static void push(GuiGraphics graphics, int x, int y, int width, int height) {
+        if (graphics != null) graphics.enableScissor(x, y, x + width, y + height);
+    }
+
+    public static void pop(GuiGraphics graphics) {
+        if (graphics != null) graphics.disableScissor();
+    }
+
+""", text, count=1, flags=re.S)
+        if count != 1:
+            raise ValueError('ClipStack source changed; review the legacy clipping adapter')
+        text = text.replace('import java.util.ArrayDeque;\n', '').replace('import java.util.Deque;\n', '')
     text=lower_records(text)
     text=re.sub(r"\b(?:non-)?sealed\s+", "", text)
     text=re.sub(r"\bpermits\s+[\w.,\s]+(?=\{)", "", text)

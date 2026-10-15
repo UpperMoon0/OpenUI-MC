@@ -12,11 +12,15 @@ import net.minecraft.util.text.ITextComponent;
 import org.lwjgl.opengl.GL11;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.function.Consumer;
 /** Version adapter for OpenUI drawing and nested GUI-space clipping on Minecraft 1.16.5. */
 public final class LegacyGuiGraphics {
     private final MatrixStack pose;
     private final Deque<int[]> clips=new ArrayDeque<>();
-    public LegacyGuiGraphics(MatrixStack pose) { this.pose=pose; }
+    private final Consumer<int[]> scissor;
+    public LegacyGuiGraphics(MatrixStack pose) { this(pose,LegacyGuiGraphics::applyClip); }
+    // Package-private sink keeps native clip composition testable without an OpenGL context.
+    LegacyGuiGraphics(MatrixStack pose,Consumer<int[]> scissor) { this.pose=pose; this.scissor=scissor; }
     public void flush() { } // Legacy primitives submit immediately.
     public MatrixStack pose() { return pose; }
     public int guiWidth() { return Minecraft.getInstance().getWindow().getGuiScaledWidth(); }
@@ -53,11 +57,12 @@ public final class LegacyGuiGraphics {
         int[] transformed=transformedClip(pose,x1,y1,x2,y2);
         x1=transformed[0]; y1=transformed[1]; x2=transformed[2]; y2=transformed[3];
         if(!clips.isEmpty()) { int[] parent=clips.peek(); x1=Math.max(x1,parent[0]);y1=Math.max(y1,parent[1]);x2=Math.min(x2,parent[2]);y2=Math.min(y2,parent[3]); }
-        clips.push(new int[]{x1,y1,Math.max(x1,x2),Math.max(y1,y2)}); applyClip();
+        clips.push(new int[]{x1,y1,Math.max(x1,x2),Math.max(y1,y2)}); scissor.accept(clips.peek());
     }
-    public void disableScissor() { if(!clips.isEmpty()) clips.pop(); if(clips.isEmpty()) GL11.glDisable(GL11.GL_SCISSOR_TEST); else applyClip(); }
-    private void applyClip() {
-        int[] r=clips.peek(); double scale=Minecraft.getInstance().getWindow().getGuiScale();
+    public void disableScissor() { if(!clips.isEmpty()) clips.pop(); scissor.accept(clips.peek()); }
+    private static void applyClip(int[] r) {
+        if(r==null) { GL11.glDisable(GL11.GL_SCISSOR_TEST); return; }
+        double scale=Minecraft.getInstance().getWindow().getGuiScale();
         int left=(int)Math.floor(r[0]*scale),right=(int)Math.ceil(r[2]*scale);
         int bottom=(int)Math.floor(Minecraft.getInstance().getWindow().getHeight()-r[3]*scale),top=(int)Math.ceil(Minecraft.getInstance().getWindow().getHeight()-r[1]*scale);
         GL11.glEnable(GL11.GL_SCISSOR_TEST); GL11.glScissor(left,bottom,Math.max(0,right-left),Math.max(0,top-bottom));

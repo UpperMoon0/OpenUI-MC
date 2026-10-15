@@ -44,7 +44,11 @@ public class TextField extends EditBoxWrapper {
     private void submit(boolean explicit) {
         String current=getValue();
         if(onCommit!=null && (explicit || !Objects.equals(current,lastSubmitted))) {
-            lastSubmitted=current; onCommit.accept(current);
+            lastSubmitted=current;
+            onCommit.accept(current);
+            // A consumer may normalize the field directly or through its signal.
+            // The settled value is already committed, so unchanged blur is a no-op.
+            lastSubmitted=getValue();
         }
     }
     @Override public void onFocusLost() { super.onFocusLost(); submit(false); }
