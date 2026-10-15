@@ -23,6 +23,7 @@ public class ScrollView extends UIComponent {
     private double scrollOffset;
     private int contentHeight;
     private boolean focusRevealPending;
+    private UIComponent revealTarget;
 
     public ScrollView(UIComponent content) {
         addChild(content);
@@ -34,6 +35,11 @@ public class ScrollView extends UIComponent {
     public ScrollView scrollTo(double offset) {
         if(!Double.isFinite(offset)) throw new IllegalArgumentException("Invalid scroll offset");
         scrollOffset=Math.max(0,offset);invalidateLayout();return this;
+    }
+    /** Reveal a changed/expanded descendant after the next layout, without stealing keyboard focus. */
+    public ScrollView reveal(UIComponent target) {
+        if(target==null || !isDescendant(target)) throw new IllegalArgumentException("Target must belong to this scroll view");
+        revealTarget=target; invalidateLayout(); return this;
     }
     public UIComponent content() { return childCount() > 0 ? child(0) : null; }
 
@@ -62,9 +68,10 @@ public class ScrollView extends UIComponent {
         contentHeight = Math.max(measured.height(), availableHeight);
         clampScroll();
         content.layout(x, y - (int) scrollOffset, contentWidth, contentHeight);
-        if (focusRevealPending) {
+        if (focusRevealPending || revealTarget!=null) {
             focusRevealPending=false;
-            UIComponent focused=runtime()!=null?runtime().focus().focused():null;
+            UIComponent focused=revealTarget!=null?revealTarget:runtime()!=null?runtime().focus().focused():null;
+            revealTarget=null;
             if (focused!=null&&isDescendant(focused)) {
                 double next=scrollOffsetForReveal(focused);
                 if (Double.compare(next,scrollOffset)!=0) {

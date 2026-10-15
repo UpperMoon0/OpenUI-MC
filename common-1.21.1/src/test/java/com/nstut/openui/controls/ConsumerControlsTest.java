@@ -23,6 +23,16 @@ class ConsumerControlsTest {
         field.onFocusLost(); assertEquals(2, commits.get());
         assertTrue(field.keyPressed(335,0,0)); assertEquals(3, commits.get());
     }
+    @Test void signalDraftChangedBeforeMountIsAppliedOnMount() {
+        com.nstut.openui.state.Signal<String> draft=Signals.of("3");
+        TextField field=new TextField(draft,font());
+        draft.set("-");
+        UiRuntime runtime=new UiRuntime(font(),new NativeWidgetHost() { public void add(net.minecraft.client.gui.components.AbstractWidget w) {} public void remove(net.minecraft.client.gui.components.AbstractWidget w) {} });
+        runtime.setRoot(field); assertEquals("-",field.getValue());
+        runtime.close(); draft.set("4");
+        UiRuntime reopened=new UiRuntime(font(),new NativeWidgetHost() { public void add(net.minecraft.client.gui.components.AbstractWidget w) {} public void remove(net.minecraft.client.gui.components.AbstractWidget w) {} });
+        reopened.setRoot(field); assertEquals("4",field.getValue()); reopened.close();
+    }
     @Test void iconContentRetainsButtonHitAndFocus() {
         AtomicInteger pressed = new AtomicInteger();
         ButtonWidget button = new ButtonWidget("Array").content(IconWidget.texture("test","array.png",256,256).size(16)).onPress(pressed::incrementAndGet);
@@ -36,6 +46,14 @@ class ConsumerControlsTest {
         button.content(IconWidget.of("+",0xFFFFFFFF));
         assertNull(old.parent()); assertEquals(1,button.children().size());
         runtime.close();
+    }
+    @Test void expandedDescendantCanBeRevealedWithoutFocus() {
+        UIComponent before=new Panel().height(200), target=new Panel().height(24);
+        ScrollView scroll=new ScrollView(Ui.column(before,target));
+        scroll.layout(0,0,100,80); scroll.reveal(target); scroll.layout(0,0,100,80);
+        assertTrue(target.getY()>=0); assertTrue(target.getY()+target.getHeight()<=80);
+        assertFalse(target.isFocused());
+        assertThrows(IllegalArgumentException.class,()->scroll.reveal(new Panel()));
     }
     @Test void scrollRestoresAndClampsAfterResize() {
         UIComponent tall = new UIComponent() { @Override public int preferredWidth(Font f) { return 100; } @Override public int preferredHeight(Font font) { return 400; } @Override public void render(net.minecraft.client.gui.GuiGraphics g, Font f, int x,int y,float dt) {} };

@@ -54,6 +54,7 @@ public class TextField extends EditBoxWrapper {
         return super.keyPressed(key,scanCode,modifiers);
     }
     @Override protected void onMount() {
+        if (!Objects.equals(getValue(), value.get())) setValue(value.get());
         subscription = value.subscribe(text -> {
             if (!Objects.equals(getValue(), text)) setValue(text);
         });
