@@ -322,4 +322,20 @@ class DragAndDropTest {
             f.clickButton();
         }
     }
+    @Test void aPressStartedByAReleaseListenerRetainsItsOwnCapture() {
+        try (var f = new DragFixture()) {
+            AtomicBoolean once = new AtomicBoolean(true);
+            f.source.on(com.nstut.openui.input.EventType.MOUSE_UP, event -> {
+                if (once.getAndSet(false)) f.runtime.mouseClicked(15, 15, 0);
+            });
+            f.start();
+            f.runtime.mouseReleased(160, 20, 0);
+            assertFalse(f.source.isDragging());
+            f.runtime.mouseDragged(160, 20, 0, 145, 5);
+            assertTrue(f.source.isDragging(), "The old release must not disarm a new nested press");
+            f.runtime.mouseReleased(160, 20, 0);
+            assertFalse(f.source.isDragging());
+            assertEquals(0, f.runtime.overlays().size());
+        }
+    }
 }

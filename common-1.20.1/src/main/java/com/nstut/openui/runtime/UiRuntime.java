@@ -267,6 +267,7 @@ public final class UiRuntime implements AutoCloseable {
             if (target == null) return false;
             PointerEvent event = new PointerEvent(EventType.MOUSE_UP, target, mouseX, mouseY, button, 0, 0);
             dispatch(event);
+            if (interaction != pointerInteractionId) return true;
             boolean handled = !event.isDefaultPrevented() && !event.isPropagationStopped() && target.mouseReleased(mouseX, mouseY, button);
             UIComponent hit = inputTarget(mouseX, mouseY, false);
             if (interaction == pointerInteractionId && pressedTarget != null && pressedTarget == hit) {
