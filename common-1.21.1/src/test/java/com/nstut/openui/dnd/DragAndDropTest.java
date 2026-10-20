@@ -338,4 +338,21 @@ class DragAndDropTest {
             assertEquals(0, f.runtime.overlays().size());
         }
     }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false,false", "false,true", "true,false", "true,true"})
+    void preventedSourceOrAncestorPressCannotArmDragging(boolean ancestor, boolean stop) {
+        try (var f = new DragFixture()) {
+            AtomicBoolean once = new AtomicBoolean(true);
+            (ancestor ? f.root : f.source).on(com.nstut.openui.input.EventType.MOUSE_DOWN, event -> {
+                if (once.getAndSet(false)) {
+                    if (stop) event.stopPropagation(); else event.preventDefault();
+                }
+            });
+            assertTrue(f.runtime.mouseClicked(15, 15, 0));
+            f.runtime.mouseDragged(160, 20, 0, 145, 5);
+            assertFalse(f.source.isDragging());
+            assertEquals(0, f.runtime.overlays().size());
+            f.clickButton();
+        }
+    }
 }

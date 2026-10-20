@@ -20,6 +20,7 @@ public class Draggable<T> extends UIComponent {
     private Supplier<UIComponent> feedbackSupplier;
     private boolean dragging;
     private boolean armed;
+    private PointerEvent pendingPress;
     private double startMouseX, startMouseY;
     private double currentMouseX, currentMouseY;
     private OverlayHandle dragOverlay;
@@ -33,8 +34,8 @@ public class Draggable<T> extends UIComponent {
         on(EventType.MOUSE_DOWN, event -> {
             if (event instanceof PointerEvent pointer && pointer.button() == 0) {
                 event.capturePointer();
-                // A child may consume the legacy click before it bubbles here.
-                if (!event.isDefaultPrevented()) arm(pointer.x(), pointer.y());
+                // Validate the completed event before a consuming child can start a drag.
+                if (event.pointerCaptureTarget() == this) pendingPress = pointer;
             }
         });
     }
@@ -74,6 +75,7 @@ public class Draggable<T> extends UIComponent {
     }
 
     private void arm(double mx, double my) {
+        pendingPress = null;
         armed = true;
         startMouseX = mx;
         startMouseY = my;
@@ -92,6 +94,12 @@ public class Draggable<T> extends UIComponent {
 
     @Override
     public boolean mouseDragged(double mx, double my, int btn, double dx, double dy) {
+        if (btn == 0 && pendingPress != null) {
+            PointerEvent press = pendingPress;
+            pendingPress = null;
+            // Later source/ancestor listeners may suppress the default press bridge.
+            if (!press.isDefaultPrevented() && !press.isPropagationStopped()) arm(press.x(), press.y());
+        }
         if (btn == 0 && armed) {
             currentMouseX = mx;
             currentMouseY = my;
@@ -128,6 +136,7 @@ public class Draggable<T> extends UIComponent {
     @Override protected void onUnmount() { cancelDrag(); }
 
     private void cancelDrag() {
+        pendingPress = null;
         armed = false;
         dragging = false;
         clearDragOver();
