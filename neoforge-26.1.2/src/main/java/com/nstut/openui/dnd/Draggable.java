@@ -19,6 +19,7 @@ public class Draggable<T> extends UIComponent {
     private final UIComponent child;
     private Supplier<UIComponent> feedbackSupplier;
     private boolean dragging;
+    private boolean armed;
     private double startMouseX, startMouseY;
     private double currentMouseX, currentMouseY;
     private OverlayHandle dragOverlay;
@@ -71,6 +72,7 @@ public class Draggable<T> extends UIComponent {
     @Override
     public boolean mouseClicked(double mx, double my, int btn) {
         if (btn == 0 && mx >= x && mx < x + width && my >= y && my < y + height) {
+            armed = true;
             startMouseX = mx;
             startMouseY = my;
             currentMouseX = mx;
@@ -82,7 +84,7 @@ public class Draggable<T> extends UIComponent {
 
     @Override
     public boolean mouseDragged(double mx, double my, int btn, double dx, double dy) {
-        if (btn == 0) {
+        if (btn == 0 && armed) {
             currentMouseX = mx;
             currentMouseY = my;
             if (!dragging) {
@@ -104,13 +106,28 @@ public class Draggable<T> extends UIComponent {
 
     @Override
     public boolean mouseReleased(double mx, double my, int btn) {
-        if (btn == 0 && dragging) {
+        if (btn != 0) return false;
+        armed = false;
+        if (dragging) {
             stopDragging(mx, my);
             return true;
         }
+        cancelDrag();
+        return false;
+    }
+
+    @Override public void pointerCancelled() { cancelDrag(); }
+    @Override protected void onUnmount() { cancelDrag(); }
+
+    private void cancelDrag() {
+        armed = false;
         dragging = false;
         clearDragOver();
-        return false;
+        OverlayHandle overlay = dragOverlay;
+        dragOverlay = null;
+        feedbackComponent = null;
+        if (overlay != null) overlay.close();
+        invalidatePaint();
     }
 
     private void clearDragOver() {
@@ -148,19 +165,12 @@ public class Draggable<T> extends UIComponent {
                 fb = new GhostFeedback(child, child.getWidth(), child.getHeight());
             }
             feedbackComponent = new DragFeedbackOverlay(fb, (int) currentMouseX, (int) currentMouseY);
-            dragOverlay = runtime().overlays().show(OverlayLayer.TOOLTIP, feedbackComponent, false, true, false, null);
+            dragOverlay = runtime().overlays().show(OverlayLayer.TOOLTIP, feedbackComponent, false, true, false, this::cancelDrag);
         }
     }
 
     private void stopDragging(double mx, double my) {
-        dragging = false;
-        clearDragOver();
-        if (dragOverlay != null) {
-            dragOverlay.close();
-            dragOverlay = null;
-            feedbackComponent = null;
-        }
-        invalidatePaint();
+        cancelDrag();
 
         if (runtime() != null && runtime().root() != null) {
             UIComponent hit = runtime().root().hitTest((int) mx, (int) my);
@@ -246,6 +256,9 @@ public class Draggable<T> extends UIComponent {
             this.fy = (int) my;
             if (runtime() != null) runtime().requestOverlayLayout();
         }
+
+        // A preview is visual only: its full-screen bounds must never consume input.
+        @Override public UIComponent hitTest(int mx, int my) { return null; }
 
         @Override public int preferredWidth(Font font) { return feedback.preferredWidth(font); }
         @Override public int preferredHeight(Font font) { return feedback.preferredHeight(font); }

@@ -181,7 +181,7 @@ public abstract class UIComponent {
 
     public final void unmount() {
         if (lifecycleState != LifecycleState.MOUNTED) return;
-        if (runtime != null) runtime.focus().onSubtreeDetaching(this);
+        if (runtime != null) runtime.onSubtreeDetaching(this);
         for (UIComponent child : children) child.unmount();
         onUnmount();
         runtime = null;
@@ -259,6 +259,8 @@ public abstract class UIComponent {
     public boolean mouseScrolled(double mx, double my, double delta) { return false; }
     public boolean mouseDragged(double mx, double my, int button, double dragX, double dragY) { return false; }
     public boolean mouseReleased(double mx, double my, int button) { return false; }
+    /** Cancels a captured press without activating or dropping its target. */
+    public void pointerCancelled() { }
     public boolean keyPressed(int key, int scanCode, int modifiers) { return false; }
     /** Returns whether this component owns text input and should suppress screen shortcuts while focused. */
     public boolean acceptsTextInput() { return false; }
