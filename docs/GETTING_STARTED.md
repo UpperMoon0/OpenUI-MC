@@ -110,6 +110,8 @@ Rows, columns, and stacks do not implicitly clip or scroll. Bounded visual surfa
 
 OpenUI dispatches capture, target, and bubble listeners. Pointer capture keeps drag and release events routed to the component that began a left-button interaction.
 
+Drags cancel on Escape, source removal, or a fresh press after a lost release. Drag previews ignore mouse input. Custom captured controls can override `UIComponent.pointerCancelled()` to discard their pending interaction; hosts can call `UiRuntime.cancelPointerInteraction()` when input capture is interrupted.
+
 ```java
 component.on(EventType.MOUSE_DOWN, event -> {
     if (event instanceof PointerEvent pointer && pointer.button() == 0) {

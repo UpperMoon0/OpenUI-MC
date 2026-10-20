@@ -179,4 +179,180 @@ class DragAndDropTest {
         assertFalse(source.isDragging());
         assertTrue(destinationDragged.get(), "Right-button drag should route to the component under the pointer");
     }
+
+    private static class DragBox extends UIComponent {
+        @Override public int preferredWidth(Font font) { return 80; }
+        @Override public int preferredHeight(Font font) { return 20; }
+        @Override public void render(GuiGraphicsExtractor g,Font font,int mx,int my,float tick) { }
+    }
+    private final class DragFixture implements AutoCloseable {
+        final UiRuntime runtime = new UiRuntime(new Font(null), dummyHost);
+        final UIComponent root = new DragBox();
+        final Draggable<String> source = new Draggable<>("slide", new DragBox());
+        final AtomicInteger clicks = new AtomicInteger();
+        final UIComponent button = new DragBox() {
+            @Override public boolean mouseClicked(double x,double y,int button) { clicks.incrementAndGet();return true; }
+        };
+        DragFixture() {
+            root.addChild(source);root.addChild(button);runtime.setRoot(root);runtime.setViewport(0,0,300,200);
+            root.layout(0,0,300,200);source.layout(10,10,80,20);button.layout(150,10,80,30);
+        }
+        void start() {
+            assertTrue(runtime.mouseClicked(15,15,0));runtime.mouseDragged(160,20,0,145,5);
+            assertTrue(source.isDragging());assertEquals(1,runtime.overlays().size());
+        }
+        void clickButton() {runtime.mouseClicked(160,20,0);runtime.mouseReleased(160,20,0);assertEquals(1,clicks.get());}
+        public void close() {runtime.close();}
+    }
+    @Test void unrelatedButtonReleaseDoesNotOrphanTheDragPreview() {
+        try(var f=new DragFixture()) {
+            f.start();f.runtime.mouseReleased(160,20,1);
+            assertTrue(f.source.isDragging(),"Right release must not end a left drag");
+            f.runtime.mouseReleased(160,20,0);
+            assertFalse(f.source.isDragging());assertEquals(0,f.runtime.overlays().size());f.clickButton();
+        }
+    }
+    @Test void removingTheSourceDuringDragCancelsItsPreview() {
+        try(var f=new DragFixture()) {
+            f.start();f.root.removeChild(f.source);
+            assertFalse(f.source.isDragging());assertEquals(0,f.runtime.overlays().size());f.clickButton();
+        }
+    }
+    @Test void escapeCancelsTheDragWithoutDroppingOrRearming() {
+        try(var f=new DragFixture()) {
+            f.start();assertTrue(f.runtime.keyPressed(256,0,0));
+            assertFalse(f.source.isDragging());assertEquals(0,f.runtime.overlays().size());
+            f.source.mouseDragged(160,20,0,10,0);assertFalse(f.source.isDragging());f.clickButton();
+        }
+    }
+    @Test void aNewPressRecoversAfterAMissedRelease() {
+        try(var f=new DragFixture()) {
+            f.start();f.runtime.overlays().layout(new Font(null),0,0,300,200);
+            f.clickButton();assertFalse(f.source.isDragging());assertEquals(0,f.runtime.overlays().size());
+        }
+    }
+    @Test void previewDoesNotInterceptMouseInput() {
+        try(var f=new DragFixture()) {
+            f.start();f.runtime.overlays().layout(new Font(null),0,0,300,200);
+            assertNull(f.runtime.overlays().hitTest(160,20));
+        }
+    }
+
+    @Test void throwingDropStillReleasesTheMouseAndPreview() {
+        try(var f=new DragFixture()) {
+            DragTarget<String> target=new DragTarget<>(String.class,new DragBox()).onDrop(event->{throw new IllegalStateException("Rejected drop");});
+            f.root.addChild(target);target.layout(150,10,80,30);f.start();
+            assertThrows(IllegalStateException.class,()->f.runtime.mouseReleased(160,20,0));
+            assertFalse(f.source.isDragging());assertEquals(0,f.runtime.overlays().size());
+            f.root.removeChild(target);f.clickButton();
+        }
+    }
+    @Test void replacingTheRootCancelsTheOldDrag() {
+        try(var f=new DragFixture()) {
+            f.start();f.runtime.setRoot(new DragBox());
+            assertFalse(f.source.isDragging());assertEquals(0,f.runtime.overlays().size());
+        }
+    }
+    @Test void closingTheRuntimeCancelsTheDrag() {
+        try(var f=new DragFixture()) {
+            f.start();f.runtime.close();
+            assertFalse(f.source.isDragging());assertEquals(0,f.runtime.overlays().size());
+        }
+    }
+    @Test void aDragRequiresAFreshLeftPress() {
+        try(var f=new DragFixture()) {
+            assertFalse(f.source.mouseDragged(160,20,0,10,0));
+            assertFalse(f.source.isDragging());assertEquals(0,f.runtime.overlays().size());
+        }
+    }
+    @Test void preventedReleaseCancelsTheDragWithoutDropping() {
+        try (var f = new DragFixture()) {
+            f.source.on(com.nstut.openui.input.EventType.MOUSE_UP, event -> event.preventDefault());
+            f.start();
+            f.runtime.mouseReleased(160, 20, 0);
+            assertFalse(f.source.isDragging());
+            assertEquals(0, f.runtime.overlays().size());
+            f.source.mouseDragged(160, 20, 0, 10, 0);
+            assertFalse(f.source.isDragging());
+            f.clickButton();
+        }
+    }
+
+    @Test void throwingReleaseListenerStillCancelsTheDrag() {
+        try (var f = new DragFixture()) {
+            f.source.on(com.nstut.openui.input.EventType.MOUSE_UP, event -> { throw new IllegalStateException("Interrupted release"); });
+            f.start();
+            assertThrows(IllegalStateException.class, () -> f.runtime.mouseReleased(160, 20, 0));
+            assertFalse(f.source.isDragging());
+            assertEquals(0, f.runtime.overlays().size());
+            f.clickButton();
+        }
+    }
+    @Test void consumingChildClickStillArmsItsDraggableAncestor() {
+        AtomicInteger clicks = new AtomicInteger();
+        UIComponent child = new DragBox() {
+            @Override public boolean mouseClicked(double mx, double my, int button) {
+                clicks.incrementAndGet();
+                return true;
+            }
+        };
+        Draggable<String> source = new Draggable<>("item", child);
+        try (UiRuntime runtime = new UiRuntime(new Font(null), dummyHost)) {
+            runtime.setRoot(source);
+            runtime.setViewport(0, 0, 300, 200);
+            assertTrue(runtime.mouseClicked(15, 15, 0));
+            assertEquals(1, clicks.get(), "The child must retain its click behavior");
+            runtime.mouseDragged(17, 15, 0, 2, 0);
+            assertFalse(source.isDragging(), "The drag threshold still applies");
+            runtime.mouseDragged(20, 15, 0, 3, 0);
+            assertTrue(source.isDragging(), "Consuming the child click must not disable drag capture");
+            runtime.mouseReleased(20, 15, 0);
+            assertFalse(source.isDragging());
+            assertEquals(0, runtime.overlays().size());
+        }
+    }
+    @Test void detachingDuringMouseDownCannotRestoreStaleCapture() {
+        try (var f = new DragFixture()) {
+            f.source.on(com.nstut.openui.input.EventType.MOUSE_DOWN, event -> f.root.removeChild(f.source));
+            f.runtime.mouseClicked(15, 15, 0);
+            f.runtime.mouseDragged(160, 20, 0, 145, 5);
+            assertFalse(f.source.isDragging());
+            assertEquals(0, f.runtime.overlays().size());
+            assertFalse(f.source.mouseDragged(160, 20, 0, 145, 5), "A detached default handler must not rearm the source");
+            f.clickButton();
+        }
+    }
+    @Test void aPressStartedByAReleaseListenerRetainsItsOwnCapture() {
+        try (var f = new DragFixture()) {
+            AtomicBoolean once = new AtomicBoolean(true);
+            f.source.on(com.nstut.openui.input.EventType.MOUSE_UP, event -> {
+                if (once.getAndSet(false)) f.runtime.mouseClicked(15, 15, 0);
+            });
+            f.start();
+            f.runtime.mouseReleased(160, 20, 0);
+            assertFalse(f.source.isDragging());
+            f.runtime.mouseDragged(160, 20, 0, 145, 5);
+            assertTrue(f.source.isDragging(), "The old release must not disarm a new nested press");
+            f.runtime.mouseReleased(160, 20, 0);
+            assertFalse(f.source.isDragging());
+            assertEquals(0, f.runtime.overlays().size());
+        }
+    }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false,false", "false,true", "true,false", "true,true"})
+    void preventedSourceOrAncestorPressCannotArmDragging(boolean ancestor, boolean stop) {
+        try (var f = new DragFixture()) {
+            AtomicBoolean once = new AtomicBoolean(true);
+            (ancestor ? f.root : f.source).on(com.nstut.openui.input.EventType.MOUSE_DOWN, event -> {
+                if (once.getAndSet(false)) {
+                    if (stop) event.stopPropagation(); else event.preventDefault();
+                }
+            });
+            assertTrue(f.runtime.mouseClicked(15, 15, 0));
+            f.runtime.mouseDragged(160, 20, 0, 145, 5);
+            assertFalse(f.source.isDragging());
+            assertEquals(0, f.runtime.overlays().size());
+            f.clickButton();
+        }
+    }
 }

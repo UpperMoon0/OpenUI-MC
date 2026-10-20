@@ -37,6 +37,8 @@ public final class UiRuntime implements AutoCloseable {
     private int height;
     private UIComponent pointerCapture;
     private UIComponent pressedTarget;
+    private int pressedButton = -1;
+    private long pointerInteractionId;
     private UIComponent tooltipOwner;
     private Tooltip tooltipOverlay;
     private OverlayHandle tooltipHandle;
@@ -56,6 +58,27 @@ public final class UiRuntime implements AutoCloseable {
         this.nativeWidgets = new NativeWidgetManager(Objects.requireNonNull(widgetHost));
         this.theme = Objects.requireNonNull(theme);
         this.focus.setOverlayRoots(this.overlays::components);
+    }
+
+    /** Recover from a lost release, Escape, or removal of a captured subtree. */
+    public void cancelPointerInteraction() {
+        pointerInteractionId++;
+        UIComponent captured = pointerCapture, pressed = pressedTarget;
+        pointerCapture = null; pressedTarget = null; pressedButton = -1;
+        if (captured != null) captured.pointerCancelled();
+        if (pressed != null && pressed != captured) pressed.pointerCancelled();
+    }
+
+    public void onSubtreeDetaching(UIComponent subtree) {
+        focus.onSubtreeDetaching(subtree);
+        if (inside(pointerCapture, subtree) || inside(pressedTarget, subtree)) cancelPointerInteraction();
+    }
+
+    private static boolean inside(UIComponent node, UIComponent subtree) {
+        for (UIComponent cursor = node; cursor != null; cursor = cursor.parent()) {
+            if (cursor == subtree) return true;
+        }
+        return false;
     }
 
     public UIComponent root() { return root; }
@@ -188,6 +211,7 @@ public final class UiRuntime implements AutoCloseable {
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (root == null) return false;
+        cancelPointerInteraction();
         boolean hasBlocking = overlays.hasBlockingOverlay();
         UIComponent target = inputTarget(mouseX, mouseY, true);
         UIComponent focusTarget = target;
@@ -198,8 +222,12 @@ public final class UiRuntime implements AutoCloseable {
         else if (button == 0) focus.clearFocus();
         if (target == null) return hasBlocking;
         pressedTarget = target;
+        pressedButton = button;
+        long interaction = pointerInteractionId;
         PointerEvent event = new PointerEvent(EventType.MOUSE_DOWN, target, mouseX, mouseY, button, 0, 0);
         dispatch(event);
+        // A listener may remove/rebuild the target or start another press.
+        if (interaction != pointerInteractionId || pressedTarget != target) return true;
         if (event.isPointerCaptureRequested()) pointerCapture = event.pointerCaptureTarget();
         boolean handled = false;
         if (!event.isDefaultPrevented() && !event.isPropagationStopped()) {
@@ -219,33 +247,47 @@ public final class UiRuntime implements AutoCloseable {
     }
 
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (pressedButton != -1 && button != pressedButton) return false;
+        long interaction = pointerInteractionId;
         UIComponent target = pointerCapture != null ? pointerCapture : inputTarget(mouseX, mouseY, false);
         if (target == null) return false;
         PointerEvent event = new PointerEvent(EventType.MOUSE_DRAG, target, mouseX, mouseY, button, dragX, dragY);
         dispatch(event);
+        if (interaction != pointerInteractionId) return true;
         if (event.isPointerCaptureRequested()) pointerCapture = event.pointerCaptureTarget();
         boolean handled = !event.isDefaultPrevented() && !event.isPropagationStopped() && target.mouseDragged(mouseX, mouseY, button, dragX, dragY);
         return handled || event.isDefaultPrevented() || event.isPropagationStopped();
     }
 
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (pressedButton != -1 && button != pressedButton) return false;
+        long interaction = pointerInteractionId;
         UIComponent target = pointerCapture != null ? pointerCapture : inputTarget(mouseX, mouseY, false);
-        if (target == null) return false;
-        PointerEvent event = new PointerEvent(EventType.MOUSE_UP, target, mouseX, mouseY, button, 0, 0);
-        dispatch(event);
-        boolean handled = !event.isDefaultPrevented() && !event.isPropagationStopped() && target.mouseReleased(mouseX, mouseY, button);
-        UIComponent hit = inputTarget(mouseX, mouseY, false);
-        if (pressedTarget != null && pressedTarget == hit) {
-            PointerEvent click = new PointerEvent(EventType.CLICK, hit, mouseX, mouseY, button, 0, 0);
-            dispatch(click);
-            handled |= click.isDefaultPrevented() || click.isPropagationStopped();
+        try {
+            if (target == null) return false;
+            PointerEvent event = new PointerEvent(EventType.MOUSE_UP, target, mouseX, mouseY, button, 0, 0);
+            dispatch(event);
+            if (interaction != pointerInteractionId) return true;
+            boolean handled = !event.isDefaultPrevented() && !event.isPropagationStopped() && target.mouseReleased(mouseX, mouseY, button);
+            UIComponent hit = inputTarget(mouseX, mouseY, false);
+            if (interaction == pointerInteractionId && pressedTarget != null && pressedTarget == hit) {
+                PointerEvent click = new PointerEvent(EventType.CLICK, hit, mouseX, mouseY, button, 0, 0);
+                dispatch(click);
+                handled |= click.isDefaultPrevented() || click.isPropagationStopped();
+            }
+            return handled || event.isDefaultPrevented() || event.isPropagationStopped();
+        } finally {
+            // Listeners can suppress or interrupt the default release handler.
+            // Clear the component's press state as well as runtime capture.
+            if (interaction == pointerInteractionId) cancelPointerInteraction();
         }
-        pointerCapture = null;
-        pressedTarget = null;
-        return handled || event.isDefaultPrevented() || event.isPropagationStopped();
     }
 
     public boolean keyPressed(int key, int scanCode, int modifiers) {
+        if (key == 256 && (pointerCapture != null || pressedTarget != null)) {
+            cancelPointerInteraction();
+            return true;
+        }
         if (key == 256 && overlays.closeTopDismissable()) return true;
         if (key == 258) return (modifiers & 1) != 0 ? focus.focusPrevious() : focus.focusNext();
         UIComponent target = keyTarget();
@@ -376,8 +418,7 @@ public final class UiRuntime implements AutoCloseable {
             animations.close();
             overlays.close();
             focus.clearFocus();
-            pointerCapture = null;
-            pressedTarget = null;
+            cancelPointerInteraction();
             if (root != null) root.dispose();
             root = null;
         } finally {
