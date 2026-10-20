@@ -9,7 +9,7 @@ import net.minecraft.client.gui.GuiGraphics;
 
 /**
  * Clips a single child to its bounds and scrolls overflowing content with the
- * mouse wheel, drawing a slim scrollbar while the content exceeds the viewport.
+ * mouse wheel or a draggable scrollbar while the content exceeds the viewport.
  * Pair with {@code .flex()} inside a column so the viewport absorbs exactly the
  * leftover space instead of pushing siblings off screen.
  */
@@ -24,10 +24,16 @@ public class ScrollView extends UIComponent {
     private int contentHeight;
     private boolean focusRevealPending;
     private UIComponent revealTarget;
+    private boolean draggingScrollbar;
+    private double scrollbarGrabOffset;
 
     public ScrollView(UIComponent content) {
         addChild(content);
         content.fillWidth();
+        on(com.nstut.openui.input.EventType.MOUSE_DOWN, event -> {
+            if (event instanceof com.nstut.openui.input.PointerEvent pointer
+                    && pointer.button() == 0 && scrollbarHit(pointer.x(), pointer.y())) event.capturePointer();
+        });
     }
 
     /** Scroll position can be retained across consumer screen resizing/rebuilds. */
@@ -86,6 +92,7 @@ public class ScrollView extends UIComponent {
 
     private void clampScroll() {
         scrollOffset = Math.max(0, Math.min(maxScroll(), scrollOffset));
+        if (maxScroll() <= 0) draggingScrollbar = false;
     }
 
     @Override protected boolean clipsChildrenToBounds() { return true; }
@@ -124,12 +131,11 @@ public class ScrollView extends UIComponent {
     }
 
     private void drawScrollbar(GuiGraphics g) {
-        if (maxScroll() <= 0 || width <= SCROLLBAR_WIDTH || height < SCROLLBAR_WIDTH * 4) return;
+        if (!hasScrollbar()) return;
         var colors = theme().colors();
         int trackX = x + width - SCROLLBAR_WIDTH;
-        int thumbHeight = Math.max(SCROLLBAR_WIDTH * 3, (int) ((long) height * height / contentHeight));
-        float progress = (float) (scrollOffset / maxScroll());
-        int thumbY = y + Math.round((height - thumbHeight) * progress);
+        int thumbHeight = scrollbarThumbHeight();
+        int thumbY = scrollbarThumbY();
         UiRender.pill(g, trackX, thumbY, SCROLLBAR_WIDTH, thumbHeight,
                 UiRender.mix(colors.borderSubtle(), colors.onSurfaceMuted(), 0.35F), 0);
     }
@@ -145,7 +151,48 @@ public class ScrollView extends UIComponent {
         return true;
     }
 
-    @Override public boolean mouseClicked(double mx, double my, int button) { return childrenMouseClicked(mx, my, button); }
-    @Override public boolean mouseDragged(double mx, double my, int button, double dragX, double dragY) { return childrenMouseDragged(mx, my, button, dragX, dragY); }
-    @Override public boolean mouseReleased(double mx, double my, int button) { return childrenMouseReleased(mx, my, button); }
+    private boolean hasScrollbar() {
+        return maxScroll() > 0 && width > SCROLLBAR_WIDTH && height >= SCROLLBAR_WIDTH * 4;
+    }
+    private int scrollbarThumbHeight() {
+        return Math.min(height, Math.max(SCROLLBAR_WIDTH * 3, (int) ((long) height * height / contentHeight)));
+    }
+    private int scrollbarThumbY() {
+        return y + (int) Math.round((height - scrollbarThumbHeight()) * scrollOffset / maxScroll());
+    }
+    private boolean scrollbarHit(double mx, double my) {
+        return visible && hasScrollbar() && mx >= x + width - SCROLLBAR_WIDTH - SCROLLBAR_GAP
+                && mx < x + width && my >= y && my < y + height;
+    }
+    @Override public UIComponent hitTest(int mx, int my) {
+        // The scrollbar owns its gutter even when a child paints beyond its measured width.
+        return scrollbarHit(mx,my) ? this : super.hitTest(mx,my);
+    }
+    private void dragScrollbar(double mouseY) {
+        int travel = height - scrollbarThumbHeight();
+        if (travel <= 0) return;
+        scrollOffset = Math.max(0, Math.min(1, (mouseY - y - scrollbarGrabOffset) / travel)) * maxScroll();
+        invalidateLayout();
+    }
+    @Override public boolean mouseClicked(double mx, double my, int button) {
+        draggingScrollbar = false;
+        if (button == 0 && scrollbarHit(mx,my)) {
+            int thumbY = scrollbarThumbY(), thumbHeight = scrollbarThumbHeight();
+            scrollbarGrabOffset = my >= thumbY && my < thumbY + thumbHeight ? my - thumbY : thumbHeight / 2.0;
+            draggingScrollbar = true;
+            dragScrollbar(my);
+            return true;
+        }
+        return childrenMouseClicked(mx,my,button);
+    }
+    @Override public boolean mouseDragged(double mx, double my, int button, double dragX, double dragY) {
+        if (button == 0 && draggingScrollbar) { dragScrollbar(my); return true; }
+        return childrenMouseDragged(mx,my,button,dragX,dragY);
+    }
+    @Override public boolean mouseReleased(double mx, double my, int button) {
+        if (button == 0 && draggingScrollbar) { draggingScrollbar = false; return true; }
+        return childrenMouseReleased(mx,my,button);
+    }
+    @Override public void pointerCancelled() { draggingScrollbar = false; }
+    @Override protected void onUnmount() { draggingScrollbar = false; }
 }
