@@ -38,6 +38,7 @@ public final class UiRuntime implements AutoCloseable {
     private UIComponent pointerCapture;
     private UIComponent pressedTarget;
     private int pressedButton = -1;
+    private long pointerInteractionId;
     private UIComponent tooltipOwner;
     private Tooltip tooltipOverlay;
     private OverlayHandle tooltipHandle;
@@ -61,6 +62,7 @@ public final class UiRuntime implements AutoCloseable {
 
     /** Recover from a lost release, Escape, or removal of a captured subtree. */
     public void cancelPointerInteraction() {
+        pointerInteractionId++;
         UIComponent captured = pointerCapture, pressed = pressedTarget;
         pointerCapture = null; pressedTarget = null; pressedButton = -1;
         if (captured != null) captured.pointerCancelled();
@@ -221,8 +223,11 @@ public final class UiRuntime implements AutoCloseable {
         if (target == null) return hasBlocking;
         pressedTarget = target;
         pressedButton = button;
+        long interaction = pointerInteractionId;
         PointerEvent event = new PointerEvent(EventType.MOUSE_DOWN, target, mouseX, mouseY, button, 0, 0);
         dispatch(event);
+        // A listener may remove/rebuild the target or start another press.
+        if (interaction != pointerInteractionId || pressedTarget != target) return true;
         if (event.isPointerCaptureRequested()) pointerCapture = event.pointerCaptureTarget();
         boolean handled = false;
         if (!event.isDefaultPrevented() && !event.isPropagationStopped()) {
@@ -243,10 +248,12 @@ public final class UiRuntime implements AutoCloseable {
 
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         if (pressedButton != -1 && button != pressedButton) return false;
+        long interaction = pointerInteractionId;
         UIComponent target = pointerCapture != null ? pointerCapture : inputTarget(mouseX, mouseY, false);
         if (target == null) return false;
         PointerEvent event = new PointerEvent(EventType.MOUSE_DRAG, target, mouseX, mouseY, button, dragX, dragY);
         dispatch(event);
+        if (interaction != pointerInteractionId) return true;
         if (event.isPointerCaptureRequested()) pointerCapture = event.pointerCaptureTarget();
         boolean handled = !event.isDefaultPrevented() && !event.isPropagationStopped() && target.mouseDragged(mouseX, mouseY, button, dragX, dragY);
         return handled || event.isDefaultPrevented() || event.isPropagationStopped();
@@ -254,6 +261,7 @@ public final class UiRuntime implements AutoCloseable {
 
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         if (pressedButton != -1 && button != pressedButton) return false;
+        long interaction = pointerInteractionId;
         UIComponent target = pointerCapture != null ? pointerCapture : inputTarget(mouseX, mouseY, false);
         try {
             if (target == null) return false;
@@ -261,7 +269,7 @@ public final class UiRuntime implements AutoCloseable {
             dispatch(event);
             boolean handled = !event.isDefaultPrevented() && !event.isPropagationStopped() && target.mouseReleased(mouseX, mouseY, button);
             UIComponent hit = inputTarget(mouseX, mouseY, false);
-            if (pressedTarget != null && pressedTarget == hit) {
+            if (interaction == pointerInteractionId && pressedTarget != null && pressedTarget == hit) {
                 PointerEvent click = new PointerEvent(EventType.CLICK, hit, mouseX, mouseY, button, 0, 0);
                 dispatch(click);
                 handled |= click.isDefaultPrevented() || click.isPropagationStopped();
@@ -270,7 +278,7 @@ public final class UiRuntime implements AutoCloseable {
         } finally {
             // Listeners can suppress or interrupt the default release handler.
             // Clear the component's press state as well as runtime capture.
-            cancelPointerInteraction();
+            if (interaction == pointerInteractionId) cancelPointerInteraction();
         }
     }
 

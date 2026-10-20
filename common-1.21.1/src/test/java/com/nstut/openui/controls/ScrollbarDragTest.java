@@ -97,4 +97,17 @@ class ScrollbarDragTest {
             assertFalse(f.runtime.mouseScrolled(20,20,-1));
         }
     }
+    @Test void thumbPressPreservesSubpixelPositionInLongContent() {
+        try (var f = new Fixture()) {
+            f.content.height(10_000);
+            f.scroll.scrollTo(48);
+            f.flush();
+            assertTrue(f.runtime.mouseClicked(98, 4, 0));
+            assertEquals(48, f.scroll.scrollOffset(), .001, "A thumb press must not quantize scroll position");
+            f.runtime.mouseDragged(98, 5, 0, 0, 1);
+            assertEquals(48 + 9900.0 / 91, f.scroll.scrollOffset(), .001,
+                    "A one-pixel move must retain the fractional grab position");
+            f.runtime.mouseReleased(98, 5, 0);
+        }
+    }
 }

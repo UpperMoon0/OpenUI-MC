@@ -31,7 +31,11 @@ public class Draggable<T> extends UIComponent {
         this.child = Objects.requireNonNull(child);
         addChild(child);
         on(EventType.MOUSE_DOWN, event -> {
-            if (event instanceof PointerEvent pointer && pointer.button() == 0) event.capturePointer();
+            if (event instanceof PointerEvent pointer && pointer.button() == 0) {
+                event.capturePointer();
+                // A child may consume the legacy click before it bubbles here.
+                if (!event.isDefaultPrevented()) arm(pointer.x(), pointer.y());
+            }
         });
     }
 
@@ -69,14 +73,18 @@ public class Draggable<T> extends UIComponent {
         }
     }
 
+    private void arm(double mx, double my) {
+        armed = true;
+        startMouseX = mx;
+        startMouseY = my;
+        currentMouseX = mx;
+        currentMouseY = my;
+    }
+
     @Override
     public boolean mouseClicked(double mx, double my, int btn) {
         if (btn == 0 && mx >= x && mx < x + width && my >= y && my < y + height) {
-            armed = true;
-            startMouseX = mx;
-            startMouseY = my;
-            currentMouseX = mx;
-            currentMouseY = my;
+            arm(mx, my);
             return true;
         }
         return false;

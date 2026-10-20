@@ -178,9 +178,13 @@ public class ScrollView extends UIComponent {
         draggingScrollbar = false;
         if (button == 0 && scrollbarHit(mx,my)) {
             int thumbY = scrollbarThumbY(), thumbHeight = scrollbarThumbHeight();
-            scrollbarGrabOffset = my >= thumbY && my < thumbY + thumbHeight ? my - thumbY : thumbHeight / 2.0;
+            boolean onThumb = my >= thumbY && my < thumbY + thumbHeight;
+            // Rendering rounds the thumb to a pixel; capture its logical position so
+            // pressing or moving a long-document thumb cannot quantize the offset.
+            double logicalThumbY = y + (height - thumbHeight) * scrollOffset / maxScroll();
+            scrollbarGrabOffset = onThumb ? my - logicalThumbY : thumbHeight / 2.0;
             draggingScrollbar = true;
-            dragScrollbar(my);
+            if (!onThumb) dragScrollbar(my);
             return true;
         }
         return childrenMouseClicked(mx,my,button);

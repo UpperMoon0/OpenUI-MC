@@ -288,4 +288,38 @@ class DragAndDropTest {
             f.clickButton();
         }
     }
+    @Test void consumingChildClickStillArmsItsDraggableAncestor() {
+        AtomicInteger clicks = new AtomicInteger();
+        UIComponent child = new DragBox() {
+            @Override public boolean mouseClicked(double mx, double my, int button) {
+                clicks.incrementAndGet();
+                return true;
+            }
+        };
+        Draggable<String> source = new Draggable<>("item", child);
+        try (UiRuntime runtime = new UiRuntime(new Font(null, false), dummyHost)) {
+            runtime.setRoot(source);
+            runtime.setViewport(0, 0, 300, 200);
+            assertTrue(runtime.mouseClicked(15, 15, 0));
+            assertEquals(1, clicks.get(), "The child must retain its click behavior");
+            runtime.mouseDragged(17, 15, 0, 2, 0);
+            assertFalse(source.isDragging(), "The drag threshold still applies");
+            runtime.mouseDragged(20, 15, 0, 3, 0);
+            assertTrue(source.isDragging(), "Consuming the child click must not disable drag capture");
+            runtime.mouseReleased(20, 15, 0);
+            assertFalse(source.isDragging());
+            assertEquals(0, runtime.overlays().size());
+        }
+    }
+    @Test void detachingDuringMouseDownCannotRestoreStaleCapture() {
+        try (var f = new DragFixture()) {
+            f.source.on(com.nstut.openui.input.EventType.MOUSE_DOWN, event -> f.root.removeChild(f.source));
+            f.runtime.mouseClicked(15, 15, 0);
+            f.runtime.mouseDragged(160, 20, 0, 145, 5);
+            assertFalse(f.source.isDragging());
+            assertEquals(0, f.runtime.overlays().size());
+            assertFalse(f.source.mouseDragged(160, 20, 0, 145, 5), "A detached default handler must not rearm the source");
+            f.clickButton();
+        }
+    }
 }
