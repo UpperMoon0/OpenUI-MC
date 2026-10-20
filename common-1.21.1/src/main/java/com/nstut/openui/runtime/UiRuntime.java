@@ -268,7 +268,9 @@ public final class UiRuntime implements AutoCloseable {
             }
             return handled || event.isDefaultPrevented() || event.isPropagationStopped();
         } finally {
-            pointerCapture = null; pressedTarget = null; pressedButton = -1;
+            // Listeners can suppress or interrupt the default release handler.
+            // Clear the component's press state as well as runtime capture.
+            cancelPointerInteraction();
         }
     }
 

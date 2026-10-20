@@ -265,4 +265,27 @@ class DragAndDropTest {
             assertFalse(f.source.isDragging());assertEquals(0,f.runtime.overlays().size());
         }
     }
+    @Test void preventedReleaseCancelsTheDragWithoutDropping() {
+        try (var f = new DragFixture()) {
+            f.source.on(com.nstut.openui.input.EventType.MOUSE_UP, event -> event.preventDefault());
+            f.start();
+            f.runtime.mouseReleased(160, 20, 0);
+            assertFalse(f.source.isDragging());
+            assertEquals(0, f.runtime.overlays().size());
+            f.source.mouseDragged(160, 20, 0, 10, 0);
+            assertFalse(f.source.isDragging());
+            f.clickButton();
+        }
+    }
+
+    @Test void throwingReleaseListenerStillCancelsTheDrag() {
+        try (var f = new DragFixture()) {
+            f.source.on(com.nstut.openui.input.EventType.MOUSE_UP, event -> { throw new IllegalStateException("Interrupted release"); });
+            f.start();
+            assertThrows(IllegalStateException.class, () -> f.runtime.mouseReleased(160, 20, 0));
+            assertFalse(f.source.isDragging());
+            assertEquals(0, f.runtime.overlays().size());
+            f.clickButton();
+        }
+    }
 }
