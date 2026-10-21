@@ -16,6 +16,10 @@ with zipfile.ZipFile(a.jar) as jar:
     for name in classes:
         actual=struct.unpack('>H',jar.read(name)[6:8])[0]
         assert actual<=major,(name,actual,major)
+    if loader=='forge' and version in ('1.12.2','1.16.5'):
+        pack=json.loads(jar.read('pack.mcmeta'))['pack']
+        assert pack['pack_format']=={'1.12.2':3,'1.16.5':6}[version], 'incorrect native resource pack format'
+        assert isinstance(pack.get('description'),str) and pack['description'], 'missing resource pack description'
     if loader=='fabric':
         meta=json.loads(jar.read('fabric.mod.json'))
         assert meta['id']=='openui_mc' and meta['depends']['minecraft']==version

@@ -119,13 +119,13 @@ jobs:
         run: |
           python3 -m unittest discover -s tools -p 'test_*sources.py'
           python3 -m unittest discover -s tools -p 'test_compile_legacy.py'
+          python3 -m unittest discover -s tools -p 'test_target_artifact.py'
       - name: Test and package native artifact
         run: |
           chmod +x ${{ matrix.project }}/gradlew
           cd ${{ matrix.project }}
           ./gradlew clean build --no-daemon --max-workers=2
       - name: Validate artifact contract
-        if: matrix.project != 'forge-1.16.5'
         run: |
           jar="$(find ${{ matrix.project }}/build/libs -maxdepth 1 -name '*.jar' ! -name '*-sources.jar' ! -name '*-dev.jar' | head -n1)"
           python3 tools/check_target_artifact.py '${{ matrix.project }}' "$jar"
