@@ -52,8 +52,11 @@ public abstract class UiScreen extends GuiScreen {
     }
     @Override protected void keyTyped(char character,int scanCode) {
         int key=LegacyKeys.translate(scanCode,character),modifiers=LegacyKeys.modifiers();
-        if(uiRuntime!=null && (uiRuntime.keyPressed(key,scanCode,modifiers)||(character>=32 && uiRuntime.charTyped(character,modifiers))))return;
-        nativeFallback(() -> super.keyTyped(character,scanCode));
+        ContainerKeyPolicy.dispatch(key, false, uiRuntime!=null&&uiRuntime.hasTextInputFocus(),
+                uiRuntime!=null&&uiRuntime.overlays().hasBlockingOverlay(),
+                () -> uiRuntime!=null && (uiRuntime.keyPressed(key,scanCode,modifiers)
+                        || (character>=32 && uiRuntime.charTyped(character,modifiers))),
+                () -> { nativeFallback(() -> super.keyTyped(character,scanCode));return true; });
     }
     @Override public void handleKeyboardInput() {
         if(!Keyboard.getEventKeyState() && uiRuntime!=null)uiRuntime.keyReleased(LegacyKeys.translate(Keyboard.getEventKey(),Keyboard.getEventCharacter()),Keyboard.getEventKey(),LegacyKeys.modifiers());

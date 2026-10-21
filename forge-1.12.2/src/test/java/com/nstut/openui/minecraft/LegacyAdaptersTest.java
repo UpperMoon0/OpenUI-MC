@@ -25,4 +25,13 @@ public class LegacyAdaptersTest {
         assertEquals(ContainerKeyPolicy.Route.OPEN_UI,ContainerKeyPolicy.route(true,false,true));
         assertEquals(ContainerKeyPolicy.Route.VANILLA,ContainerKeyPolicy.route(true,false,false));
     }
+    @org.junit.Test public void textAndModalOwnershipNeverFallBackToNativeHotkeys() {
+        for(int key:new int[]{81,49,258}) {
+            assertTrue(ContainerKeyPolicy.dispatch(key,false,true,false,()->false,()->{throw new AssertionError("Text key reached vanilla");}));
+        }
+        assertTrue(ContainerKeyPolicy.dispatch(256,false,false,true,()->false,()->{throw new AssertionError("Modal Escape reached vanilla");}));
+        final int[] calls={0};
+        assertTrue(ContainerKeyPolicy.dispatch(256,false,true,false,()->false,()->{calls[0]++;return true;}));
+        assertEquals(1,calls[0]);
+    }
 }

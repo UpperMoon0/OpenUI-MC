@@ -5,7 +5,7 @@ license="MIT"
 modId="openui_mc"
 version="${version}"
 displayName="OpenUI MC"
-logoFile="openui_mc.png"
+iconFile="openui_mc.png"
 authors="NsTut"
 description="Declarative reactive client UI framework."
 [[dependencies.openui_mc]]

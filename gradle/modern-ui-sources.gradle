@@ -1,0 +1,27 @@
+// One authoritative extracted-GUI implementation and test suite for all 26.x
+// loaders. Native entrypoints/metadata remain in each module's default sources.
+sourceSets {
+    main.java.srcDirs file('../shared/core/src/main/java'), file('../shared/modern/src/main/java')
+    test.java.srcDir file('../shared/modern/src/test/java')
+}
+sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
+sourceSets.test.runtimeClasspath += sourceSets.main.runtimeClasspath
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+test { useJUnitPlatform() }
+
+def verifyModernSources=tasks.register('verifyModernSources',Exec) {
+    inputs.files file('../tools/check_modern_sources.py'),file('../gradle/modern-ui-sources.gradle'),file('build.gradle')
+    inputs.files sourceSets.main.java,sourceSets.test.java
+    commandLine 'python3',file('../tools/check_modern_sources.py'),'--module',project.projectDir.name
+    doFirst {
+        if(!sourceSets.main.java.srcDirs.contains(file('../shared/modern/src/main/java'))
+                || !sourceSets.test.java.srcDirs.contains(file('../shared/modern/src/test/java'))) {
+            throw new GradleException('Modern native task disconnected from authoritative UI sources')
+        }
+    }
+}
+tasks.named('compileJava') { dependsOn verifyModernSources }

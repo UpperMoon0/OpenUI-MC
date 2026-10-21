@@ -64,11 +64,11 @@ public abstract class UiContainerScreen<T extends Container> extends GuiContaine
     }
     @Override protected void keyTyped(char character,int scanCode) {
         int key=LegacyKeys.translate(scanCode,character),modifiers=LegacyKeys.modifiers();
-        ContainerKeyPolicy.Route route=ContainerKeyPolicy.route(scanCode==mc.gameSettings.keyBindInventory.getKeyCode(),
-                uiRuntime!=null&&uiRuntime.hasTextInputFocus(),uiRuntime!=null&&uiRuntime.overlays().hasBlockingOverlay());
-        if(route==ContainerKeyPolicy.Route.VANILLA) { nativeFallback(() -> super.keyTyped(character,scanCode));return; }
-        if(uiRuntime!=null && (uiRuntime.keyPressed(key,scanCode,modifiers)||(character>=32 && uiRuntime.charTyped(character,modifiers))))return;
-        if(route!=ContainerKeyPolicy.Route.OPEN_UI)nativeFallback(() -> super.keyTyped(character,scanCode));
+        ContainerKeyPolicy.dispatch(key, mc != null && scanCode==mc.gameSettings.keyBindInventory.getKeyCode(),
+                uiRuntime!=null&&uiRuntime.hasTextInputFocus(),uiRuntime!=null&&uiRuntime.overlays().hasBlockingOverlay(),
+                () -> uiRuntime!=null && (uiRuntime.keyPressed(key,scanCode,modifiers)
+                        || (character>=32 && uiRuntime.charTyped(character,modifiers))),
+                () -> { nativeFallback(() -> super.keyTyped(character,scanCode));return true; });
     }
     @Override public void handleKeyboardInput() {
         if(!Keyboard.getEventKeyState() && uiRuntime!=null)uiRuntime.keyReleased(LegacyKeys.translate(Keyboard.getEventKey(),Keyboard.getEventCharacter()),Keyboard.getEventKey(),LegacyKeys.modifiers());

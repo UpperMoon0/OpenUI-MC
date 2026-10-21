@@ -8,18 +8,8 @@ group = rootProperties.getProperty('maven_group')
 version = rootProperties.getProperty('mod_version')
 java { toolchain.languageVersion=JavaLanguageVersion.of(25); withSourcesJar() }
 repositories { mavenCentral() }
-sourceSets {
-    main { java.srcDirs '../shared/core/src/main/java', '../common-26.2/src/main/java'; resources.srcDir '../common-26.2/src/main/resources' }
-    test { java.srcDir '../common-26.2/src/test/java' }
-}
-sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
-sourceSets.test.runtimeClasspath += sourceSets.main.runtimeClasspath
-dependencies {
-    testImplementation platform('org.junit:junit-bom:5.11.4')
-    testImplementation 'org.junit.jupiter:junit-jupiter'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-}
-test { useJUnitPlatform() }
+apply from: file('../gradle/modern-ui-sources.gradle')
+sourceSets.main.resources.srcDir '../common-26.2/src/main/resources'
 tasks.withType(JavaCompile).configureEach { options.release=25; options.encoding='UTF-8' }
 processResources { from('../logo.png') { rename { 'openui_mc.png' } }; from('../LICENSE') }
 publishing { publications { mavenJava(MavenPublication) { artifactId=base.archivesName.get(); from components.java } } }

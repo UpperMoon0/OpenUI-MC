@@ -26,5 +26,9 @@ with zipfile.ZipFile(a.jar) as jar:
         assert not meta.get('clientSideOnly',False)
     else:
         path='META-INF/neoforge.mods.toml' if loader=='neoforge' else 'META-INF/mods.toml'
-        assert 'openui_mc' in jar.read(path).decode()
+        metadata=jar.read(path).decode()
+        assert 'openui_mc' in metadata
+        if loader=='neoforge' and version=='26.2':
+            assert 'iconFile="openui_mc.png"' in metadata and 'logoFile=' not in metadata, 'deprecated NeoForge icon metadata'
+            assert 'openui_mc.png' in names, 'missing declared native icon'
     print(f'{a.target}: {len(classes)} classes, bytecode <= {major}, complete API and metadata verified')
