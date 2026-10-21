@@ -1,0 +1,123 @@
+package com.nstut.openui.minecraft;
+import net.minecraft.client.gui.GuiScreen;
+import org.lwjgl.input.Keyboard;
+/** Stable physical GLFW key identities on LWJGL2; typed characters are routed separately. */
+public final class LegacyKeys {
+    private LegacyKeys() { }
+    public static int modifiers() { return (GuiScreen.isShiftKeyDown()?1:0)|(GuiScreen.isCtrlKeyDown()?2:0)|(GuiScreen.isAltKeyDown()?4:0); }
+    public static int translate(int key,char character) {
+        // Do not use character here: release/control events may contain zero or
+        // control characters, and shifted punctuation must keep its physical key.
+        switch(key) {
+            case Keyboard.KEY_ESCAPE:return 256;
+            case Keyboard.KEY_RETURN:return 257;
+            case Keyboard.KEY_TAB:return 258;
+            case Keyboard.KEY_BACK:return 259;
+            case Keyboard.KEY_INSERT:return 260;
+            case Keyboard.KEY_DELETE:return 261;
+            case Keyboard.KEY_RIGHT:return 262;
+            case Keyboard.KEY_LEFT:return 263;
+            case Keyboard.KEY_DOWN:return 264;
+            case Keyboard.KEY_UP:return 265;
+            case Keyboard.KEY_PRIOR:return 266;
+            case Keyboard.KEY_NEXT:return 267;
+            case Keyboard.KEY_HOME:return 268;
+            case Keyboard.KEY_END:return 269;
+            case Keyboard.KEY_CAPITAL:return 280;
+            case Keyboard.KEY_SCROLL:return 281;
+            case Keyboard.KEY_NUMLOCK:return 282;
+            case Keyboard.KEY_SYSRQ:return 283;
+            case Keyboard.KEY_PAUSE:return 284;
+            case Keyboard.KEY_SPACE:return 32;
+            case Keyboard.KEY_APOSTROPHE:return 39;
+            case Keyboard.KEY_COMMA:return 44;
+            case Keyboard.KEY_MINUS:return 45;
+            case Keyboard.KEY_PERIOD:return 46;
+            case Keyboard.KEY_SLASH:return 47;
+            case Keyboard.KEY_SEMICOLON:return 59;
+            case Keyboard.KEY_EQUALS:return 61;
+            case Keyboard.KEY_LBRACKET:return 91;
+            case Keyboard.KEY_BACKSLASH:return 92;
+            case Keyboard.KEY_RBRACKET:return 93;
+            case Keyboard.KEY_GRAVE:return 96;
+            case Keyboard.KEY_LSHIFT:return 340;
+            case Keyboard.KEY_LCONTROL:return 341;
+            case Keyboard.KEY_LMENU:return 342;
+            case Keyboard.KEY_LMETA:return 343;
+            case Keyboard.KEY_RSHIFT:return 344;
+            case Keyboard.KEY_RCONTROL:return 345;
+            case Keyboard.KEY_RMENU:return 346;
+            case Keyboard.KEY_RMETA:return 347;
+            case Keyboard.KEY_APPS:return 348;
+            case Keyboard.KEY_DECIMAL:return 330;
+            case Keyboard.KEY_DIVIDE:return 331;
+            case Keyboard.KEY_MULTIPLY:return 332;
+            case Keyboard.KEY_SUBTRACT:return 333;
+            case Keyboard.KEY_ADD:return 334;
+            case Keyboard.KEY_NUMPADENTER:return 335;
+            case Keyboard.KEY_NUMPADEQUALS:return 336;
+            case Keyboard.KEY_0:return 48;
+            case Keyboard.KEY_NUMPAD0:return 320;
+            case Keyboard.KEY_1:return 49;
+            case Keyboard.KEY_NUMPAD1:return 321;
+            case Keyboard.KEY_2:return 50;
+            case Keyboard.KEY_NUMPAD2:return 322;
+            case Keyboard.KEY_3:return 51;
+            case Keyboard.KEY_NUMPAD3:return 323;
+            case Keyboard.KEY_4:return 52;
+            case Keyboard.KEY_NUMPAD4:return 324;
+            case Keyboard.KEY_5:return 53;
+            case Keyboard.KEY_NUMPAD5:return 325;
+            case Keyboard.KEY_6:return 54;
+            case Keyboard.KEY_NUMPAD6:return 326;
+            case Keyboard.KEY_7:return 55;
+            case Keyboard.KEY_NUMPAD7:return 327;
+            case Keyboard.KEY_8:return 56;
+            case Keyboard.KEY_NUMPAD8:return 328;
+            case Keyboard.KEY_9:return 57;
+            case Keyboard.KEY_NUMPAD9:return 329;
+            case Keyboard.KEY_A:return 65;
+            case Keyboard.KEY_B:return 66;
+            case Keyboard.KEY_C:return 67;
+            case Keyboard.KEY_D:return 68;
+            case Keyboard.KEY_E:return 69;
+            case Keyboard.KEY_F:return 70;
+            case Keyboard.KEY_G:return 71;
+            case Keyboard.KEY_H:return 72;
+            case Keyboard.KEY_I:return 73;
+            case Keyboard.KEY_J:return 74;
+            case Keyboard.KEY_K:return 75;
+            case Keyboard.KEY_L:return 76;
+            case Keyboard.KEY_M:return 77;
+            case Keyboard.KEY_N:return 78;
+            case Keyboard.KEY_O:return 79;
+            case Keyboard.KEY_P:return 80;
+            case Keyboard.KEY_Q:return 81;
+            case Keyboard.KEY_R:return 82;
+            case Keyboard.KEY_S:return 83;
+            case Keyboard.KEY_T:return 84;
+            case Keyboard.KEY_U:return 85;
+            case Keyboard.KEY_V:return 86;
+            case Keyboard.KEY_W:return 87;
+            case Keyboard.KEY_X:return 88;
+            case Keyboard.KEY_Y:return 89;
+            case Keyboard.KEY_Z:return 90;
+            case Keyboard.KEY_F1:return 290;
+            case Keyboard.KEY_F2:return 291;
+            case Keyboard.KEY_F3:return 292;
+            case Keyboard.KEY_F4:return 293;
+            case Keyboard.KEY_F5:return 294;
+            case Keyboard.KEY_F6:return 295;
+            case Keyboard.KEY_F7:return 296;
+            case Keyboard.KEY_F8:return 297;
+            case Keyboard.KEY_F9:return 298;
+            case Keyboard.KEY_F10:return 299;
+            case Keyboard.KEY_F11:return 300;
+            case Keyboard.KEY_F12:return 301;
+            case Keyboard.KEY_F13:return 302;
+            case Keyboard.KEY_F14:return 303;
+            case Keyboard.KEY_F15:return 304;
+            default:return -1;
+        }
+    }
+}

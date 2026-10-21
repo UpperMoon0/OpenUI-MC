@@ -78,8 +78,23 @@ jobs:
       - run: ./gradlew checkLegacySourceParity :common-1.20.1:test :common-1.21.1:test
 
   build-legacy:
-    name: Forge 1.16.5 Java 8 compatibility
+    name: Native ${{ matrix.project }}
     runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: forge-1.12.2
+            driver: 8
+          - project: forge-1.16.5
+            driver: 21
+          - project: fabric-1.16.5
+            driver: 25
+          - project: fabric-26.2
+            driver: 25
+          - project: neoforge-26.2
+            driver: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v5
@@ -89,19 +104,45 @@ jobs:
             8
             17
             21
+            25
           cache: gradle
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: chmod +x forge-1.16.5/gradlew
-      - run: cd forge-1.16.5 && ./gradlew build --no-daemon
+      - name: Select native build driver
+        run: |
+          variable="JAVA_HOME_${{ matrix.driver }}_X64"
+          echo "JAVA_HOME=${!variable}" >> "$GITHUB_ENV"
+          echo "${!variable}/bin" >> "$GITHUB_PATH"
+          echo "JAVA17_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+      - name: Validate source transformation and compiler cleanup
+        run: |
+          python3 -m unittest discover -s tools -p 'test_*sources.py'
+          python3 -m unittest discover -s tools -p 'test_compile_legacy.py'
+          python3 -m unittest discover -s tools -p 'test_target_artifact.py'
+      - name: Test and package native artifact
+        run: |
+          chmod +x ${{ matrix.project }}/gradlew
+          cd ${{ matrix.project }}
+          ./gradlew clean build --no-daemon --max-workers=2
+      - name: Validate artifact contract
+        run: |
+          jar="$(find ${{ matrix.project }}/build/libs -maxdepth 1 -name '*.jar' ! -name '*-sources.jar' ! -name '*-dev.jar' | head -n1)"
+          python3 tools/check_target_artifact.py '${{ matrix.project }}' "$jar"
       - uses: actions/upload-artifact@v4
         with:
-          name: openui-mc-forge-1.16.5
+          name: openui-mc-${{ matrix.project }}
           path: |
-            forge-1.16.5/build/libs/*.jar
-            !forge-1.16.5/build/libs/*-sources.jar
+            ${{ matrix.project }}/build/libs/*.jar
+            !${{ matrix.project }}/build/libs/*-sources.jar
+            !${{ matrix.project }}/build/libs/*-dev.jar
           if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.project }}
+          path: ${{ matrix.project }}/build/test-results/
+          if-no-files-found: ignore
 
   consumer-binary-smoke:
     name: Simply Speakers released binary compatibility
@@ -314,6 +355,20 @@ jobs:
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: forge-1.12.2
+            driver: 8
+          - project: forge-1.16.5
+            driver: 21
+          - project: fabric-1.16.5
+            driver: 25
+          - project: fabric-26.2
+            driver: 25
+          - project: neoforge-26.2
+            driver: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v5
@@ -323,16 +378,23 @@ jobs:
             8
             17
             21
+            25
           cache: gradle
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: chmod +x forge-1.16.5/gradlew
-      - working-directory: forge-1.16.5
+      - name: Select native build driver
+        run: |
+          variable="JAVA_HOME_${{ matrix.driver }}_X64"
+          echo "JAVA_HOME=${!variable}" >> "$GITHUB_ENV"
+          echo "${!variable}/bin" >> "$GITHUB_PATH"
+          echo "JAVA17_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+      - run: chmod +x ${{ matrix.project }}/gradlew
+      - working-directory: ${{ matrix.project }}
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew build publishMavenJavaPublicationToGitHubPackagesRepository --no-daemon
+        run: ./gradlew build publishMavenJavaPublicationToGitHubPackagesRepository --no-daemon --max-workers=2
 
   publish-curseforge:
     name: Publish ${{ matrix.platform }} ${{ matrix.version }} to CurseForge
@@ -343,6 +405,22 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - version: '1.12.2'
+            platform: forge
+            loader_name: Forge
+            java_version_name: Java 8
+          - version: '1.16.5'
+            platform: fabric
+            loader_name: Fabric
+            java_version_name: Java 8
+          - version: '26.2'
+            platform: fabric
+            loader_name: Fabric
+            java_version_name: Java 25
+          - version: '26.2'
+            platform: neoforge
+            loader_name: NeoForge
+            java_version_name: Java 25
           - version: '1.16.5'
             platform: forge
             loader_name: Forge

@@ -69,13 +69,11 @@ public abstract class UiContainerScreen<T extends AbstractContainerMenu> extends
     @Override public boolean mouseReleased(double x, double y, int button) { return uiRuntime != null && uiRuntime.mouseReleased(x, y, button) || super.mouseReleased(x, y, button); }
     @Override public boolean keyPressed(int key, int scanCode, int modifiers) {
         boolean inventoryKey = minecraft != null && minecraft.options.keyInventory.matches(key, scanCode);
-        ContainerKeyPolicy.Route route = ContainerKeyPolicy.route(inventoryKey,
+        return ContainerKeyPolicy.dispatch(key, inventoryKey,
                 uiRuntime != null && uiRuntime.hasTextInputFocus(),
-                uiRuntime != null && uiRuntime.overlays().hasBlockingOverlay());
-        if (route == ContainerKeyPolicy.Route.VANILLA) return super.keyPressed(key, scanCode, modifiers);
-        if (uiRuntime != null && uiRuntime.keyPressed(key, scanCode, modifiers)) return true;
-        if (route == ContainerKeyPolicy.Route.OPEN_UI) return true;
-        return super.keyPressed(key, scanCode, modifiers);
+                uiRuntime != null && uiRuntime.overlays().hasBlockingOverlay(),
+                () -> uiRuntime != null && uiRuntime.keyPressed(key, scanCode, modifiers),
+                () -> super.keyPressed(key, scanCode, modifiers));
     }
     @Override public boolean keyReleased(int key, int scanCode, int modifiers) { return uiRuntime != null && uiRuntime.keyReleased(key, scanCode, modifiers) || super.keyReleased(key, scanCode, modifiers); }
     @Override public boolean charTyped(char character, int modifiers) { return uiRuntime != null && uiRuntime.charTyped(character, modifiers) || super.charTyped(character, modifiers); }

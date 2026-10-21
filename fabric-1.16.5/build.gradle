@@ -1,0 +1,45 @@
+plugins { id 'net.fabricmc.fabric-loom-remap' version '1.17.9'; id 'maven-publish' }
+def rootProperties=new Properties()
+file('../gradle.properties').withInputStream { rootProperties.load(it) }
+group=rootProperties.getProperty('maven_group'); version=rootProperties.getProperty('mod_version')
+base { archivesName='openui-mc-fabric-1.16.5' }
+java { toolchain.languageVersion=JavaLanguageVersion.of(17); withSourcesJar() }
+repositories { mavenCentral() }
+dependencies {
+    minecraft 'com.mojang:minecraft:1.16.5'
+    mappings loom.officialMojangMappings()
+    modImplementation 'net.fabricmc:fabric-loader:0.19.5'
+    annotationProcessor 'com.github.bsideup.jabel:jabel-javac-plugin:0.4.2'
+    testImplementation platform('org.junit:junit-bom:5.10.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+tasks.register('generateLegacySources',Exec) {
+    inputs.dir '../shared/core/src/main/java'; inputs.dir '../common-1.20.1/src/main/java'; inputs.dir '../forge-1.16.5/src/main/java'
+    inputs.files '../tools/legacy_sources.py','../tools/fabric_1165_sources.py'
+    outputs.dir layout.buildDirectory.dir('generated/openui')
+    commandLine 'python3','../tools/fabric_1165_sources.py','--output',layout.buildDirectory.dir('generated/openui').get().asFile
+}
+sourceSets.main.java.srcDir layout.buildDirectory.dir('generated/openui')
+compileJava { dependsOn 'generateLegacySources'; sourceCompatibility=JavaVersion.VERSION_17; options.release=8 }
+compileTestJava { options.release=8 }
+tasks.withType(JavaCompile).configureEach { options.encoding='UTF-8' }
+test { useJUnitPlatform(); javaLauncher=javaToolchains.launcherFor { languageVersion=JavaLanguageVersion.of(8) } }
+sourcesJar { dependsOn 'generateLegacySources' }
+processResources {
+    from('../logo.png') { rename { 'openui_mc.png' } }; from('../LICENSE')
+    inputs.property 'version',project.version; filesMatching('fabric.mod.json') { expand version:project.version }
+}
+publishing { publications { mavenJava(MavenPublication) { artifactId=base.archivesName.get(); from components.java } } }
+tasks.register('generateLegacyTests',Exec) {
+    inputs.dir '../forge-1.16.5/src/test/java';inputs.files '../tools/fabric_1165_tests.py','../tools/fabric_1165_sources.py'
+    outputs.dir layout.buildDirectory.dir('generated/tests')
+    commandLine 'python3','../tools/fabric_1165_tests.py','--output',layout.buildDirectory.dir('generated/tests').get().asFile
+}
+sourceSets.test.java.srcDir layout.buildDirectory.dir('generated/tests')
+compileTestJava { dependsOn 'generateLegacyTests' }
+
+publishing.repositories.maven {
+    name='GitHubPackages';url=uri('https://maven.pkg.github.com/UpperMoon0/OpenUI-MC')
+    credentials { username=System.getenv('GITHUB_ACTOR');password=System.getenv('GITHUB_TOKEN') }
+}

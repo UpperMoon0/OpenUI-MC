@@ -1,0 +1,22 @@
+plugins { id 'net.fabricmc.fabric-loom' version '1.17.9'; id 'maven-publish' }
+base { archivesName='openui-mc-fabric-26.2' }
+dependencies { minecraft 'com.mojang:minecraft:26.2'; implementation 'net.fabricmc:fabric-loader:0.19.5' }
+
+def rootProperties = new Properties()
+file('../gradle.properties').withInputStream { rootProperties.load(it) }
+group = rootProperties.getProperty('maven_group')
+version = rootProperties.getProperty('mod_version')
+java { toolchain.languageVersion=JavaLanguageVersion.of(25); withSourcesJar() }
+repositories { mavenCentral() }
+apply from: file('../gradle/modern-ui-sources.gradle')
+sourceSets.main.resources.srcDir '../common-26.2/src/main/resources'
+tasks.withType(JavaCompile).configureEach { options.release=25; options.encoding='UTF-8' }
+processResources { from('../logo.png') { rename { 'openui_mc.png' } }; from('../LICENSE') }
+publishing { publications { mavenJava(MavenPublication) { artifactId=base.archivesName.get(); from components.java } } }
+
+processResources { inputs.property 'version', project.version; filesMatching('fabric.mod.json') { expand version:project.version } }
+
+publishing.repositories.maven {
+    name='GitHubPackages';url=uri('https://maven.pkg.github.com/UpperMoon0/OpenUI-MC')
+    credentials { username=System.getenv('GITHUB_ACTOR');password=System.getenv('GITHUB_TOKEN') }
+}
