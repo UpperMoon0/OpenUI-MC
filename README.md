@@ -8,11 +8,18 @@ It is a developer library: players install it when another mod declares OpenUI M
 
 | Minecraft | Loader | Java | Gradle module |
 |---|---|---:|---|
+| 1.12.2 | Forge | 8 | `forge-1.12.2` (standalone) |
+| 1.16.5 | Fabric | 8 | `fabric-1.16.5` (standalone) |
+| 1.16.5 | Forge | 8 | `forge-1.16.5` (standalone) |
 | 1.20.1 | Fabric | 17 | `fabric-1.20.1` |
 | 1.20.1 | Forge | 17 | `forge-1.20.1` |
 | 1.21.1 | Fabric | 21 | `fabric-1.21.1` |
 | 1.21.1 | NeoForge | 21 | `neoforge-1.21.1` |
 | 26.1.2 | NeoForge | 25 | `neoforge-26.1.2` |
+| 26.2 | Fabric | 25 | `fabric-26.2` (standalone) |
+| 26.2 | NeoForge | 25 | `neoforge-26.2` (standalone) |
+
+The new 1.12.2, 1.16.5 and 26.2 targets use separate native builds. See [toolchains, unreleased dependency pins and acceptance status](docs/REQUESTED_GENERATIONS.md). Existing targets remain unchanged.
 
 ## What it provides
 

@@ -1,0 +1,22 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="MIT"
+[[mods]]
+modId="openui_mc"
+version="${version}"
+displayName="OpenUI MC"
+logoFile="openui_mc.png"
+authors="NsTut"
+description="Declarative reactive client UI framework."
+[[dependencies.openui_mc]]
+modId="neoforge"
+type="required"
+versionRange="[26.2.0.93,)"
+ordering="NONE"
+side="CLIENT"
+[[dependencies.openui_mc]]
+modId="minecraft"
+type="required"
+versionRange="[26.2]"
+ordering="NONE"
+side="CLIENT"

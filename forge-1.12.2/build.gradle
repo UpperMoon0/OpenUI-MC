@@ -1,0 +1,64 @@
+buildscript {
+    repositories { maven { url='https://maven.minecraftforge.net/' }; mavenCentral() }
+    dependencies { classpath 'net.minecraftforge.gradle:ForgeGradle:3.0.197' }
+}
+apply plugin:'net.minecraftforge.gradle'
+apply plugin:'java-library'
+apply plugin:'maven-publish'
+if(JavaVersion.current()!=JavaVersion.VERSION_1_8)throw new GradleException('Run ForgeGradle3 / Gradle5.6.4 with Java8; set JAVA17_HOME for the backport compiler.')
+def rootProperties=new Properties()
+file('../gradle.properties').withInputStream { rootProperties.load(it) }
+group=rootProperties.getProperty('maven_group');version=rootProperties.getProperty('mod_version')
+archivesBaseName='openui-mc-forge-1.12.2'
+sourceCompatibility=targetCompatibility='1.8'
+repositories { mavenCentral() }
+minecraft {
+    mappings channel:'stable',version:'39-1.12'
+    runs { client { workingDirectory project.file('run') }; server { workingDirectory project.file('run');args 'nogui' } }
+}
+dependencies {
+    minecraft 'net.minecraftforge:forge:1.12.2-14.23.5.2864'
+    annotationProcessor 'com.github.bsideup.jabel:jabel-javac-plugin:0.4.2'
+    testImplementation 'junit:junit:4.13.2'
+}
+sourceSets.each {
+    def directory=file("$buildDir/sourceSets/$it.name")
+    it.output.resourcesDir=directory;it.java.outputDir=directory
+}
+task generateLegacySources(type:Exec) {
+    inputs.dir '../shared/core/src/main/java';inputs.dir '../common-1.20.1/src/main/java'
+    inputs.files '../tools/legacy_sources.py','../tools/forge_1122_sources.py'
+    outputs.dir "$buildDir/generated/openui"
+    commandLine 'python3','../tools/forge_1122_sources.py','--output',"$buildDir/generated/openui"
+}
+sourceSets.main.java.srcDir "$buildDir/generated/openui"
+// Gradle5 runs onJava8, but Jabel needs javac17. Use an explicit fork instead
+// of Gradle5's obsolete compiler-version probing. --release8 checks JDK APIs.
+task compileLegacyJava(type:Exec) {
+    dependsOn generateLegacySources
+    inputs.files sourceSets.main.java,sourceSets.main.compileClasspath,configurations.annotationProcessor,file('../tools/CompileLegacy.java')
+    outputs.dir sourceSets.main.java.outputDir
+    doFirst {
+        def home=findProperty('java17Home') ?: System.getenv('JAVA17_HOME') ?: System.getenv('JAVA_HOME_17_X64')
+        if(!home)throw new GradleException('Set JAVA17_HOME or -Pjava17Home to a Java17 JDK for the Jabel backport compiler.')
+        def compiler=new File(home,"bin/java${org.gradle.internal.os.OperatingSystem.current().isWindows()?'.exe':''}")
+        def sources=file("$buildDir/legacy-sources.args")
+        sources.parentFile.mkdirs();sources.text=sourceSets.main.java.files.collect { '"'+it.absolutePath.replace('\\','/')+'"' }.sort().join('\n')
+        sourceSets.main.java.outputDir.mkdirs()
+        def agent=configurations.annotationProcessor.files.find { it.name.startsWith('byte-buddy-agent-') }
+        commandLine compiler,'-Xmx1G','-javaagent:'+agent.absolutePath,file('../tools/CompileLegacy.java'),sources.absolutePath,
+                '--release','8','-encoding','UTF-8','-processorpath',configurations.annotationProcessor.asPath,
+                '-classpath',sourceSets.main.compileClasspath.asPath,'-d',sourceSets.main.java.outputDir
+    }
+}
+compileJava { enabled=false;dependsOn compileLegacyJava }
+processResources { from('../logo.png') { rename { 'openui_mc.png' } };from('../LICENSE');inputs.property 'version',project.version;filesMatching('mcmod.info') { expand version:project.version } }
+jar { finalizedBy 'reobfJar' }
+task sourcesJar(type:Jar) { dependsOn generateLegacySources;classifier='sources';from sourceSets.main.allSource }
+artifacts { archives sourcesJar }
+publishing { publications { mavenJava(MavenPublication) { artifactId=archivesBaseName;artifact jar;artifact sourcesJar } } }
+
+publishing.repositories.maven {
+    name='GitHubPackages';url=uri('https://maven.pkg.github.com/UpperMoon0/OpenUI-MC')
+    credentials { username=System.getenv('GITHUB_ACTOR');password=System.getenv('GITHUB_TOKEN') }
+}

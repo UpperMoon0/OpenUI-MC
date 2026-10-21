@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1, "id": "openui_mc", "version": "${version}",
+  "name": "OpenUI MC", "description": "Declarative reactive client UI framework.",
+  "icon": "openui_mc.png", "authors": ["NsTut"], "license": "MIT",
+  "environment": "*", "entrypoints": {"main": ["com.nstut.openui.fabric.OpenUiMcFabric"]},
+  "depends": {"fabricloader": ">=0.19.5", "minecraft": "1.16.5", "java": ">=8"}
+}
