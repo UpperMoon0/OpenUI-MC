@@ -24,9 +24,16 @@ public final class LegacyGuiGraphics implements AutoCloseable {
     private boolean closed;
     public LegacyGuiGraphics() {
         pose=new LegacyPoseStack();scissor=this::applyClip;
-        oldScissor=GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);IntBuffer box=BufferUtils.createIntBuffer(4);GL11.glGetInteger(GL11.GL_SCISSOR_BOX,box);
-        oldBox=new int[]{box.get(0),box.get(1),box.get(2),box.get(3)};
+        oldScissor=GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
+        oldBox=readScissorBox(box->GL11.glGetInteger(GL11.GL_SCISSOR_BOX,box));
         GlStateManager.pushMatrix();
+    }
+    static int[] readScissorBox(Consumer<IntBuffer> query) {
+        // LWJGL 2's generic glGetInteger requires sixteen remaining elements,
+        // even though GL_SCISSOR_BOX writes only four. Do not trim this buffer.
+        IntBuffer box=BufferUtils.createIntBuffer(16);
+        query.accept(box);
+        return new int[]{box.get(0),box.get(1),box.get(2),box.get(3)};
     }
     LegacyGuiGraphics(LegacyPoseStack pose,Consumer<int[]> scissor) { this.pose=pose;this.scissor=scissor;oldScissor=false;oldBox=null; }
     public LegacyPoseStack pose() { return pose; }

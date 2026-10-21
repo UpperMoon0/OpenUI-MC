@@ -2,8 +2,26 @@ package com.nstut.openui.graphics;
 import com.nstut.openui.api.ClipStack;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
+import org.lwjgl.BufferChecks;
+import org.lwjgl.BufferUtils;
 import static org.junit.Assert.*;
 public class LegacyGraphicsTest {
+    @Test public void nativeScissorQueryMeetsLwjgl2CapacityAndKeepsOnlyItsFourValues() {
+        // Exercise the real pinned LWJGL contract without requiring a GL context.
+        assertThrows(IllegalArgumentException.class,()->BufferChecks.checkBuffer(BufferUtils.createIntBuffer(4),16));
+        int[] box=LegacyGuiGraphics.readScissorBox(buffer->{
+            BufferChecks.checkBuffer(buffer,16);
+            assertTrue(buffer.isDirect());
+            buffer.put(0,11);buffer.put(1,22);buffer.put(2,33);buffer.put(3,44);
+            buffer.put(4,99);
+        });
+        assertArrayEquals(new int[]{11,22,33,44},box);
+    }
+    @Test public void nativeScissorQueryFailureIsNotHidden() {
+        IllegalStateException failure=new IllegalStateException("native query failed");
+        assertSame(failure,assertThrows(IllegalStateException.class,
+                ()->LegacyGuiGraphics.readScissorBox(buffer->{throw failure;})));
+    }
     @Test public void clippingUsesTheSamePoseAsAnimatedContent() {
         LegacyPoseStack pose=new LegacyPoseStack(false); pose.translate(10,20,0); pose.scale(2,3,1);
         assertArrayEquals(new int[]{12,26,20,38},LegacyGuiGraphics.transformedClip(pose,1,2,5,6));
