@@ -360,24 +360,36 @@ public abstract class UIComponent {
     /** Called when focus leaves this component's descendant tree. */
     public void onFocusWithinLost() { invalidatePaint(); }
 
-    public void preRender(int mx, int my) { preRender(mx,my,true); }
+    // The parent transfers its clip eligibility before dispatching the public hook.
+    // Calling a private helper on child objects would bypass consumer overrides
+    // (e.g. live tooltips and virtualized UI state updates).
+    private boolean pointerWithinAncestorClips = true;
 
-    private void preRender(int mx,int my,boolean pointerWithinAncestorClips) {
+    public void preRender(int mx, int my) {
         if (!visible) return;
-        boolean nextHovered=pointerWithinAncestorClips
-                && mx>=x&&mx<x+width&&my>=y&&my<y+height;
-        if (hovered!=nextHovered) {
-            hovered=nextHovered;
+        boolean nextHovered = pointerWithinAncestorClips
+                && mx >= x && mx < x + width && my >= y && my < y + height;
+        if (hovered != nextHovered) {
+            hovered = nextHovered;
             if (hovered) onHoverEnter();
             else onHoverLeave();
         }
-        boolean childPointerVisible=pointerWithinAncestorClips;
-        if (childPointerVisible&&clipsChildrenToBounds()) {
-            int clipX=childClipX(), clipY=childClipY();
-            int clipWidth=childClipWidth(), clipHeight=childClipHeight();
-            childPointerVisible=mx>=clipX&&mx<clipX+clipWidth&&my>=clipY&&my<clipY+clipHeight;
+        boolean childPointerVisible = pointerWithinAncestorClips;
+        if (childPointerVisible && clipsChildrenToBounds()) {
+            int clipX = childClipX(), clipY = childClipY();
+            int clipWidth = childClipWidth(), clipHeight = childClipHeight();
+            childPointerVisible = mx >= clipX && mx < clipX + clipWidth
+                    && my >= clipY && my < clipY + clipHeight;
         }
-        for (UIComponent child:children) child.preRender(mx,my,childPointerVisible);
+        for (UIComponent child : children) {
+            child.pointerWithinAncestorClips = childPointerVisible;
+            try {
+                child.preRender(mx, my);
+            } finally {
+                // Preserve normal behavior for direct standalone preRender calls.
+                child.pointerWithinAncestorClips = true;
+            }
+        }
     }
 
     protected void onHoverEnter() {
