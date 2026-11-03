@@ -99,8 +99,8 @@ Custom bounded framework surfaces may call `checkBoundedOverflow(parent, child, 
 2. Override preferred size or layout only when composition cannot express the geometry.
 3. Render visible children with `renderChildren` when the component owns a subtree.
 4. For a custom bounded visual surface, override `clipsChildrenToBounds()` and the `childClipX/Y/Width/Height()` hooks so the child clip describes the drawable content interior, not the outer shadow/border box. OpenUI also restricts descendant hit-testing to that same rectangle. If the surface is rounded, choose a rectangle fully contained by the rounded inner fill rather than merely the rectangular border inset. Do not use clipping as a substitute for `Ui.scroll(...)` when overflowing content must remain reachable.
-6. If overriding `preRender(int mouseX, int mouseY)`, **call `super.preRender(mouseX, mouseY)`** to retain default hover state transitions and child dispatch. An ancestor-clipped child still receives the callback, but pointer eligibility stays clipped. Never rely on invocation alone as proof of visible hover.
-5. Use semantic colors from `theme()`.
+5. If overriding `preRender(int mouseX, int mouseY)`, **call `super.preRender(mouseX, mouseY)`** to retain default hover state transitions and child dispatch. An ancestor-clipped child still receives the callback, but pointer eligibility stays clipped. Never rely on invocation alone as proof of visible hover.
+6. Use semantic colors from `theme()`.
 7. Acquire subscriptions/resources in `onMount()` and release them in `onUnmount()`.
 8. Call `invalidatePaint`, `invalidateLayout`, or structural invalidation at the narrowest correct level.
 9. Return `true` from a legacy handler only when it actually handled the input.
