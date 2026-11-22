@@ -20,7 +20,7 @@ minecraft {
 tasks.register('generateLegacySources',Exec) {
     inputs.dir '../shared/core/src/main/java'; inputs.dir '../common-1.20.1/src/main/java'; inputs.file '../tools/legacy_sources.py'
     outputs.dir layout.buildDirectory.dir('generated/openui')
-    commandLine 'python', '../tools/legacy_sources.py','--output',layout.buildDirectory.dir('generated/openui').get().asFile
+    commandLine 'python3', '../tools/legacy_sources.py','--output',layout.buildDirectory.dir('generated/openui').get().asFile
 }
 sourceSets.main.java.srcDir layout.buildDirectory.dir('generated/openui')
 compileJava {
@@ -30,7 +30,7 @@ compileJava {
 }
 tasks.withType(JavaCompile).configureEach { options.encoding='UTF-8' }
 test { useJUnitPlatform() }
-tasks.register('testSourceGenerator', Exec) { workingDir '..'; commandLine 'python','-m','unittest','discover','-s','tools','-p','test_legacy_sources.py' }
+tasks.register('testSourceGenerator', Exec) { workingDir '..'; commandLine 'python3','-m','unittest','discover','-s','tools','-p','test_legacy_sources.py' }
 tasks.named('check') { dependsOn 'testSourceGenerator' }
 processResources { from('../logo.png') { rename { 'openui_mc.png' } }; from('../LICENSE'); filesMatching('META-INF/mods.toml') { expand version:project.version } }
 jar { finalizedBy 'reobfJar' }
