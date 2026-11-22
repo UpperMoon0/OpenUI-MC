@@ -1,4 +1,7 @@
+import io
 import pathlib
+import ssl
+import urllib.error
 import shutil
 import subprocess
 import tempfile
@@ -10,6 +13,7 @@ from unittest.mock import patch
 from check_binary_api import (
     check_baseline,
     class_api,
+    download,
     compatible_class_declaration as compatible,
     parse_args,
     parse_class_api,
@@ -30,6 +34,34 @@ class ArgumentParsingTest(unittest.TestCase):
         self.assertEqual(
             ['https://example.invalid/v0.0.9.jar', 'https://example.invalid/v0.0.7.jar'],
             args.baseline_urls)
+
+
+class BaselineDownloadTest(unittest.TestCase):
+    def test_transient_tls_handshake_retries_the_original_url(self):
+        error = ssl.SSLError("unexpected message")
+        error.reason = "UNEXPECTED_MESSAGE"
+        responses = [urllib.error.URLError(error), io.BytesIO(b"baseline")]
+        with tempfile.TemporaryDirectory() as directory:
+            destination = pathlib.Path(directory) / "baseline.jar"
+            with patch("check_binary_api.urllib.request.urlopen", side_effect=responses) as fetch:
+                with patch("check_binary_api.time.sleep") as pause:
+                    download("https://example.invalid/baseline.jar", destination)
+            self.assertEqual(destination.read_bytes(), b"baseline")
+            self.assertEqual([call.args[0].full_url for call in fetch.call_args_list],
+                             ["https://example.invalid/baseline.jar"] * 2)
+            pause.assert_called_once_with(1)
+
+    def test_certificate_failure_still_fails_immediately(self):
+        error = urllib.error.URLError(ssl.SSLCertVerificationError("invalid certificate"))
+        with tempfile.TemporaryDirectory() as directory:
+            destination = pathlib.Path(directory) / "baseline.jar"
+            with patch("check_binary_api.urllib.request.urlopen", side_effect=error) as fetch:
+                with patch("check_binary_api.time.sleep") as pause:
+                    with self.assertRaises(urllib.error.URLError):
+                        download("https://example.invalid/baseline.jar", destination)
+            fetch.assert_called_once()
+            pause.assert_not_called()
+            self.assertFalse(destination.exists())
 
 
 class ClassCompatibilityTest(unittest.TestCase):

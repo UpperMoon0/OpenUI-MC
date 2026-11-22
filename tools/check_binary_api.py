@@ -4,12 +4,16 @@
 from __future__ import annotations
 
 import argparse
+import http.client
 import os
 import pathlib
 import shutil
+import ssl
 import subprocess
 import sys
 import tempfile
+import time
+import urllib.error
 import urllib.request
 import zipfile
 
@@ -24,8 +28,25 @@ def parse_args() -> argparse.Namespace:
 
 def download(url: str, destination: pathlib.Path) -> None:
     request = urllib.request.Request(url, headers={"User-Agent": "OpenUI-binary-compat-check"})
-    with urllib.request.urlopen(request, timeout=60) as response, destination.open("wb") as output:
-        shutil.copyfileobj(response, output)
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response, destination.open("wb") as output:
+                shutil.copyfileobj(response, output)
+            return
+        except urllib.error.HTTPError as error:
+            if attempt == 2 or error.code not in {408, 429, 500, 502, 503, 504}:
+                raise
+        except urllib.error.URLError as error:
+            reason = error.reason
+            transient = isinstance(reason, (ConnectionError, TimeoutError)) or (
+                isinstance(reason, ssl.SSLError) and getattr(reason, "reason", None) == "UNEXPECTED_MESSAGE"
+            )
+            if attempt == 2 or not transient:
+                raise
+        except (ConnectionError, TimeoutError, http.client.IncompleteRead):
+            if attempt == 2:
+                raise
+        time.sleep(2 ** attempt)
 
 
 def is_generated_class(class_name: str) -> bool:
