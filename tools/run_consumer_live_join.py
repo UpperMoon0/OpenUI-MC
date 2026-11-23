@@ -14,6 +14,12 @@ from pathlib import Path
 
 CONSUMER_REPOSITORY = "https://github.com/UpperMoon0/Simply-Speakers.git"
 CONSUMER_REF = "9a9681671e783bfd6e80594c3e23a76fb7132efb"
+# The pinned fixture's 360s default includes Gradle startup and Minecraft
+# world preparation. On qualified 1-vCPU Jenkins Linux workers the real
+# server reached "Preparing level" near that deadline, causing a false fail.
+# Allow a bounded 12-minute runway per server/client readiness phase.
+NATIVE_READY_TIMEOUT = 720
+MAX_READY_TIMEOUT = 1200
 TARGETS = {
     "fabric-1.20.1",
     "forge-1.20.1",
@@ -242,8 +248,10 @@ def main() -> int:
     parser.add_argument("--target", required=True, choices=sorted(TARGETS))
     parser.add_argument("--candidate-version", required=True)
     parser.add_argument("--work-dir", type=Path, required=True)
-    parser.add_argument("--timeout", type=int, default=360)
+    parser.add_argument("--timeout", type=int, default=NATIVE_READY_TIMEOUT)
     args = parser.parse_args()
+    if not 120 <= args.timeout <= MAX_READY_TIMEOUT:
+        parser.error("native live-join timeout must be between 120 and 1200 seconds")
 
     workspace = args.work_dir.resolve()
     consumer = workspace / "simply-speakers"
