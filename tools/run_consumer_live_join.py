@@ -124,13 +124,15 @@ def disable_forge_1201_early_window(consumer: Path) -> None:
     )
 
 
-def bound_fabric_1211_server_heap(consumer: Path) -> None:
-    """Give the pinned Fabric remapper a bounded server JVM heap."""
-    path = consumer / "fabric-1.21.1" / "build.gradle"
+def bound_fabric_server_heap(consumer: Path, target: str) -> None:
+    """Give each pinned Fabric remapper a bounded server JVM heap."""
+    if target not in {"fabric-1.20.1", "fabric-1.21.1"}:
+        raise ValueError(f"unsupported Fabric live fixture: {target}")
+    path = consumer / target / "build.gradle"
     text = path.read_text(encoding="utf-8")
     marker = '            runDir("run/live-join/server")\n            programArg "nogui"\n'
     if text.count(marker) != 1:
-        raise RuntimeError("Could not locate the pinned Fabric 1.21.1 live server fixture")
+        raise RuntimeError("Could not locate the pinned Fabric live server fixture")
     path.write_text(
         text.replace(marker, marker + '            vmArg "-Xmx1536m"\n', 1),
         encoding="utf-8",
@@ -262,8 +264,8 @@ def main() -> int:
     if args.target == "forge-1.20.1":
         normalize_forge_1201_optional_dependency(consumer)
         disable_forge_1201_early_window(consumer)
-    elif args.target == "fabric-1.21.1":
-        bound_fabric_1211_server_heap(consumer)
+    elif args.target in {"fabric-1.20.1", "fabric-1.21.1"}:
+        bound_fabric_server_heap(consumer, args.target)
 
     if args.target != "neoforge-26.1.2":
         install_cc_api_shim(consumer, workspace, args.target)
