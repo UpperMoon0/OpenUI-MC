@@ -29,6 +29,7 @@ class NativeJoinReadinessTests(unittest.TestCase):
                  patch.object(join, "clone_consumer") as clone, \
                  patch.object(join, "set_candidate_version") as version, \
                  patch.object(join, "isolate_consumer_target") as isolate, \
+                 patch.object(join, "bound_fabric_server_heap"), \
                  patch.object(join, "install_cc_api_shim") as shim, \
                  patch.object(join, "consumer_environment", return_value={"CI": "true"}), \
                  patch.object(join, "run") as run:
@@ -41,6 +42,21 @@ class NativeJoinReadinessTests(unittest.TestCase):
             self.assertEqual(args[-4:], ["--target", "fabric-1.20.1",
                                          "--timeout", str(join.NATIVE_READY_TIMEOUT)])
             self.assertEqual(run.call_args.kwargs["cwd"], root / "simply-speakers")
+
+    def test_both_fabric_server_remappers_have_explicit_heap(self):
+        marker = '            runDir("run/live-join/server")\n            programArg "nogui"\n'
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            for target in ("fabric-1.20.1", "fabric-1.21.1"):
+                with self.subTest(target=target):
+                    script = root / target / "build.gradle"
+                    script.parent.mkdir()
+                    script.write_text(marker, encoding="utf-8")
+                    join.bound_fabric_server_heap(root, target)
+                    self.assertEqual(script.read_text(), marker + '            vmArg "-Xmx1536m"\n')
+                    script.write_text("unrecognized fixture", encoding="utf-8")
+                    with self.assertRaises(RuntimeError):
+                        join.bound_fabric_server_heap(root, target)
 
     def test_explicit_bounded_timeout_and_rejection(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -56,6 +72,7 @@ class NativeJoinReadinessTests(unittest.TestCase):
                  patch.object(join, "clone_consumer"), \
                  patch.object(join, "set_candidate_version"), \
                  patch.object(join, "isolate_consumer_target"), \
+                 patch.object(join, "bound_fabric_server_heap"), \
                  patch.object(join, "install_cc_api_shim"), \
                  patch.object(join, "consumer_environment", return_value={}), \
                  patch.object(join, "run") as launch:
