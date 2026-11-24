@@ -46,6 +46,38 @@ def run(
     subprocess.run(command, cwd=cwd, env=env, check=True)
 
 
+def adapt_pinned_harness(source: str) -> str:
+    """Prewarm both run graphs serially; bound the two concurrent supervisors."""
+    changes = (
+        ("def command(root: Path, task: str) -> list[str]:",
+         "def command(root: Path, task: str, *, preparing: bool = False) -> list[str]:"),
+        ('        "--max-workers=4",\n        "-Dorg.gradle.jvmargs=-Xmx2048m",',
+         '        "--max-workers=1",\n'
+         '        "-Dorg.gradle.jvmargs=-Xmx" + ("1024m" if ":runLiveJoinTest" in task '
+         'and not preparing else "2048m"),'),
+        ("    subprocess.run(compile_cmd, cwd=root, check=True)\n",
+         "    subprocess.run(compile_cmd, cwd=root, check=True)\n"
+         "    init_script = root / 'tools' / 'openui_prepare_live.gradle'\n"
+         "    init_script.write_text("
+         "\"gradle.beforeProject { project -> project.tasks.configureEach { task -> \"\n"
+         "\"if (task.name in ['runLiveJoinTestServer', 'runLiveJoinTestClient']) \"\n"
+         "\"{ task.enabled = false } } }\\n\", encoding='utf-8')\n"
+         "    for task in ('runLiveJoinTestServer', 'runLiveJoinTestClient'):\n"
+         "        subprocess.run(command(root, f':{module}:{task}', preparing=True) +\n"
+         "                       ['--init-script', str(init_script)], cwd=root,\n"
+         "                       check=True, timeout=timeout)\n"),
+        ('        "spawn-protection=0\\n",',
+         '        "spawn-protection=0\\nview-distance=3\\nsimulation-distance=3\\ngenerate-structures=false\\n",'),
+        ('        "skipMultiplayerWarning:true\\n",',
+         '        "skipMultiplayerWarning:true\\nrenderDistance:3\\nsimulationDistance:5\\nmaxFps:60\\n",'),
+    )
+    for before, after in changes:
+        if source.count(before) != 1:
+            raise RuntimeError("Pinned consumer harness changed; cannot apply bounded runtime contract")
+        source = source.replace(before, after, 1)
+    return source
+
+
 def clone_consumer(destination: Path) -> None:
     if destination.exists():
         shutil.rmtree(destination)
@@ -54,6 +86,8 @@ def clone_consumer(destination: Path) -> None:
     run(["git", "remote", "add", "origin", CONSUMER_REPOSITORY], cwd=destination)
     run(["git", "fetch", "--depth", "1", "origin", CONSUMER_REF], cwd=destination)
     run(["git", "checkout", "--detach", "FETCH_HEAD"], cwd=destination)
+    harness = destination / "tools" / "live_join_test.py"
+    harness.write_text(adapt_pinned_harness(harness.read_text(encoding="utf-8")), encoding="utf-8")
 
     wrapper = destination / ("gradlew.bat" if os.name == "nt" else "gradlew")
     if os.name != "nt":

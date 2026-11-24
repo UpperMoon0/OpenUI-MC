@@ -58,6 +58,24 @@ class NativeJoinReadinessTests(unittest.TestCase):
                     with self.assertRaises(RuntimeError):
                         join.bound_fabric_server_heap(root, target)
 
+    def test_pinned_fixture_runtime_budget_and_serial_preflight(self):
+        fixture = (
+            'def command(root: Path, task: str) -> list[str]:\n'
+            '        "--max-workers=4",\n        "-Dorg.gradle.jvmargs=-Xmx2048m",\n'
+            '    subprocess.run(compile_cmd, cwd=root, check=True)\n'
+            '        "spawn-protection=0\\n",\n'
+            '        "skipMultiplayerWarning:true\\n",\n'
+        )
+        adapted = join.adapt_pinned_harness(fixture)
+        self.assertIn('"1024m" if ":runLiveJoinTest" in task', adapted)
+        self.assertIn('else "2048m"', adapted)
+        self.assertIn("preparing=True", adapted)
+        self.assertIn("task.enabled = false", adapted)
+        self.assertIn("runLiveJoinTestServer', 'runLiveJoinTestClient", adapted)
+        self.assertIn("view-distance=3", adapted)
+        with self.assertRaises(RuntimeError):
+            join.adapt_pinned_harness(fixture.replace("--max-workers=4", "--max-workers=8"))
+
     def test_explicit_bounded_timeout_and_rejection(self):
         with tempfile.TemporaryDirectory() as folder:
             prefix = ["run_consumer_live_join.py", "--target", "fabric-1.20.1",
