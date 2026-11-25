@@ -62,10 +62,13 @@ class NativeJoinReadinessTests(unittest.TestCase):
         fixture = (
             'def command(root: Path, task: str) -> list[str]:\n'
             '        "--max-workers=4",\n        "-Dorg.gradle.jvmargs=-Xmx2048m",\n'
-            '    subprocess.run(compile_cmd, cwd=root, check=True)\n'
             '        "spawn-protection=0\\n",\n'
             '        "skipMultiplayerWarning:true\\n",\n'
+            '            if any(marker in line for marker in markers):\n'
             'def run_target(root: Path, target: str, timeout: int) -> None:\n'
+            '    subprocess.run(compile_cmd, cwd=root, check=True)\n'
+            '    server = popen(command(root, f":{module}:runLiveJoinTestServer"), root)\n'
+            '        client_cmd = command(root, f":{module}:runLiveJoinTestClient")\n'
         )
         adapted = join.adapt_pinned_harness(fixture)
         self.assertIn('"1024m" if ":runLiveJoinTest" in task', adapted)
@@ -78,6 +81,10 @@ class NativeJoinReadinessTests(unittest.TestCase):
         self.assertIn("process.wait(timeout=NATIVE_PREPARE_TIMEOUT)", adapted)
         self.assertIn("stop_tree(process)", adapted)
         self.assertNotIn("check=True, timeout=timeout", adapted)
+        self.assertIn("NSTUT_DIRECT_JAVA_HELPER", adapted)
+        self.assertIn("role='client'", adapted)
+        self.assertIn("server = popen(server_cmd, root)", adapted)
+        self.assertIn("OutOfMemoryError", adapted)
         with self.assertRaises(RuntimeError):
             join.adapt_pinned_harness(fixture.replace("--max-workers=4", "--max-workers=8"))
 

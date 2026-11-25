@@ -85,6 +85,37 @@ def adapt_pinned_harness(source: str) -> str:
         raise RuntimeError("Pinned consumer harness missing run_target")
     source = source.replace(anchor,
         f"NATIVE_PREPARE_TIMEOUT = {NATIVE_PREPARE_TIMEOUT}\n\n" + helper + "\n\n" + anchor, 1)
+    # A protected CI helper captures the loader's actual Java command. Local
+    # development keeps the existing Gradle-based path.
+    anchors = (
+        ("    server = popen(command(root, f\":{module}:runLiveJoinTestServer\"), root)",
+         "    server = popen(server_cmd, root)"),
+        ("        client_cmd = command(root, f\":{module}:runLiveJoinTestClient\")",
+         "        client_cmd = prepared_client"),
+        ("            if any(marker in line for marker in markers):",
+         "            if 'OutOfMemoryError' in line or 'MixinApplyError' in line:\n"
+         "                raise RuntimeError(f'{self.prefix}: fatal runtime signature: {line.strip()}')\n"
+         "            if any(marker in line for marker in markers):"),
+    )
+    for before, after in anchors:
+        if source.count(before) != 1:
+            raise RuntimeError("Pinned consumer direct-launch contract changed")
+        source = source.replace(before, after, 1)
+    start = source.index("    prepare_graph(compile_cmd, root,")
+    end = source.index("    server = popen(server_cmd, root)", start)
+    fallback = source[start:end].rstrip()
+    source = source[:start] + (
+        "    helper = os.environ.get('NSTUT_DIRECT_JAVA_HELPER')\n"
+        "    if helper:\n"
+        "        import runpy\n"
+        "        capture = runpy.run_path(helper)['capture']\n"
+        "        server_cmd = capture(root, command(root, f':{module}:runLiveJoinTestServer', preparing=True), role='server')\n"
+        "        prepared_client = capture(root, command(root, f':{module}:runLiveJoinTestClient', preparing=True), role='client')\n"
+        "    else:\n" +
+        "\n".join("    " + line for line in fallback.splitlines()) + "\n"
+        "        server_cmd = command(root, f':{module}:runLiveJoinTestServer')\n"
+        "        prepared_client = command(root, f':{module}:runLiveJoinTestClient')\n\n"
+    ) + source[end:]
     return source
 
 
