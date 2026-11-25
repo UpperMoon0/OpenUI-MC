@@ -20,6 +20,8 @@ CONSUMER_REF = "9a9681671e783bfd6e80594c3e23a76fb7132efb"
 # Allow a bounded 12-minute runway per server/client readiness phase.
 NATIVE_READY_TIMEOUT = 720
 MAX_READY_TIMEOUT = 1200
+# Cold Minecraft assets and remapping are build work, not game readiness.
+NATIVE_PREPARE_TIMEOUT = 2400
 TARGETS = {
     "fabric-1.20.1",
     "forge-1.20.1",
@@ -56,16 +58,15 @@ def adapt_pinned_harness(source: str) -> str:
          '        "-Dorg.gradle.jvmargs=-Xmx" + ("1024m" if ":runLiveJoinTest" in task '
          'and not preparing else "2048m"),'),
         ("    subprocess.run(compile_cmd, cwd=root, check=True)\n",
-         "    subprocess.run(compile_cmd, cwd=root, check=True)\n"
+         "    prepare_graph(compile_cmd, root, \"classes\")\n"
          "    init_script = root / 'tools' / 'openui_prepare_live.gradle'\n"
          "    init_script.write_text("
          "\"gradle.beforeProject { project -> project.tasks.configureEach { task -> \"\n"
          "\"if (task.name in ['runLiveJoinTestServer', 'runLiveJoinTestClient']) \"\n"
          "\"{ task.enabled = false } } }\\n\", encoding='utf-8')\n"
          "    for task in ('runLiveJoinTestServer', 'runLiveJoinTestClient'):\n"
-         "        subprocess.run(command(root, f':{module}:{task}', preparing=True) +\n"
-         "                       ['--init-script', str(init_script)], cwd=root,\n"
-         "                       check=True, timeout=timeout)\n"),
+         "        prepare_graph(command(root, f':{module}:{task}', preparing=True) +\n"
+         "                      ['--init-script', str(init_script)], root, task)\n"),
         ('        "spawn-protection=0\\n",',
          '        "spawn-protection=0\\nview-distance=3\\nsimulation-distance=3\\ngenerate-structures=false\\n",'),
         ('        "skipMultiplayerWarning:true\\n",',
@@ -75,7 +76,33 @@ def adapt_pinned_harness(source: str) -> str:
         if source.count(before) != 1:
             raise RuntimeError("Pinned consumer harness changed; cannot apply bounded runtime contract")
         source = source.replace(before, after, 1)
+    # Keep the helper in the pinned fixture so its process group lifecycle uses
+    # the fixture's existing popen/stop_tree implementation on each platform.
+    import inspect
+    helper = inspect.getsource(prepare_graph)
+    anchor = "def run_target(root: Path, target: str, timeout: int) -> None:"
+    if source.count(anchor) != 1:
+        raise RuntimeError("Pinned consumer harness missing run_target")
+    source = source.replace(anchor,
+        f"NATIVE_PREPARE_TIMEOUT = {NATIVE_PREPARE_TIMEOUT}\n\n" + helper + "\n\n" + anchor, 1)
     return source
+
+
+def prepare_graph(command: list[str], root: Path, phase: str) -> None:
+    """Bound build-only work independently of real server/client readiness."""
+    print(f"Preparing Gradle {phase} (budget {NATIVE_PREPARE_TIMEOUT}s)", flush=True)
+    # popen and stop_tree are provided by the pinned consumer fixture.
+    process = popen(command, root)
+    output = OutputPump(process, f"prepare/{phase}")
+    try:
+        code = process.wait(timeout=NATIVE_PREPARE_TIMEOUT)
+        output.thread.join(timeout=10)
+        if code != 0:
+            raise subprocess.CalledProcessError(code, command)
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"Gradle preparation {phase} exceeded {NATIVE_PREPARE_TIMEOUT}s") from exc
+    finally:
+        stop_tree(process)
 
 
 def clone_consumer(destination: Path) -> None:

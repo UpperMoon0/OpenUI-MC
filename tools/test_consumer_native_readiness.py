@@ -65,6 +65,7 @@ class NativeJoinReadinessTests(unittest.TestCase):
             '    subprocess.run(compile_cmd, cwd=root, check=True)\n'
             '        "spawn-protection=0\\n",\n'
             '        "skipMultiplayerWarning:true\\n",\n'
+            'def run_target(root: Path, target: str, timeout: int) -> None:\n'
         )
         adapted = join.adapt_pinned_harness(fixture)
         self.assertIn('"1024m" if ":runLiveJoinTest" in task', adapted)
@@ -73,8 +74,27 @@ class NativeJoinReadinessTests(unittest.TestCase):
         self.assertIn("task.enabled = false", adapted)
         self.assertIn("runLiveJoinTestServer', 'runLiveJoinTestClient", adapted)
         self.assertIn("view-distance=3", adapted)
+        self.assertIn("NATIVE_PREPARE_TIMEOUT = 2400\n\ndef prepare_graph", adapted)
+        self.assertIn("process.wait(timeout=NATIVE_PREPARE_TIMEOUT)", adapted)
+        self.assertIn("stop_tree(process)", adapted)
+        self.assertNotIn("check=True, timeout=timeout", adapted)
         with self.assertRaises(RuntimeError):
             join.adapt_pinned_harness(fixture.replace("--max-workers=4", "--max-workers=8"))
+
+    def test_prepare_timeout_stops_only_its_fixture_process(self):
+        import inspect
+        import subprocess
+        from unittest.mock import Mock
+        process = Mock()
+        process.wait.side_effect = subprocess.TimeoutExpired(["gradlew"], 2400)
+        stop = Mock()
+        ns = {"Path": Path, "subprocess": subprocess, "NATIVE_PREPARE_TIMEOUT": 2400,
+              "popen": Mock(return_value=process), "OutputPump": Mock(), "stop_tree": stop}
+        exec(inspect.getsource(join.prepare_graph), ns)
+        with self.assertRaisesRegex(RuntimeError, "preparation downloadAssets exceeded 2400s"):
+            ns["prepare_graph"](["gradlew"], Path("."), "downloadAssets")
+        process.wait.assert_called_once_with(timeout=2400)
+        stop.assert_called_once_with(process)
 
     def test_explicit_bounded_timeout_and_rejection(self):
         with tempfile.TemporaryDirectory() as folder:
