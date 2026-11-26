@@ -29,6 +29,7 @@ class NativeJoinReadinessTests(unittest.TestCase):
                  patch.object(join, "clone_consumer") as clone, \
                  patch.object(join, "set_candidate_version") as version, \
                  patch.object(join, "isolate_consumer_target") as isolate, \
+                 patch.object(join, "bound_fabric_server_heap"), \
                  patch.object(join, "install_cc_api_shim") as shim, \
                  patch.object(join, "consumer_environment", return_value={"CI": "true"}), \
                  patch.object(join, "run") as run:
@@ -41,6 +42,66 @@ class NativeJoinReadinessTests(unittest.TestCase):
             self.assertEqual(args[-4:], ["--target", "fabric-1.20.1",
                                          "--timeout", str(join.NATIVE_READY_TIMEOUT)])
             self.assertEqual(run.call_args.kwargs["cwd"], root / "simply-speakers")
+
+    def test_both_fabric_server_remappers_have_explicit_heap(self):
+        marker = '            runDir("run/live-join/server")\n            programArg "nogui"\n'
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            for target in ("fabric-1.20.1", "fabric-1.21.1"):
+                with self.subTest(target=target):
+                    script = root / target / "build.gradle"
+                    script.parent.mkdir()
+                    script.write_text(marker, encoding="utf-8")
+                    join.bound_fabric_server_heap(root, target)
+                    self.assertEqual(script.read_text(), marker + '            vmArg "-Xmx1536m"\n')
+                    script.write_text("unrecognized fixture", encoding="utf-8")
+                    with self.assertRaises(RuntimeError):
+                        join.bound_fabric_server_heap(root, target)
+
+    def test_pinned_fixture_runtime_budget_and_serial_preflight(self):
+        fixture = (
+            'def command(root: Path, task: str) -> list[str]:\n'
+            '        "--max-workers=4",\n        "-Dorg.gradle.jvmargs=-Xmx2048m",\n'
+            '        "spawn-protection=0\\n",\n'
+            '        "skipMultiplayerWarning:true\\n",\n'
+            '            if any(marker in line for marker in markers):\n'
+            'def run_target(root: Path, target: str, timeout: int) -> None:\n'
+            '    subprocess.run(compile_cmd, cwd=root, check=True)\n'
+            '    server = popen(command(root, f":{module}:runLiveJoinTestServer"), root)\n'
+            '        client_cmd = command(root, f":{module}:runLiveJoinTestClient")\n'
+        )
+        adapted = join.adapt_pinned_harness(fixture)
+        self.assertIn('"1024m" if ":runLiveJoinTest" in task', adapted)
+        self.assertIn('else "2048m"', adapted)
+        self.assertIn("preparing=True", adapted)
+        self.assertIn("task.enabled = false", adapted)
+        self.assertIn("runLiveJoinTestServer', 'runLiveJoinTestClient", adapted)
+        self.assertIn("view-distance=3", adapted)
+        self.assertIn("NATIVE_PREPARE_TIMEOUT = 2400\n\ndef prepare_graph", adapted)
+        self.assertIn("process.wait(timeout=NATIVE_PREPARE_TIMEOUT)", adapted)
+        self.assertIn("stop_tree(process)", adapted)
+        self.assertNotIn("check=True, timeout=timeout", adapted)
+        self.assertIn("NSTUT_DIRECT_JAVA_HELPER", adapted)
+        self.assertIn("role='client'", adapted)
+        self.assertIn("server = popen(server_cmd, root)", adapted)
+        self.assertIn("OutOfMemoryError", adapted)
+        with self.assertRaises(RuntimeError):
+            join.adapt_pinned_harness(fixture.replace("--max-workers=4", "--max-workers=8"))
+
+    def test_prepare_timeout_stops_only_its_fixture_process(self):
+        import inspect
+        import subprocess
+        from unittest.mock import Mock
+        process = Mock()
+        process.wait.side_effect = subprocess.TimeoutExpired(["gradlew"], 2400)
+        stop = Mock()
+        ns = {"Path": Path, "subprocess": subprocess, "NATIVE_PREPARE_TIMEOUT": 2400,
+              "popen": Mock(return_value=process), "OutputPump": Mock(), "stop_tree": stop}
+        exec(inspect.getsource(join.prepare_graph), ns)
+        with self.assertRaisesRegex(RuntimeError, "preparation downloadAssets exceeded 2400s"):
+            ns["prepare_graph"](["gradlew"], Path("."), "downloadAssets")
+        process.wait.assert_called_once_with(timeout=2400)
+        stop.assert_called_once_with(process)
 
     def test_explicit_bounded_timeout_and_rejection(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -56,6 +117,7 @@ class NativeJoinReadinessTests(unittest.TestCase):
                  patch.object(join, "clone_consumer"), \
                  patch.object(join, "set_candidate_version"), \
                  patch.object(join, "isolate_consumer_target"), \
+                 patch.object(join, "bound_fabric_server_heap"), \
                  patch.object(join, "install_cc_api_shim"), \
                  patch.object(join, "consumer_environment", return_value={}), \
                  patch.object(join, "run") as launch:

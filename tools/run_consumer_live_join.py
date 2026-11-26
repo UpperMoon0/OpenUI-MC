@@ -20,6 +20,8 @@ CONSUMER_REF = "9a9681671e783bfd6e80594c3e23a76fb7132efb"
 # Allow a bounded 12-minute runway per server/client readiness phase.
 NATIVE_READY_TIMEOUT = 720
 MAX_READY_TIMEOUT = 1200
+# Cold Minecraft assets and remapping are build work, not game readiness.
+NATIVE_PREPARE_TIMEOUT = 2400
 TARGETS = {
     "fabric-1.20.1",
     "forge-1.20.1",
@@ -46,6 +48,94 @@ def run(
     subprocess.run(command, cwd=cwd, env=env, check=True)
 
 
+def adapt_pinned_harness(source: str) -> str:
+    """Prewarm both run graphs serially; bound the two concurrent supervisors."""
+    changes = (
+        ("def command(root: Path, task: str) -> list[str]:",
+         "def command(root: Path, task: str, *, preparing: bool = False) -> list[str]:"),
+        ('        "--max-workers=4",\n        "-Dorg.gradle.jvmargs=-Xmx2048m",',
+         '        "--max-workers=1",\n'
+         '        "-Dorg.gradle.jvmargs=-Xmx" + ("1024m" if ":runLiveJoinTest" in task '
+         'and not preparing else "2048m"),'),
+        ("    subprocess.run(compile_cmd, cwd=root, check=True)\n",
+         "    prepare_graph(compile_cmd, root, \"classes\")\n"
+         "    init_script = root / 'tools' / 'openui_prepare_live.gradle'\n"
+         "    init_script.write_text("
+         "\"gradle.beforeProject { project -> project.tasks.configureEach { task -> \"\n"
+         "\"if (task.name in ['runLiveJoinTestServer', 'runLiveJoinTestClient']) \"\n"
+         "\"{ task.enabled = false } } }\\n\", encoding='utf-8')\n"
+         "    for task in ('runLiveJoinTestServer', 'runLiveJoinTestClient'):\n"
+         "        prepare_graph(command(root, f':{module}:{task}', preparing=True) +\n"
+         "                      ['--init-script', str(init_script)], root, task)\n"),
+        ('        "spawn-protection=0\\n",',
+         '        "spawn-protection=0\\nview-distance=3\\nsimulation-distance=3\\ngenerate-structures=false\\n",'),
+        ('        "skipMultiplayerWarning:true\\n",',
+         '        "skipMultiplayerWarning:true\\nrenderDistance:3\\nsimulationDistance:5\\nmaxFps:60\\n",'),
+    )
+    for before, after in changes:
+        if source.count(before) != 1:
+            raise RuntimeError("Pinned consumer harness changed; cannot apply bounded runtime contract")
+        source = source.replace(before, after, 1)
+    # Keep the helper in the pinned fixture so its process group lifecycle uses
+    # the fixture's existing popen/stop_tree implementation on each platform.
+    import inspect
+    helper = inspect.getsource(prepare_graph)
+    anchor = "def run_target(root: Path, target: str, timeout: int) -> None:"
+    if source.count(anchor) != 1:
+        raise RuntimeError("Pinned consumer harness missing run_target")
+    source = source.replace(anchor,
+        f"NATIVE_PREPARE_TIMEOUT = {NATIVE_PREPARE_TIMEOUT}\n\n" + helper + "\n\n" + anchor, 1)
+    # A protected CI helper captures the loader's actual Java command. Local
+    # development keeps the existing Gradle-based path.
+    anchors = (
+        ("    server = popen(command(root, f\":{module}:runLiveJoinTestServer\"), root)",
+         "    server = popen(server_cmd, root)"),
+        ("        client_cmd = command(root, f\":{module}:runLiveJoinTestClient\")",
+         "        client_cmd = prepared_client"),
+        ("            if any(marker in line for marker in markers):",
+         "            if 'OutOfMemoryError' in line or 'MixinApplyError' in line:\n"
+         "                raise RuntimeError(f'{self.prefix}: fatal runtime signature: {line.strip()}')\n"
+         "            if any(marker in line for marker in markers):"),
+    )
+    for before, after in anchors:
+        if source.count(before) != 1:
+            raise RuntimeError("Pinned consumer direct-launch contract changed")
+        source = source.replace(before, after, 1)
+    start = source.index("    prepare_graph(compile_cmd, root,")
+    end = source.index("    server = popen(server_cmd, root)", start)
+    fallback = source[start:end].rstrip()
+    source = source[:start] + (
+        "    helper = os.environ.get('NSTUT_DIRECT_JAVA_HELPER')\n"
+        "    if helper:\n"
+        "        import runpy\n"
+        "        capture = runpy.run_path(helper)['capture']\n"
+        "        server_cmd = capture(root, command(root, f':{module}:runLiveJoinTestServer', preparing=True), role='server')\n"
+        "        prepared_client = capture(root, command(root, f':{module}:runLiveJoinTestClient', preparing=True), role='client')\n"
+        "    else:\n" +
+        "\n".join("    " + line for line in fallback.splitlines()) + "\n"
+        "        server_cmd = command(root, f':{module}:runLiveJoinTestServer')\n"
+        "        prepared_client = command(root, f':{module}:runLiveJoinTestClient')\n\n"
+    ) + source[end:]
+    return source
+
+
+def prepare_graph(command: list[str], root: Path, phase: str) -> None:
+    """Bound build-only work independently of real server/client readiness."""
+    print(f"Preparing Gradle {phase} (budget {NATIVE_PREPARE_TIMEOUT}s)", flush=True)
+    # popen and stop_tree are provided by the pinned consumer fixture.
+    process = popen(command, root)
+    output = OutputPump(process, f"prepare/{phase}")
+    try:
+        code = process.wait(timeout=NATIVE_PREPARE_TIMEOUT)
+        output.thread.join(timeout=10)
+        if code != 0:
+            raise subprocess.CalledProcessError(code, command)
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"Gradle preparation {phase} exceeded {NATIVE_PREPARE_TIMEOUT}s") from exc
+    finally:
+        stop_tree(process)
+
+
 def clone_consumer(destination: Path) -> None:
     if destination.exists():
         shutil.rmtree(destination)
@@ -54,6 +144,8 @@ def clone_consumer(destination: Path) -> None:
     run(["git", "remote", "add", "origin", CONSUMER_REPOSITORY], cwd=destination)
     run(["git", "fetch", "--depth", "1", "origin", CONSUMER_REF], cwd=destination)
     run(["git", "checkout", "--detach", "FETCH_HEAD"], cwd=destination)
+    harness = destination / "tools" / "live_join_test.py"
+    harness.write_text(adapt_pinned_harness(harness.read_text(encoding="utf-8")), encoding="utf-8")
 
     wrapper = destination / ("gradlew.bat" if os.name == "nt" else "gradlew")
     if os.name != "nt":
@@ -124,13 +216,15 @@ def disable_forge_1201_early_window(consumer: Path) -> None:
     )
 
 
-def bound_fabric_1211_server_heap(consumer: Path) -> None:
-    """Give the pinned Fabric remapper a bounded server JVM heap."""
-    path = consumer / "fabric-1.21.1" / "build.gradle"
+def bound_fabric_server_heap(consumer: Path, target: str) -> None:
+    """Give each pinned Fabric remapper a bounded server JVM heap."""
+    if target not in {"fabric-1.20.1", "fabric-1.21.1"}:
+        raise ValueError(f"unsupported Fabric live fixture: {target}")
+    path = consumer / target / "build.gradle"
     text = path.read_text(encoding="utf-8")
     marker = '            runDir("run/live-join/server")\n            programArg "nogui"\n'
     if text.count(marker) != 1:
-        raise RuntimeError("Could not locate the pinned Fabric 1.21.1 live server fixture")
+        raise RuntimeError("Could not locate the pinned Fabric live server fixture")
     path.write_text(
         text.replace(marker, marker + '            vmArg "-Xmx1536m"\n', 1),
         encoding="utf-8",
@@ -262,8 +356,8 @@ def main() -> int:
     if args.target == "forge-1.20.1":
         normalize_forge_1201_optional_dependency(consumer)
         disable_forge_1201_early_window(consumer)
-    elif args.target == "fabric-1.21.1":
-        bound_fabric_1211_server_heap(consumer)
+    elif args.target in {"fabric-1.20.1", "fabric-1.21.1"}:
+        bound_fabric_server_heap(consumer, args.target)
 
     if args.target != "neoforge-26.1.2":
         install_cc_api_shim(consumer, workspace, args.target)
