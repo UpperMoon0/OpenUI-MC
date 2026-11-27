@@ -186,16 +186,13 @@ Changing the key intentionally creates distinct scope-owned work/state. `AsyncVa
 
 ## Maven dependency
 
-Release artifacts are published to GitHub Packages after a GitHub Release succeeds.
+Release artifacts (0.0.17 and later) are published to the public NsTut Maven repository by protected Jenkins publication.
 
 ```gradle
 repositories {
     maven {
-        url = uri("https://maven.pkg.github.com/UpperMoon0/OpenUI-MC")
-        credentials {
-            username = providers.gradleProperty("gpr.user").orNull
-            password = providers.gradleProperty("gpr.key").orNull
-        }
+        url = uri("https://nstut.cloud/maven")
+        content { includeGroup("com.nstut") }
     }
 }
 

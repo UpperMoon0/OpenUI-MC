@@ -39,7 +39,3 @@ tasks.register('generateLegacyTests',Exec) {
 sourceSets.test.java.srcDir layout.buildDirectory.dir('generated/tests')
 compileTestJava { dependsOn 'generateLegacyTests' }
 
-publishing.repositories.maven {
-    name='GitHubPackages';url=uri('https://maven.pkg.github.com/UpperMoon0/OpenUI-MC')
-    credentials { username=System.getenv('GITHUB_ACTOR');password=System.getenv('GITHUB_TOKEN') }
-}
