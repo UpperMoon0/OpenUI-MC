@@ -58,7 +58,3 @@ task sourcesJar(type:Jar) { dependsOn generateLegacySources;classifier='sources'
 artifacts { archives sourcesJar }
 publishing { publications { mavenJava(MavenPublication) { artifactId=archivesBaseName;artifact jar;artifact sourcesJar } } }
 
-publishing.repositories.maven {
-    name='GitHubPackages';url=uri('https://maven.pkg.github.com/UpperMoon0/OpenUI-MC')
-    credentials { username=System.getenv('GITHUB_ACTOR');password=System.getenv('GITHUB_TOKEN') }
-}

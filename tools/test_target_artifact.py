@@ -29,8 +29,12 @@ class TargetArtifactTest(unittest.TestCase):
         for target in ('forge-1.12.2','forge-1.16.5'):
             for pack in (None,{'pack':{'pack_format':999,'description':'wrong'}},{'pack':{'pack_format':3 if target=='forge-1.12.2' else 6,'description':''}}):
                 with self.subTest(target=target,pack=pack):self.assertNotEqual(0,self.check(target,pack).returncode)
-    def test_ci_checks_existing_forge_116_artifact_too(self):
-        workflow=(ROOT/'.github/workflows/release.yml').read_text()
-        self.assertNotIn("if: matrix.project != 'forge-1.16.5'",workflow)
-        self.assertIn("'test_target_artifact.py'",workflow)
+    def test_each_forge_target_rejects_the_other_native_resource_pack(self):
+        for target,other in (('forge-1.12.2','forge-1.16.5'),('forge-1.16.5','forge-1.12.2')):
+            with self.subTest(target=target):
+                pack=json.loads((ROOT/other/'src/main/resources/pack.mcmeta').read_text())
+                result=self.check(target,pack)
+                self.assertNotEqual(0,result.returncode)
+                self.assertIn('incorrect native resource pack format',result.stderr)
+    # Pipeline wiring is owned and tested in NsTut-CICD, not retired Actions YAML.
 if __name__=='__main__':unittest.main()

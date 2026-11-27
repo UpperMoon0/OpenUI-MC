@@ -4,16 +4,13 @@ This guide takes a consuming mod from dependency setup to a working reactive scr
 
 ## 1. Add OpenUI MC
 
-Released OpenUI artifacts are published to GitHub Packages. Add the repository in the consuming build (GitHub Packages requires credentials with package-read access):
+Released OpenUI artifacts (0.0.17 and later) are available from the public NsTut Maven repository without credentials:
 
 ```groovy
 repositories {
     maven {
-        url = uri("https://maven.pkg.github.com/UpperMoon0/OpenUI-MC")
-        credentials {
-            username = providers.gradleProperty("gpr.user").orNull
-            password = providers.gradleProperty("gpr.key").orNull
-        }
+        url = uri("https://nstut.cloud/maven")
+        content { includeGroup("com.nstut") }
     }
 }
 ```

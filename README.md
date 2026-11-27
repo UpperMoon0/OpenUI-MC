@@ -34,16 +34,13 @@ The new 1.12.2, 1.16.5 and 26.2 targets use separate native builds. See [toolcha
 
 ## Quick start
 
-Released OpenUI artifacts are loader/version-specific and are published to GitHub Packages. Add the repository with package-read credentials:
+Released OpenUI artifacts (0.0.17 and later) are available from the public NsTut Maven repository without credentials. Select the exact loader and Minecraft version:
 
 ```groovy
 repositories {
     maven {
-        url = uri("https://maven.pkg.github.com/UpperMoon0/OpenUI-MC")
-        credentials {
-            username = providers.gradleProperty("gpr.user").orNull
-            password = providers.gradleProperty("gpr.key").orNull
-        }
+        url = uri("https://nstut.cloud/maven")
+        content { includeGroup("com.nstut") }
     }
 }
 ```
@@ -121,7 +118,7 @@ Build one target with, for example:
 ./gradlew :neoforge-26.1.2:build
 ```
 
-Output jars are written to each loader module's `build/libs/` directory. Pull requests build all six loader targets. A push to `main` that changes `mod_version` triggers the release path: GitHub/CurseForge artifacts are published after the required compatibility jobs pass, and the same release workflow publishes matching GitHub Packages Maven artifacts.
+Output jars are written to each loader module's `build/libs/` directory. Jenkins runs native PR and main acceptance. A signed version-changing main push triggers the protected publisher after all required suites pass: immutable Maven artifacts are verified at the public NsTut repository, followed by CurseForge and GitHub Release assets. Older versions are not automatically mirrored; source-pinned local builds remain supported.
 
 ## Links
 

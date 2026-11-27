@@ -20,7 +20,3 @@ neoForge {
 }
 processResources { inputs.property 'version', project.version; filesMatching('META-INF/neoforge.mods.toml') { expand version:project.version } }
 
-publishing.repositories.maven {
-    name='GitHubPackages';url=uri('https://maven.pkg.github.com/UpperMoon0/OpenUI-MC')
-    credentials { username=System.getenv('GITHUB_ACTOR');password=System.getenv('GITHUB_TOKEN') }
-}
